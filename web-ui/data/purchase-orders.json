@@ -1,0 +1,6 @@
+[
+  { "id": "PO-001", "supplier": "Fresh Foods Ltd",  "lines": 15, "status": "Closed",            "store": "Central DC", "value": 45000 },
+  { "id": "PO-002", "supplier": "Beverages Corp",   "lines": 8,  "status": "Created",           "store": "Store A",    "value": 12000 },
+  { "id": "PO-003", "supplier": "Dairy Direct",     "lines": 5,  "status": "PartiallyReceived", "store": "Store B",    "value": 8500  },
+  { "id": "PO-004", "supplier": "Organic Valley",   "lines": 12, "status": "FullyReceived",     "store": "Central DC", "value": 31000 }
+]

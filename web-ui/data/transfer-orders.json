@@ -1,0 +1,6 @@
+[
+  { "id": "TR-001", "source": "Central DC", "dest": "Store B",     "lines": 6,  "status": "InTransit", "tracking": "TRK-TR-001" },
+  { "id": "TR-002", "source": "Store A",    "dest": "Store C",     "lines": 3,  "status": "Created"                             },
+  { "id": "TR-003", "source": "Central DC", "dest": "Store A",     "lines": 10, "status": "Completed"                           },
+  { "id": "TR-004", "source": "Store B",    "dest": "Central DC",  "lines": 4,  "status": "Received"                            }
+]

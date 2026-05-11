@@ -1,0 +1,146 @@
+{
+  "case1": {
+    "sku": "APPLE-1KG",
+    "skuName": "Apple (1 kg bag)",
+    "unitPrice": 120,
+    "total": 10,
+    "po": {
+      "id": "PO-001",
+      "supplier": "Fresh Foods Ltd",
+      "store": "Central DC",
+      "orderedQty": 10,
+      "receivedQty": 10,
+      "sloc": "A-12",
+      "receivedAt": "09:28",
+      "putAwayAt": "10:15"
+    },
+    "orders": [
+      { "id": "ORD-A", "customer": "Alice Johnson", "qty": 6, "pickedAt": "15:31", "status": "Delivered"      },
+      { "id": "ORD-B", "customer": "Bob Smith",     "qty": 3, "pickedAt": "16:45", "status": "OutForDelivery" }
+    ],
+    "ledger": [
+      { "id": 1, "time": "10:15", "dir": "in",  "ref": "PO-001", "event": "PurchaseOrderPutAwayConfirmed", "qtyChange":  10, "balance": 10, "detail": "Fresh Foods Ltd — 10 bags shelved at Sloc A-12. WMS stock now available." },
+      { "id": 2, "time": "15:31", "dir": "out", "ref": "ORD-A",  "event": "PickConfirmed",                 "qtyChange":  -6, "balance":  4, "detail": "Alice Johnson picks 6 bags for Delivery order. 4 units remain in WMS." },
+      { "id": 3, "time": "16:45", "dir": "out", "ref": "ORD-B",  "event": "PickConfirmed",                 "qtyChange":  -3, "balance":  1, "detail": "Bob Smith picks 3 bags for Delivery order. 1 unit remains in WMS." }
+    ]
+  },
+  "case2": {
+    "sku": "APPLE-1KG",
+    "skuName": "Apple (1 kg bag)",
+    "unitPrice": 120,
+    "transfer": {
+      "id": "TR-001",
+      "source": "Central DC",
+      "dest": "Store A",
+      "qty": 4,
+      "tracking": "TRK-TR-001",
+      "pickedAt": "11:00",
+      "arrivedAt": "14:30",
+      "status": "Completed"
+    },
+    "orders": [
+      { "id": "ORD-A", "customer": "Alice Johnson", "qty": 6, "store": "Central DC", "pickedAt": "15:31", "status": "Delivered" },
+      { "id": "ORD-C", "customer": "Charlie Wong",  "qty": 3, "store": "Store A",    "pickedAt": "16:00", "status": "Delivered" }
+    ],
+    "centralLedger": [
+      { "id": 1, "time": "10:15", "dir": "in",  "ref": "PO-001", "event": "PurchaseOrderPutAwayConfirmed", "qtyChange":  10, "balance": 10, "total": 10, "detail": "10 bags shelved at Sloc A-12" },
+      { "id": 2, "time": "11:00", "dir": "out", "ref": "TR-001", "event": "TransferPickConfirmed",         "qtyChange":  -4, "balance":  6, "total": 10, "detail": "4 bags picked & packed for transfer → Store A (TRK-TR-001)" },
+      { "id": 3, "time": "15:31", "dir": "out", "ref": "ORD-A",  "event": "PickConfirmed",                 "qtyChange":  -6, "balance":  0, "total": 10, "detail": "Alice Johnson picks 6 bags for delivery" }
+    ],
+    "storeALedger": [
+      { "id": 1, "time": "14:30", "dir": "in",  "ref": "TR-001", "event": "TransferReceived", "qtyChange":  4, "balance": 4, "total": 4, "detail": "4 bags received from Central DC via TRK-TR-001" },
+      { "id": 2, "time": "16:00", "dir": "out", "ref": "ORD-C",  "event": "PickConfirmed",    "qtyChange": -3, "balance": 1, "total": 4, "detail": "Charlie Wong picks 3 bags for delivery" }
+    ]
+  },
+  "case3": {
+    "sku": "APPLE-1KG",
+    "skuName": "Apple (1 kg bag)",
+    "unitPrice": 120,
+    "total": 10,
+    "po": {
+      "id": "PO-001",
+      "supplier": "Fresh Foods Ltd",
+      "store": "Central DC",
+      "orderedQty": 10,
+      "receivedQty": 10,
+      "sloc": "A-12",
+      "receivedAt": "09:28",
+      "putAwayAt": "10:15"
+    },
+    "orders": [
+      { "id": "ORD-A", "customer": "Alice Johnson", "orderedQty": 5, "pickedQty": 5, "pickedAt": "15:00", "status": "Delivered" },
+      { "id": "ORD-B", "customer": "Bob Smith",     "orderedQty": 3, "pickedQty": 3, "pickedAt": "15:20", "status": "Cancelled", "cancelledAt": "16:30" },
+      { "id": "ORD-C", "customer": "Charlie Wong",  "orderedQty": 3, "pickedQty": 2, "pickedAt": "16:00", "status": "Delivered", "shortQty": 1, "hasSubstitution": true }
+    ],
+    "substitutions": [
+      {
+        "orderId": "ORD-C",
+        "orderLineId": "line-ORD-C-01",
+        "originalSku": "APPLE-1KG",
+        "originalProductName": "Apple (1 kg bag)",
+        "requestedQty": 3,
+        "pickedQty": 2,
+        "shortQty": 1,
+        "substituteSku": "ORANGE-1KG",
+        "substituteProductName": "Orange (1 kg bag)",
+        "substituteUnitPrice": 110,
+        "substituteQty": 1,
+        "customerApproved": true,
+        "approvedAt": "16:05"
+      }
+    ],
+    "ledger": [
+      { "id": 1, "time": "10:15", "dir": "in",  "ref": "PO-001", "event": "PurchaseOrderPutAwayConfirmed", "qtyChange":  10, "balance": 10,                           "detail": "Fresh Foods Ltd — 10 bags shelved at Sloc A-12." },
+      { "id": 2, "time": "15:00", "dir": "out", "ref": "ORD-A",  "event": "PickConfirmed",                 "qtyChange":  -5, "balance":  5,                           "detail": "Alice Johnson picks 5 bags. 5 units remain." },
+      { "id": 3, "time": "15:20", "dir": "out", "ref": "ORD-B",  "event": "PickConfirmed",                 "qtyChange":  -3, "balance":  2,                           "detail": "Bob Smith picks 3 bags. 2 remain. Cancellation not yet received by OMS." },
+      { "id": 4, "time": "16:00", "dir": "out", "ref": "ORD-C",  "event": "PickConfirmed (Short)",         "qtyChange":  -2, "balance":  0, "short": true,            "detail": "Charlie needs 3 — only 2 APPLE-1KG on shelf. Short-pick: 2 APPLE-1KG + 1 ORANGE-1KG substitute. Bob's cancellation arrived too late." },
+      { "id": 5, "time": "16:30", "dir": "in",  "ref": "ORD-B",  "event": "OrderCancelled",                "qtyChange":   3, "balance":  3, "cancelled": true,        "detail": "Bob cancels. 3 bags returned to shelf — too late for Charlie's short-pick, but available for future orders." }
+    ]
+  },
+  "case4": {
+    "sku": "APPLE-1KG",
+    "skuName": "Apple (1 kg bag)",
+    "unitPrice": 120,
+    "total": 5,
+    "originalOrder": {
+      "id": "ORD-001",
+      "customer": "Alice Johnson",
+      "qty": 5,
+      "deliveredAt": "19:22",
+      "status": "Delivered"
+    },
+    "return": {
+      "id": "RET-001",
+      "returnNumber": "RET-001",
+      "customer": "Alice Johnson",
+      "returnReason": "QualityIssue",
+      "returnedQty": 3,
+      "keptQty": 2,
+      "requestedAt": "10:00",
+      "pickedUpAt": "11:30",
+      "receivedAt": "13:15",
+      "inspectedAt": "13:45",
+      "putAwayAt": "14:00",
+      "status": "Refunded"
+    },
+    "returnItems": [
+      { "id": "RI-001", "sku": "APPLE-1KG", "qty": 2, "condition": "Resellable", "sloc": "A-12", "putAwayAt": "14:00", "stockAction": "+2 restored to WMS" },
+      { "id": "RI-002", "sku": "APPLE-1KG", "qty": 1, "condition": "Dispose",    "sloc": null,   "putAwayAt": "14:00", "stockAction": "written off — no stock change" }
+    ],
+    "refund": {
+      "id": "REF-001",
+      "creditNoteNumber": "CN-RET-001",
+      "refundAmount": 360,
+      "currency": "THB",
+      "method": "CreditCard",
+      "status": "Processed",
+      "reason": "Return",
+      "processedAt": "14:15"
+    },
+    "ledger": [
+      { "id": 1, "time": "19:22", "dir": "out", "ref": "ORD-001", "event": "PickConfirmed",          "qtyChange": -5, "balance": 0,                          "detail": "Alice Johnson — 5 bags picked and delivered. WMS stock at 0." },
+      { "id": 2, "time": "14:00", "dir": "in",  "ref": "RET-001", "event": "ReturnPutAwayConfirmed", "qtyChange":  2, "balance": 2, "resellable": true,        "detail": "2 of 3 returned bags inspected Resellable — shelved at Sloc A-12. Stock restored +2." },
+      { "id": 3, "time": "14:00", "dir": "off", "ref": "RET-001", "event": "ReturnDisposed",         "qtyChange":  0, "balance": 2, "disposed": true,          "detail": "1 bag inspected Dispose — damaged in transit. Written off. No stock change." }
+    ]
+  }
+}

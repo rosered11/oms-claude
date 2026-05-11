@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\oms-claude\" -Force)",
+      "Bash(Select-Object -Property Name, Mode)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet build *)",
+      "PowerShell(Start-Sleep -Seconds 4; Invoke-RestMethod -Uri \"http://localhost:5050/health\" | ConvertTo-Json)",
+      "PowerShell($r = Invoke-RestMethod -Uri \"http://localhost:5050/api/orders\"; \"Total orders: $\\($r.total\\)\"; $r.data | Select-Object -First 2 | ForEach-Object { \"$\\($_.id\\) - $\\($_.status\\) - $\\($_.customer\\)\" })"
+    ]
+  }
+}

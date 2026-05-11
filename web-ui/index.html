@@ -1,0 +1,2923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OMS — Order Flow Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; }
+    .kanban-scroll { overflow-x: auto; padding-bottom: 8px; }
+    .kanban-col { min-width: 210px; max-width: 210px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+// ─────────────────────────────────────────────────────────────
+// DATA CONTEXT
+// ─────────────────────────────────────────────────────────────
+
+const DataContext = React.createContext(null);
+
+const API_BASE = 'http://localhost:5050/api';
+
+async function apiFetch(path) {
+  const r = await fetch(`${API_BASE}${path}`);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function localFetch(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r.json();
+}
+
+function DataProvider({ children }) {
+  const [data, setData]     = React.useState(null);
+  const [error, setError]   = React.useState(null);
+  const [apiMode, setApiMode] = React.useState(false);
+
+  React.useEffect(() => {
+    // Try live API first; fall back to local JSON files.
+    apiFetch('/orders?pageSize=200')
+      .then(async (ordersResp) => {
+        const [purchaseOrders, transferOrders, returns, prepaidTimeline, stockFlow, orderTimeline] =
+          await Promise.all([
+            apiFetch('/inbound/purchase-orders'),
+            apiFetch('/inbound/transfer-orders'),
+            apiFetch('/returns'),
+            // prepaid-timeline and stock-flow have no API endpoint; use local files
+            localFetch('data/prepaid-timeline.json').catch(() => []),
+            localFetch('data/stock-flow.json').catch(() => []),
+            localFetch('data/order-timeline.json').catch(() => []),
+          ]);
+        setApiMode(true);
+        setData({
+          orders: ordersResp.data,
+          purchaseOrders,
+          transferOrders,
+          returns,
+          orderTimeline,
+          stockFlow,
+          prepaidTimeline,
+        });
+      })
+      .catch(() => {
+        // API unavailable — fall back to local JSON files
+        Promise.all([
+          localFetch('data/orders.json'),
+          localFetch('data/purchase-orders.json'),
+          localFetch('data/transfer-orders.json'),
+          localFetch('data/order-timeline.json'),
+          localFetch('data/stock-flow.json'),
+          localFetch('data/returns.json'),
+          localFetch('data/prepaid-timeline.json').catch(() => []),
+        ])
+        .then(([orders, purchaseOrders, transferOrders, orderTimeline, stockFlow, returns, prepaidTimeline]) =>
+          setData({ orders, purchaseOrders, transferOrders, orderTimeline, stockFlow, returns, prepaidTimeline })
+        )
+        .catch(e => setError(e.message));
+      });
+  }, []);
+
+  if (error) return (
+    <div className="p-8 text-red-600 text-sm">
+      <strong>Failed to load data:</strong> {error}<br />
+      <span className="text-gray-500">Open via a local server: <code>python -m http.server</code> then visit localhost:8000</span>
+    </div>
+  );
+  if (!data) return (
+    <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Loading…</div>
+  );
+  return (
+    <DataContext.Provider value={{ ...data, apiMode, apiBase: API_BASE }}>
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// STYLE CONSTANTS
+// ─────────────────────────────────────────────────────────────
+
+const SF_ORDER_COLORS = {
+  'ORD-A': { dotCls: 'bg-blue-500',   barCls: 'bg-blue-400',   labelCls: 'text-blue-700',   statusCls: 'bg-green-100 text-green-700'   },
+  'ORD-B': { dotCls: 'bg-teal-500',   barCls: 'bg-teal-400',   labelCls: 'text-teal-700',   statusCls: 'bg-purple-100 text-purple-700' },
+  'ORD-C': { dotCls: 'bg-orange-500', barCls: 'bg-orange-400', labelCls: 'text-orange-700', statusCls: 'bg-green-100 text-green-700'   },
+};
+
+const SYS_BADGE = {
+  WMS: 'bg-blue-100 text-blue-800 border border-blue-200',
+  TMS: 'bg-green-100 text-green-800 border border-green-200',
+  POS: 'bg-orange-100 text-orange-800 border border-orange-200',
+  OMS: 'bg-slate-100 text-slate-700 border border-slate-200',
+  GW:  'bg-blue-50 text-blue-600 border border-blue-100',
+  CBE: 'bg-purple-100 text-purple-800 border border-purple-200',
+  STS: 'bg-rose-100 text-rose-800 border border-rose-200',
+};
+
+const EVT_STYLE = {
+  domain:  { dot: 'bg-slate-400',   ring: 'border-l-slate-300',   badge: 'bg-slate-100 text-slate-700',     label: 'State Change' },
+  webhook: { dot: 'bg-emerald-500', ring: 'border-l-emerald-300',  badge: 'bg-emerald-100 text-emerald-800', label: 'Webhook In'   },
+  outbox:  { dot: 'bg-violet-500',  ring: 'border-l-violet-300',   badge: 'bg-violet-100 text-violet-800',   label: 'Outbox Out'   },
+  bridge:  { dot: 'bg-amber-400',   ring: 'border-l-amber-200',    badge: 'bg-amber-100 text-amber-700',     label: 'Bridge'       },
+};
+
+const STATUS_COLOR = {
+  Pending: 'bg-gray-100 text-gray-700', BookingConfirmed: 'bg-blue-100 text-blue-700',
+  PickStarted: 'bg-sky-100 text-sky-700', PickConfirmed: 'bg-cyan-100 text-cyan-700',
+  ReadyForCollection: 'bg-teal-100 text-teal-700', Packed: 'bg-indigo-100 text-indigo-700',
+  OutForDelivery: 'bg-purple-100 text-purple-700', Delivering: 'bg-purple-100 text-purple-700',
+  Delivered: 'bg-green-100 text-green-700', Paid: 'bg-emerald-100 text-emerald-700',
+  Invoiced: 'bg-green-100 text-green-700', Collected: 'bg-teal-100 text-teal-700',
+  OnHold: 'bg-amber-100 text-amber-700', Cancelled: 'bg-red-100 text-red-700',
+  Returned: 'bg-rose-100 text-rose-700', Created: 'bg-gray-100 text-gray-700',
+  PartiallyReceived: 'bg-yellow-100 text-yellow-700', FullyReceived: 'bg-teal-100 text-teal-700',
+  Closed: 'bg-emerald-100 text-emerald-700', InTransit: 'bg-purple-100 text-purple-700',
+  Received: 'bg-teal-100 text-teal-700', Completed: 'bg-emerald-100 text-emerald-700',
+  PaymentFailed: 'bg-red-100 text-red-700',
+};
+
+const TYPE_BADGE = {
+  Delivery:        'bg-blue-50 text-blue-700 border border-blue-200',
+  Express:         'bg-orange-50 text-orange-700 border border-orange-200',
+  ClickAndCollect: 'bg-teal-50 text-teal-700 border border-teal-200',
+};
+
+const RETURN_STATUS_COLOR = {
+  ReturnRequested:    'bg-blue-100 text-blue-700',
+  PickupScheduled:    'bg-sky-100 text-sky-700',
+  PickedUp:           'bg-purple-100 text-purple-700',
+  ReceivedAtWarehouse:'bg-orange-100 text-orange-700',
+  PutAway:            'bg-teal-100 text-teal-700',
+  Refunded:           'bg-emerald-100 text-emerald-700',
+};
+
+const METHOD_BADGE = {
+  GET:   'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  POST:  'bg-blue-100 text-blue-800 border border-blue-200',
+  PATCH: 'bg-amber-100 text-amber-800 border border-amber-200',
+  HOOK:  'bg-violet-100 text-violet-800 border border-violet-200',
+};
+
+const LINE_STATUS_COLOR = {
+  Active:          'bg-gray-100 text-gray-600',
+  FullyPicked:     'bg-emerald-100 text-emerald-700',
+  PartiallyPicked: 'bg-amber-100 text-amber-700',
+  Cancelled:       'bg-red-100 text-red-600',
+  Substituted:     'bg-violet-100 text-violet-700',
+};
+
+const RETURN_STATUSES = ['ReturnRequested','PickupScheduled','PickedUp','ReceivedAtWarehouse','PutAway','Refunded'];
+
+// ─────────────────────────────────────────────────────────────
+// OPERATIONAL UTILITIES
+// ─────────────────────────────────────────────────────────────
+
+const SIMULATION_NOW  = new Date('2024-01-15T16:00:00Z');
+const CLOSED_STATUSES = new Set(['Cancelled', 'Returned']);
+
+function fmtOrderTime(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function slotUrgency(slot) {
+  if (!slot) return null;
+  const start = new Date(slot.scheduledStart);
+  const end   = new Date(slot.scheduledEnd);
+  if (SIMULATION_NOW > end)    return 'overdue';
+  if (SIMULATION_NOW >= start) return 'active';
+  if (start - SIMULATION_NOW <= 3600000) return 'soon';
+  return 'ok';
+}
+
+function orderUrgency(order) {
+  if (order.status === 'OnHold') return 'critical';
+  if (order.posRecalcPending)    return 'warning';
+  const activeForSlot = !['Delivered','Invoiced','Collected','Paid','Cancelled','Returned'].includes(order.status);
+  if (activeForSlot && order.deliverySlot) {
+    const su = slotUrgency(order.deliverySlot);
+    if (su === 'overdue')              return 'critical';
+    if (su === 'active' || su === 'soon') return 'warning';
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORDER ACTIONS — available API calls per status
+// ─────────────────────────────────────────────────────────────
+
+const ORDER_ACTIONS = {
+  Pending: [
+    { method: 'POST',  path: '/webhooks/wms/booking-confirmed',    label: 'Confirm Booking (WMS)',    uc: 'UC2'  },
+    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
+    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
+  ],
+  BookingConfirmed: [
+    { method: 'POST',  path: '/webhooks/wms/pick-started',         label: 'Start Pick (WMS)',         uc: 'UC3'  },
+    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
+    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
+  ],
+  PickStarted: [
+    { method: 'POST',  path: '/webhooks/wms/pick-confirmed',       label: 'Confirm Pick (WMS)',       uc: 'UC4'  },
+    { method: 'POST',  path: '/webhooks/wms/substitution-offered', label: 'Offer Substitution (WMS)', uc: 'UC5'  },
+    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
+  ],
+  PickConfirmed: [
+    { method: 'POST',  path: '/webhooks/wms/packed',            label: 'Pack Order (WMS)',                    uc: 'UC4'  },
+    { method: 'POST',  path: '/orders/{id}/invoice/prepaid',    label: 'Send Pre-Delivery Invoice (Pre-paid)', uc: 'UC28' },
+    { method: 'PATCH', path: '/orders/{id}/hold',               label: 'Place on Hold',                       uc: 'UC6'  },
+  ],
+  Packed: [
+    { method: 'POST',  path: '/webhooks/tms/package-dispatched',   label: 'Dispatch (TMS)',           uc: 'UC7'  },
+    { method: 'POST',  path: '/webhooks/pos/pos-collection-ready', label: 'Ready for Collect (POS)',  uc: 'UC10' },
+  ],
+  ReadyForCollection: [
+    { method: 'POST',  path: '/webhooks/pos/collected',            label: 'Collected (POS)',          uc: 'UC11' },
+  ],
+  Collected: [
+    { method: 'POST',  path: '/webhooks/pos/invoiced',             label: 'Invoice (POS)',            uc: 'UC12' },
+  ],
+  OutForDelivery: [
+    { method: 'POST',  path: '/webhooks/tms/package-delivered',    label: 'Delivered (TMS)',          uc: 'UC8'  },
+    { method: 'POST',  path: '/webhooks/tms/package-damage-reported', label: 'Report Damage (TMS)',   uc: 'UC20' },
+  ],
+  Delivering: [
+    { method: 'POST',  path: '/webhooks/tms/package-delivered',    label: 'Delivered (TMS)',          uc: 'UC8'  },
+  ],
+  Delivered: [
+    { method: 'POST',  path: '/webhooks/pos/invoiced',             label: 'Invoice (POS)',            uc: 'UC12' },
+    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
+  ],
+  Invoiced: [
+    { method: 'POST',  path: '/webhooks/pos/payment-confirmed',    label: 'Payment (POS)',            uc: 'UC13' },
+    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
+  ],
+  Paid: [
+    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
+    { method: 'GET',   path: '/orders/{id}/timeline',              label: 'View Timeline',            uc: 'UC16' },
+  ],
+  OnHold: [
+    { method: 'PATCH', path: '/orders/{id}/release-hold',          label: 'Release Hold',             uc: 'UC6'  },
+    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
+  ],
+  Cancelled: [
+    { method: 'GET',   path: '/orders/{id}',                       label: 'View Order',               uc: 'UC16' },
+  ],
+  Returned: [
+    { method: 'GET',   path: '/returns?orderId={id}',              label: 'View Returns',             uc: 'UC14' },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────
+// ALL USE CASES
+// ─────────────────────────────────────────────────────────────
+
+const ALL_USE_CASES = [
+  { id: 'UC1',  section: 'outbound', title: 'Create Customer Order',
+    trigger: 'Customer submits order via App / Web / POS',
+    actors: ['Customer', 'OMS', 'WMS'],
+    steps: ['Customer POSTs /orders', 'OMS creates order with status Pending', 'Outbox fires OrderCreatedEvent', 'WMS receives order for booking prep'] },
+  { id: 'UC2',  section: 'outbound', title: 'Book Order at WMS',
+    trigger: 'WMS confirms it can fulfil the order',
+    actors: ['WMS', 'Sprint Connect', 'OMS'],
+    steps: ['WMS sends BookingConfirmed webhook', 'OMS transitions → BookingConfirmed', 'Outbox fires OrderBookedEvent'] },
+  { id: 'UC3',  section: 'outbound', title: 'Start Picking',
+    trigger: 'Picker begins collecting items from shelves',
+    actors: ['WMS', 'OMS'],
+    steps: ['WMS sends PickStarted webhook', 'OMS transitions → PickStarted'] },
+  { id: 'UC4',  section: 'outbound', title: 'Confirm Pick & Pack',
+    trigger: 'All items picked; order packed into package(s)',
+    actors: ['WMS', 'OMS'],
+    steps: ['WMS sends PickConfirmed webhook → OMS: PickConfirmed', 'WMS assigns package(s) with TrackingId', 'WMS sends Packed webhook → OMS: Packed'] },
+  { id: 'UC5',  section: 'outbound', title: 'Substitution Offered',
+    trigger: 'Picker cannot fully fulfil a line — substitute SKU offered',
+    actors: ['WMS', 'OMS', 'Customer'],
+    steps: ['WMS short-picks a line and offers substitute SKU', 'OMS creates order_line_substitution record', 'substitution_flag = true, pos_recalc_pending = true', 'Customer approves or rejects via /orders/{id}/substitutions/{subId}/approve'] },
+  { id: 'UC6',  section: 'outbound', title: 'Place / Release Order Hold',
+    trigger: 'Supervisor flags order for manual review',
+    actors: ['OMS', 'Supervisor'],
+    steps: ['PATCH /orders/{id}/hold → OMS stores preHoldStatus, sets OnHold', 'PATCH /orders/{id}/release-hold → OMS restores preHoldStatus'] },
+  { id: 'UC7',  section: 'outbound', title: 'Dispatch for Delivery',
+    trigger: 'TMS driver picks up packed order from warehouse',
+    actors: ['TMS', 'Sprint Connect', 'OMS'],
+    steps: ['TMS sends PackageDispatched webhook', 'OMS transitions → OutForDelivery', 'Outbox fires OrderDispatchedEvent'] },
+  { id: 'UC8',  section: 'outbound', title: 'Deliver to Customer',
+    trigger: 'Driver completes last-mile delivery',
+    actors: ['TMS', 'Sprint Connect', 'OMS'],
+    steps: ['TMS sends PackageDelivered webhook', 'OMS transitions → Delivered', 'Outbox fires OrderDeliveredEvent'] },
+  { id: 'UC9',  section: 'outbound', title: 'Cancel Order',
+    trigger: 'Customer or supervisor cancels before dispatch',
+    actors: ['OMS', 'Customer'],
+    steps: ['PATCH /orders/{id}/cancel', 'OMS validates cancellable state (not Delivered/Paid)', 'OMS transitions → Cancelled', 'Outbox fires OrderCancelledEvent', 'WMS reverses any stock reservation'] },
+  { id: 'UC10', section: 'outbound', title: 'Click & Collect — Ready Notification',
+    trigger: 'Packed Click & Collect order ready at store for pickup',
+    actors: ['POS', 'OMS'],
+    steps: ['POS webhook: PosCollectionReady', 'OMS transitions → ReadyForCollection', 'Outbox fires event; store notified'] },
+  { id: 'UC11', section: 'outbound', title: 'Click & Collect — Customer Collects',
+    trigger: 'Customer arrives at store and collects order',
+    actors: ['POS', 'OMS', 'Customer'],
+    steps: ['POS webhook: Collected', 'OMS transitions → Collected', 'Outbox fires OrderCollectedEvent'] },
+  { id: 'UC12', section: 'outbound', title: 'Invoice Issued',
+    trigger: 'POS issues fiscal invoice after delivery / collection',
+    actors: ['POS', 'OMS'],
+    steps: ['POS webhook: Invoiced with invoiceId', 'OMS stores invoiceId, transitions → Invoiced', 'Outbox fires OrderInvoicedEvent'] },
+  { id: 'UC13', section: 'outbound', title: 'Payment Confirmed',
+    trigger: 'POS confirms payment received',
+    actors: ['POS', 'OMS'],
+    steps: ['POS webhook: PaymentConfirmed', 'OMS transitions → Paid', 'Outbox fires OrderPaidEvent'] },
+  { id: 'UC15', section: 'outbound', title: 'POS Recalculation',
+    trigger: 'Substitution or promotion changes order total',
+    actors: ['POS', 'OMS'],
+    steps: ['OMS detects posRecalcPending = true (set by substitution)', 'POS webhook: PosRecalcCompleted with new totals', 'OMS applies recalculated amounts', 'OMS clears posRecalcPending = false'] },
+  { id: 'UC16', section: 'outbound', title: 'Order Query / History',
+    trigger: 'Customer or staff queries order status',
+    actors: ['Customer', 'OMS'],
+    steps: ['GET /orders/{id} — current state', 'GET /orders/{id}/timeline — full event log', 'GET /orders/{id}/lines — order lines with pick quantities', 'GET /orders/{id}/packages — package tracking ids'] },
+  { id: 'UC18', section: 'outbound', title: 'Multi-package Dispatch',
+    trigger: 'Large order split into multiple packages',
+    actors: ['WMS', 'TMS', 'OMS'],
+    steps: ['WMS creates multiple packages (each with TrackingId)', 'TMS dispatches and reports status per package', 'OMS tracks all packages; Delivered only when all delivered'] },
+  { id: 'UC19', section: 'outbound', title: 'Delivery Slot Management',
+    trigger: 'Customer selects a preferred delivery window',
+    actors: ['Customer', 'OMS', 'TMS'],
+    steps: ['OMS stores delivery_slot on order (slotId, scheduledStart, scheduledEnd)', 'TMS schedules driver for slot window', 'TMS sends status updates within the slot'] },
+  { id: 'UC20', section: 'outbound', title: 'Damaged Package Handling',
+    trigger: 'Driver reports package damage before or at delivery',
+    actors: ['TMS', 'OMS', 'Warehouse'],
+    steps: ['TMS webhook: PackageDamageReported', 'OMS → OnHold (preHoldStatus saved)', 'Path A: send replacement order; driver retrieves damaged goods', 'Path B: partial delivery with write-off for damaged items', 'Damaged goods returned to warehouse → UC23'] },
+  // Inbound
+  { id: 'UC14', section: 'inbound', title: 'Customer Return Request',
+    trigger: 'Customer requests to return delivered items',
+    actors: ['Customer', 'OMS', 'TMS', 'WMS'],
+    steps: ['POST /returns — OMS creates Return (ReturnRequested)', 'TMS schedules pickup → webhook: PickupScheduled', 'TMS collects → webhook: PickedUp', 'WMS receives at dock → webhook: GoodsReceived', 'Staff inspects each item → assigns condition', 'WMS webhook: PutAwayConfirmed (condition per item)', 'OMS transitions → Refunded; credit note issued'] },
+  { id: 'UC17', section: 'inbound', title: 'Inbound PO Linked to Outbound (UC24)',
+    trigger: 'Supplier delivers goods; stock feeds customer orders',
+    actors: ['Supplier', 'WMS', 'OMS'],
+    steps: ['WMS goods receipt webhook: GoodsReceiptConfirmed', 'OMS → PO status: PartiallyReceived or FullyReceived', 'WMS put-away webhook: PurchaseOrderPutAwayConfirmed', 'Stock now available at WMS for customer orders', 'OMS links PO to subsequent PickConfirmed events for traceability'] },
+  { id: 'UC21', section: 'inbound', title: 'Supplier PO Receipt',
+    trigger: 'Supplier arrives at warehouse dock with goods against a Purchase Order',
+    actors: ['Supplier', 'WMS', 'OMS'],
+    steps: ['OMS creates PurchaseOrder (Created) — ERP/JDA or manual', 'Sprint Connect → WMS: PO details dispatched for expected receipt', 'Supplier at dock; WMS creates GoodsReceipt against PO', 'WMS webhook: GoodsReceiptConfirmed (actual quantities)', 'OMS → PO: PartiallyReceived / FullyReceived', 'WMS assigns storage locations (Sloc)', 'WMS webhook: PutAwayConfirmed', 'OMS updates stock ledger; raises discrepancy if partial'] },
+  { id: 'UC22', section: 'inbound', title: 'Inter-store Stock Transfer',
+    trigger: 'Destination store / DC needs to replenish stock from another location',
+    actors: ['Source Store', 'Dest Store', 'TMS', 'WMS'],
+    steps: ['OMS creates TransferOrder (source_store_id, dest_store_id, items)', 'Sprint Connect → WMS(source): pick order dispatched', 'WMS webhook: TransferPickConfirmed — items picked at source', 'Sprint Connect → TMS: shipment registered with TrackingId', 'TMS webhook: PackageDelivered — goods arrive at destination', 'WMS(dest) webhook: TransferReceived — staff confirms receipt', 'OMS → TransferOrder: Completed; stock balances updated at both stores'] },
+  { id: 'UC23', section: 'inbound', title: 'Damaged Goods Return Receipt',
+    trigger: 'UC20 Path A: damaged package returned to warehouse by TMS driver',
+    actors: ['TMS', 'WMS', 'OMS'],
+    steps: ['TMS driver returns damaged package to warehouse dock', 'WMS webhook: DamagedGoodsReceived(trackingId)', 'OMS links to original order; raises DamagedGoodsReceivedEvent', 'Staff assigns condition per item: Resellable / Repairable / Dispose', 'WMS assigns storage or disposal location', 'WMS webhook: DamagedGoodsPutAwayConfirmed (condition + Sloc per item)', 'Resellable → stock restored; Repairable → repair workflow; Dispose → write-off'] },
+  { id: 'UC24', section: 'inbound', title: 'Full End-to-End Pipeline',
+    trigger: 'Complete view from supplier PO delivery to customer payment',
+    actors: ['Supplier', 'WMS', 'TMS', 'POS', 'Customer'],
+    steps: ['PO created → supplier delivers → goods received → put-away at WMS', 'Stock available at WMS after put-away event', 'Customer places order → WMS books → picker picks → WMS packs', 'TMS dispatches → delivers → POS invoices → payment confirmed', 'Full inbound-to-outbound audit trail with phase markers'] },
+  // ── Prepaid-specific use cases ──────────────────────────────
+  { id: 'UC25', section: 'outbound', title: 'Time Slot Request (Prepaid)',
+    trigger: 'Customer checks available delivery windows before placing a prepaid order',
+    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS', 'CHG Backend'],
+    steps: ['Customer → GW → PS → TMS: Request Time Slot', 'TMS → CHG Backend (CBE): query available slots', 'CBE returns available delivery windows to customer', 'Customer selects preferred slot — booking not yet confirmed'] },
+  { id: 'UC26', section: 'outbound', title: 'Delivery Booking via TMS/CBE (Prepaid)',
+    trigger: 'Customer confirms delivery booking before placing the sale order',
+    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS', 'CHG Backend'],
+    steps: ['Customer → GW → PS → TMS → CBE: Create Booking', 'Delivery slot locked in TMS and CHG Backend', 'Booking confirmed before the sale order is submitted to OMS', 'OMS order is created (Pending) with slot already reserved — no separate BookingConfirmed step from WMS'] },
+  { id: 'UC27', section: 'outbound', title: 'WMS-Triggered POS Recalculation (Prepaid)',
+    trigger: 'WMS requests price recalculation mid-pick (not triggered by substitution)',
+    actors: ['WMS', 'Sprint Connect', 'POS'],
+    steps: ['WMS → SC: POS Recalculation request (can repeat multiple times during picking)', 'SC → POS: Recalculation forwarded via outbox', 'POS applies promotions and tax, returns updated amount', 'SC → WMS: Updated amount sent back via outbox', 'Process repeats as needed; ends when WMS sends PickConfirmed'] },
+  { id: 'UC28', section: 'outbound', title: 'Pre-Delivery Invoice Generation (Prepaid)',
+    trigger: 'WMS sends PickConfirmed — OMS issues invoice BEFORE TMS dispatches',
+    actors: ['Sprint Connect', 'WMS', 'TMS'],
+    steps: ['WMS sends PickConfirmed webhook with final basket quantities', 'SC → POS: PickConfirmedEvent (partial pick notification)', 'SC → WMS: ABB/Tax Invoice (Pre-paid) — issued before dispatch', 'Optional: SC → WMS: Credit Note (Pre-paid) if price adjustment is required', 'SC → TMS: Pick Confirmed (basket qty) via outbox'] },
+  { id: 'UC29', section: 'outbound', title: 'STS Settlement Tax Invoice',
+    trigger: 'Post-delivery: Settlement Tax System issues official tax document to OMS',
+    actors: ['STS', 'Sprint Connect', 'CFW Gateway', 'Customer'],
+    steps: ['TMS delivers order → SC: PackageDelivered webhook → Status: Delivered', 'STS → SC: ABB/Tax Invoice (webhook) — official tax document issued by STS', 'SC → GW: ABB/Tax Invoice forwarded to customer', 'Prepaid transaction complete — no separate POS payment step required'] },
+];
+
+// ─────────────────────────────────────────────────────────────
+// API REFERENCE
+// ─────────────────────────────────────────────────────────────
+
+const API_REFERENCE = [
+  {
+    controller: 'Orders',
+    badge: 'bg-blue-100 text-blue-800',
+    endpoints: [
+      { method: 'POST',  path: '/orders',                                       uc: 'UC1',  desc: 'Create customer order' },
+      { method: 'GET',   path: '/orders',                                       uc: 'UC16', desc: 'List orders (filter by status, store, date)' },
+      { method: 'GET',   path: '/orders/{id}',                                  uc: 'UC16', desc: 'Get order by ID' },
+      { method: 'PATCH', path: '/orders/{id}/hold',                             uc: 'UC6',  desc: 'Place order on hold' },
+      { method: 'PATCH', path: '/orders/{id}/release-hold',                     uc: 'UC6',  desc: 'Release order from hold' },
+      { method: 'PATCH', path: '/orders/{id}/cancel',                           uc: 'UC9',  desc: 'Cancel order' },
+      { method: 'GET',   path: '/orders/{id}/lines',                            uc: 'UC1',  desc: 'List order lines with pick quantities' },
+      { method: 'GET',   path: '/orders/{id}/packages',                         uc: 'UC18', desc: 'List packages for order' },
+      { method: 'GET',   path: '/orders/{id}/timeline',                         uc: 'UC16', desc: 'Full event timeline (all phases)' },
+      { method: 'GET',   path: '/orders/{id}/substitutions',                    uc: 'UC5',  desc: 'List line substitutions' },
+      { method: 'POST',  path: '/orders/{id}/substitutions/{subId}/approve',    uc: 'UC5',  desc: 'Customer approves substitution' },
+      { method: 'POST',  path: '/orders/{id}/substitutions/{subId}/reject',     uc: 'UC5',  desc: 'Customer rejects substitution' },
+      { method: 'POST',  path: '/orders/{id}/recalculate',                      uc: 'UC15', desc: 'Trigger POS recalculation' },
+      { method: 'GET',   path: '/orders/{id}/delivery-slot',                    uc: 'UC19', desc: 'Get delivery slot details' },
+      { method: 'PATCH', path: '/orders/{id}/delivery-slot',                    uc: 'UC19', desc: 'Update delivery slot' },
+      { method: 'GET',   path: '/purchase-orders',                              uc: 'UC21', desc: 'List purchase orders' },
+      { method: 'POST',  path: '/purchase-orders',                              uc: 'UC21', desc: 'Create purchase order' },
+      { method: 'GET',   path: '/purchase-orders/{id}',                         uc: 'UC21', desc: 'Get purchase order' },
+      { method: 'GET',   path: '/transfer-orders',                              uc: 'UC22', desc: 'List transfer orders' },
+      { method: 'POST',  path: '/transfer-orders',                              uc: 'UC22', desc: 'Create transfer order' },
+      { method: 'GET',   path: '/transfer-orders/{id}',                         uc: 'UC22', desc: 'Get transfer order' },
+      { method: 'GET',   path: '/orders/{id}/webhooks',                         uc: 'UC1',  desc: 'List webhook log entries for order' },
+    ],
+  },
+  {
+    controller: 'Returns',
+    badge: 'bg-rose-100 text-rose-800',
+    endpoints: [
+      { method: 'POST',  path: '/returns',                                      uc: 'UC14', desc: 'Initiate customer return' },
+      { method: 'GET',   path: '/returns',                                      uc: 'UC14', desc: 'List returns (filter by orderId, status)' },
+      { method: 'GET',   path: '/returns/{id}',                                 uc: 'UC14', desc: 'Get return by ID' },
+      { method: 'GET',   path: '/returns/{id}/items',                           uc: 'UC14', desc: 'List return items with condition' },
+      { method: 'PATCH', path: '/returns/{id}/cancel',                          uc: 'UC14', desc: 'Cancel pending return' },
+      { method: 'GET',   path: '/returns/{id}/refund',                          uc: 'UC14', desc: 'Get refund record and credit note' },
+    ],
+  },
+  {
+    controller: 'Inbound',
+    badge: 'bg-violet-100 text-violet-800',
+    endpoints: [
+      { method: 'GET',   path: '/inbound/purchase-orders/{id}/goods-receipts',  uc: 'UC21', desc: 'List goods receipts for a PO' },
+      { method: 'GET',   path: '/inbound/transfer-orders/{id}/confirmations',   uc: 'UC22', desc: 'List transfer confirmations' },
+    ],
+  },
+  {
+    controller: 'Webhooks',
+    badge: 'bg-purple-100 text-purple-800',
+    endpoints: [
+      { method: 'HOOK',  path: '/webhooks/wms/booking-confirmed',               uc: 'UC2',  desc: 'WMS confirms order booking' },
+      { method: 'HOOK',  path: '/webhooks/wms/pick-started',                    uc: 'UC3',  desc: 'WMS begins picking' },
+      { method: 'HOOK',  path: '/webhooks/wms/pick-confirmed',                  uc: 'UC4',  desc: 'WMS finishes picking' },
+      { method: 'HOOK',  path: '/webhooks/wms/packed',                          uc: 'UC4',  desc: 'WMS packs order into package' },
+      { method: 'HOOK',  path: '/webhooks/wms/substitution-offered',            uc: 'UC5',  desc: 'WMS offers substitute SKU for short-pick' },
+      { method: 'HOOK',  path: '/webhooks/wms/goods-receipt-confirmed',         uc: 'UC21', desc: 'PO goods received at dock' },
+      { method: 'HOOK',  path: '/webhooks/wms/put-away-confirmed',              uc: 'UC21', desc: 'Goods assigned to shelf Sloc' },
+      { method: 'HOOK',  path: '/webhooks/wms/transfer-pick-confirmed',         uc: 'UC22', desc: 'Transfer items picked at source store' },
+      { method: 'HOOK',  path: '/webhooks/wms/transfer-received',               uc: 'UC22', desc: 'Transfer received at destination' },
+      { method: 'HOOK',  path: '/webhooks/wms/damaged-goods-received',          uc: 'UC23', desc: 'Damaged package checked in at dock' },
+      { method: 'HOOK',  path: '/webhooks/wms/damaged-goods-put-away',          uc: 'UC23', desc: 'Damaged items assigned condition + Sloc' },
+      { method: 'HOOK',  path: '/webhooks/tms/package-dispatched',              uc: 'UC7',  desc: 'TMS picks up package for delivery' },
+      { method: 'HOOK',  path: '/webhooks/tms/package-delivered',               uc: 'UC8',  desc: 'TMS confirms last-mile delivery' },
+      { method: 'HOOK',  path: '/webhooks/tms/package-damage-reported',         uc: 'UC20', desc: 'Driver reports package damage' },
+      { method: 'HOOK',  path: '/webhooks/pos/pos-collection-ready',            uc: 'UC10', desc: 'C&C order ready for store pickup' },
+      { method: 'HOOK',  path: '/webhooks/pos/collected',                       uc: 'UC11', desc: 'Customer collected C&C order' },
+      { method: 'HOOK',  path: '/webhooks/pos/invoiced',                        uc: 'UC12', desc: 'POS issues fiscal invoice' },
+      { method: 'HOOK',  path: '/webhooks/pos/payment-confirmed',               uc: 'UC13', desc: 'Payment received and confirmed' },
+      { method: 'HOOK',  path: '/webhooks/pos/pos-recalc-completed',            uc: 'UC15', desc: 'POS recalculation done after substitution' },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// PREPAID FLOW — DATA
+// ─────────────────────────────────────────────────────────────
+
+const PREPAID_ACTORS = [
+  { key: 'C',   label: 'Customer',       cls: 'bg-green-100 text-green-800 border border-green-300'    },
+  { key: 'GW',  label: 'CFW Gateway',    cls: 'bg-blue-100 text-blue-700 border border-blue-200'       },
+  { key: 'PS',  label: 'Proxy Service',  cls: 'bg-slate-100 text-slate-600 border border-slate-300'    },
+  { key: 'CBE', label: 'CHG Backend',    cls: 'bg-purple-100 text-purple-800 border border-purple-300' },
+  { key: 'SC',  label: 'Sprint Connect', cls: 'bg-blue-600 text-white border border-blue-700'           },
+  { key: 'WMS', label: 'WMS',            cls: 'bg-blue-100 text-blue-800 border border-blue-200'       },
+  { key: 'TMS', label: 'TMS',            cls: 'bg-green-100 text-green-800 border border-green-200'    },
+  { key: 'POS', label: 'POS',            cls: 'bg-orange-100 text-orange-800 border border-orange-200' },
+  { key: 'STS', label: 'STS',            cls: 'bg-rose-100 text-rose-800 border border-rose-300'       },
+];
+
+const PREPAID_ACTOR_MAP = Object.fromEntries(PREPAID_ACTORS.map(a => [a.key, a]));
+
+const PREPAID_MSG_STYLE = {
+  request:  { dotCls: 'bg-blue-400',    badge: 'bg-blue-50 text-blue-700 border border-blue-100',          label: 'Request'    },
+  response: { dotCls: 'bg-gray-300',    badge: 'bg-gray-50 text-gray-500 border border-gray-200',          label: 'Response'   },
+  webhook:  { dotCls: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200', label: 'Webhook In' },
+  outbox:   { dotCls: 'bg-violet-500',  badge: 'bg-violet-50 text-violet-700 border border-violet-200',    label: 'Outbox Out' },
+};
+
+const PREPAID_PHASES = [
+  {
+    key: 'slot-booking',
+    label: 'Phase 1 — Slot & Booking',
+    bg: 'bg-green-50', border: 'border-green-200',
+    note: 'Customer queries available delivery slots and creates a booking via TMS and CHG Backend — before the sale order is placed.',
+    steps: [
+      { id: 1, from: ['C'],   to: ['GW','PS','TMS','CBE'], type: 'request',  label: 'Request Time Slot' },
+      { id: 2, from: ['CBE'], to: ['C'],                   type: 'response', label: 'Nearby Branches / Available Slots' },
+      { id: 3, from: ['C'],   to: ['GW','PS','TMS','CBE'], type: 'request',  label: 'Create Booking', note: 'Slot locked in TMS and CHG Backend. Delivery window confirmed.' },
+    ],
+  },
+  {
+    key: 'order-creation',
+    label: 'Phase 2 — Sale Order',
+    bg: 'bg-blue-50', border: 'border-blue-200',
+    note: 'Customer submits the sale order. OMS creates it (Pending) and fans out to both CBE and WMS via outbox.',
+    steps: [
+      { id: 4, from: ['C'],  to: ['GW','PS','SC'], type: 'request', label: 'Sale Order', note: 'OMS: Order created → Pending' },
+      { id: 5, from: ['SC'], to: ['CBE'],          type: 'outbox',  label: 'Sale Order (outbox)' },
+      { id: 6, from: ['SC'], to: ['WMS'],          type: 'outbox',  label: 'Sale Order (outbox)' },
+    ],
+  },
+  {
+    key: 'picking',
+    label: 'Phase 3 — Picking & POS Recalculation',
+    bg: 'bg-sky-50', border: 'border-sky-200',
+    note: 'WMS starts picking immediately (no BookingConfirmed step — booking was pre-confirmed via TMS/CBE). WMS can request POS recalculation multiple times.',
+    steps: [
+      { id: 7,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'Pick Started',               note: 'Status → PickStarted. PickStartedEvent → outbox → TMS' },
+      { id: 8,  from: ['SC'],  to: ['TMS'], type: 'outbox',   label: 'Pick Started (outbox)' },
+      { id: 9,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'POS Recalculation',          note: 'WMS triggers recalc — can repeat multiple times during picking' },
+      { id: 10, from: ['SC'],  to: ['POS'], type: 'outbox',   label: 'POS Recalculation (outbox)' },
+      { id: 11, from: ['POS'], to: ['SC'],  type: 'response', label: 'Amount Recalculation' },
+      { id: 12, from: ['SC'],  to: ['WMS'], type: 'outbox',   label: 'Amount Recalculation (outbox)' },
+      { id: 13, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'Pick Confirmed (basket qty)', note: 'Partial pick? PickConfirmedEvent → outbox → POS. Status → PickConfirmed' },
+    ],
+  },
+  {
+    key: 'prepaid-invoice',
+    label: 'Phase 4 — Pre-Delivery Invoice',
+    bg: 'bg-amber-50', border: 'border-amber-200',
+    note: 'Key prepaid distinction: OMS issues the ABB/Tax Invoice to WMS AFTER PickConfirmed, BEFORE TMS dispatches the order.',
+    steps: [
+      { id: 14, from: ['SC'], to: ['WMS'], type: 'outbox', label: 'ABB/Tax Invoice (Pre-paid)',     note: 'Invoice issued before dispatch' },
+      { id: 15, from: ['SC'], to: ['WMS'], type: 'outbox', label: 'Credit Note (Pre-paid)',         note: 'Optional — only if price adjustment required', optional: true },
+      { id: 16, from: ['SC'], to: ['TMS'], type: 'outbox', label: 'Pick Confirmed (basket qty) (outbox)' },
+    ],
+  },
+  {
+    key: 'delivery',
+    label: 'Phase 5 — Delivery',
+    bg: 'bg-purple-50', border: 'border-purple-200',
+    note: 'TMS dispatches and delivers the order. SC notifies the Gateway at each status change.',
+    steps: [
+      { id: 17, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'Out for Delivery', note: 'Status → OutForDelivery' },
+      { id: 18, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'Out for Delivery (outbox)' },
+      { id: 19, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'Delivered',        note: 'Status → Delivered' },
+      { id: 20, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'Delivered (outbox)' },
+    ],
+  },
+  {
+    key: 'sts-invoice',
+    label: 'Phase 6 — Settlement Tax Invoice (STS)',
+    bg: 'bg-rose-50', border: 'border-rose-200',
+    note: 'The Settlement Tax System (STS) issues the official ABB/Tax Invoice post-delivery. OMS forwards it to the customer via Gateway.',
+    steps: [
+      { id: 21, from: ['STS'], to: ['SC'], type: 'webhook', label: 'ABB/Tax Invoice' },
+      { id: 22, from: ['SC'],  to: ['GW'], type: 'outbox',  label: 'ABB/Tax Invoice (outbox)' },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// SHARED COMPONENTS
+// ─────────────────────────────────────────────────────────────
+
+function Badge({ text, cls }) {
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{text}</span>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORDER TIMELINE (UC24 full event demo — ORD-001)
+// ─────────────────────────────────────────────────────────────
+
+const PIPELINE_STEPS = [
+  { key: 'po-created',   label: 'PO Created',     phase: 'inbound'  },
+  { key: 'po-received',  label: 'Goods In',        phase: 'inbound'  },
+  { key: 'po-putaway',   label: 'Put Away',        phase: 'inbound'  },
+  { key: 'bridge',       label: 'Stock Ready',     phase: 'bridge'   },
+  { key: 'order',        label: 'Order',           phase: 'outbound' },
+  { key: 'booking',      label: 'Booking',         phase: 'outbound' },
+  { key: 'picking',      label: 'Picking',         phase: 'outbound' },
+  { key: 'packed',       label: 'Packed',          phase: 'outbound' },
+  { key: 'transit',      label: 'In Transit',      phase: 'outbound' },
+  { key: 'delivered',    label: 'Delivered',       phase: 'outbound' },
+  { key: 'paid',         label: 'Paid',            phase: 'outbound' },
+];
+
+const PHASE_DOT  = { inbound: 'bg-violet-500', bridge: 'bg-amber-400', outbound: 'bg-blue-500' };
+const PHASE_LINE = { inbound: 'bg-violet-200', bridge: 'bg-amber-200', outbound: 'bg-blue-200' };
+
+function StatusPipeline({ activeKey }) {
+  const activeIdx = PIPELINE_STEPS.findIndex(s => s.key === activeKey);
+  return (
+    <div className="flex items-start gap-0 overflow-x-auto pb-1">
+      {PIPELINE_STEPS.map((step, i) => {
+        const done   = i < activeIdx;
+        const active = i === activeIdx;
+        const dotCls = PHASE_DOT[step.phase];
+        const lineCls = PHASE_LINE[step.phase];
+        return (
+          <React.Fragment key={step.key}>
+            <div className="flex flex-col items-center shrink-0" style={{ minWidth: 56 }}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all
+                ${active ? `${dotCls} text-white border-transparent shadow ring-2 ring-offset-1 ring-current scale-110`
+                         : done   ? `${dotCls} text-white border-transparent opacity-60`
+                                  : 'bg-white text-gray-300 border-gray-200'}`}>
+                {done ? '✓' : i + 1}
+              </div>
+              <span className={`text-center leading-tight mt-1 text-xs ${active ? 'font-semibold text-gray-800' : done ? 'text-gray-400' : 'text-gray-300'}`}
+                    style={{ maxWidth: 52, fontSize: 10 }}>
+                {step.label}
+              </span>
+            </div>
+            {i < PIPELINE_STEPS.length - 1 && (
+              <div className={`h-0.5 mt-4 flex-1 mx-0.5 transition-all ${done ? lineCls : 'bg-gray-100'}`} style={{ minWidth: 12 }} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimelineRow({ evt }) {
+  const s = EVT_STYLE[evt.type] || EVT_STYLE.domain;
+  return (
+    <div className={`flex gap-3 border-l-2 ${s.ring} pb-5 pl-2`}>
+      <div className="-ml-2.5 mt-0.5 shrink-0">
+        <div className={`w-4 h-4 rounded-full border-2 border-white shadow-sm ${s.dot}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+          <span className="font-mono text-xs text-gray-400 w-11 shrink-0">{evt.time}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${s.badge}`}>{s.label}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded font-mono border ${SYS_BADGE[evt.system] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>{evt.system}</span>
+          {evt.phase === 'inbound' && <Badge text="INBOUND" cls="bg-violet-100 text-violet-700" />}
+          {evt.outStatus && <Badge text={evt.outStatus} cls="bg-gray-100 text-gray-500" />}
+        </div>
+        <div className="text-sm font-semibold text-gray-800">{evt.event}</div>
+        <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{evt.detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function SectionDivider({ label, color }) {
+  return (
+    <div className="flex items-center gap-2 my-5">
+      <div className={`h-px flex-1 ${color}`} />
+      <span className={`text-xs font-bold uppercase tracking-widest ${color.replace('bg-', 'text-').replace('-200', '-600').replace('-300', '-600')}`}>{label}</span>
+      <div className={`h-px flex-1 ${color}`} />
+    </div>
+  );
+}
+
+function OrderTimeline({ onBack }) {
+  const { orderTimeline } = React.useContext(DataContext);
+  const inbound  = orderTimeline.filter(e => e.phase === 'inbound');
+  const bridge   = orderTimeline.filter(e => e.phase === 'bridge');
+  const outbound = orderTimeline.filter(e => e.phase === 'outbound');
+
+  return (
+    <div className="max-w-3xl mx-auto p-4 pb-16">
+      <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-4 flex items-center gap-1">
+        ← Back to Kanban
+      </button>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h1 className="text-xl font-bold text-gray-900">ORD-001</h1>
+              <Badge text="Paid" cls={STATUS_COLOR.Paid} />
+              <Badge text="Delivery" cls={TYPE_BADGE.Delivery} />
+            </div>
+            <p className="text-sm text-gray-600">Alice Johnson · Central DC · 5 items</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Linked PO: <span className="font-mono text-violet-600 font-semibold">PO-001</span>
+              <span className="mx-1">·</span> Supplier: Fresh Foods Ltd
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-3xl font-bold text-gray-900">฿2,380</div>
+            <div className="text-xs text-gray-400">final (promo applied at recalc)</div>
+            <div className="text-xs text-gray-400 line-through">฿2,450 original</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">UC24 — Inbound → Outbound Pipeline</div>
+        <StatusPipeline activeKey="paid" />
+        <div className="flex gap-4 mt-4 flex-wrap">
+          {[['bg-violet-500', 'Inbound (PO receipt)'], ['bg-amber-400', 'Stock bridge (WMS)'], ['bg-blue-500', 'Outbound (delivery)']].map(([dot, lbl]) => (
+            <div key={lbl} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+              <span className="text-xs text-gray-500">{lbl}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 mb-3 px-1">
+        {Object.entries(EVT_STYLE).map(([k, s]) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded-full ${s.dot}`} />
+            <span className="text-xs text-gray-500">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="text-sm font-semibold text-gray-700 mb-4">
+          Full Event Log <span className="text-gray-400 font-normal">({orderTimeline.length} events)</span>
+        </div>
+
+        <SectionDivider label="Phase 1 — Inbound: Goods Arrive at Warehouse" color="bg-violet-200" />
+        {inbound.map(e => <TimelineRow key={e.id} evt={e} />)}
+
+        {bridge.map(e => (
+          <div key={e.id} className="my-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white text-lg shrink-0">⇩</div>
+            <div>
+              <div className="font-bold text-amber-800 text-sm">{e.event}</div>
+              <div className="text-xs text-amber-700 mt-0.5">{e.detail}</div>
+            </div>
+          </div>
+        ))}
+
+        <SectionDivider label="Phase 2 — Outbound: Customer Order Fulfilled" color="bg-blue-200" />
+        {outbound.map(e => <TimelineRow key={e.id} evt={e} />)}
+
+        <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+          <div className="text-emerald-700 font-bold">Order Complete ✓</div>
+          <div className="text-xs text-emerald-600 mt-1">
+            Inbound PO goods received at 09:28 · Customer order placed at 14:02 · Payment confirmed at 19:31
+          </div>
+          <div className="text-xs text-emerald-600 mt-0.5">
+            Inbound → stock available: <strong>1h 47m</strong> · Order → paid: <strong>5h 29m</strong> · Total end-to-end: <strong>11h 31m</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORDER DETAIL VIEW
+// ─────────────────────────────────────────────────────────────
+
+function OrderDetailView({ order, onBack, onViewTimeline }) {
+  const actions = ORDER_ACTIONS[order.status] || [];
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-4 flex items-center gap-1">
+        ← Back to Board
+      </button>
+
+      {/* Header */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h1 className="text-xl font-bold text-gray-900">{order.orderNumber || order.id}</h1>
+              <Badge text={order.status} cls={STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-700'} />
+              <Badge text={order.type} cls={TYPE_BADGE[order.type] || 'bg-gray-100 text-gray-700'} />
+            </div>
+            <p className="text-sm text-gray-600 mt-0.5">{order.customer} · {order.store}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
+              <span>Channel: <strong className="text-gray-700">{order.channelType}</strong></span>
+              <span>·</span>
+              <span>Payment: <strong className="text-gray-700">{order.paymentMethod}</strong></span>
+              <span>·</span>
+              <span>BU: <strong className="text-gray-700">{order.businessUnit}</strong></span>
+              {order.substitutionFlag && <Badge text="Sub OK" cls="bg-amber-100 text-amber-700" />}
+              {order.posRecalcPending && <Badge text="Recalc Pending" cls="bg-rose-100 text-rose-600" />}
+              {order.preHoldStatus && (
+                <span className="text-xs text-amber-600">Pre-hold: <strong>{order.preHoldStatus}</strong></span>
+              )}
+            </div>
+            {order.holdReason && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-amber-700">
+                <span>⚠</span><span>{order.holdReason}</span>
+              </div>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-bold text-gray-900">฿{order.amount?.toLocaleString()}</div>
+            <div className="text-xs text-gray-400 mt-0.5">{order.items} items</div>
+            {order.orderDate && (
+              <div className="text-xs text-gray-400 mt-0.5">{formatDate(order.orderDate)}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Delivery slot */}
+      {order.deliverySlot && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-4">
+          <div className="text-blue-500 text-lg shrink-0">🕐</div>
+          <div>
+            <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-0.5">Delivery Slot</div>
+            <div className="text-sm text-blue-800 font-medium">
+              {formatDate(order.deliverySlot.scheduledStart)} — {new Date(order.deliverySlot.scheduledEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div className="text-xs text-blue-500 font-mono mt-0.5">{order.deliverySlot.slotId}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Order lines */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+          Order Lines <span className="font-normal text-gray-300 normal-case">({order.lines?.length || 0} lines)</span>
+        </div>
+        {order.lines?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  {[['SKU','text-left'],['Product','text-left'],['Req','text-right'],['Picked','text-right'],['UoM','text-left'],['Price','text-right'],['Status','text-left']].map(([h,a]) => (
+                    <th key={h} className={`py-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide ${a}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {order.lines.map(line => (
+                  <tr key={line.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="py-2.5 px-3 font-mono text-xs font-semibold text-gray-600">{line.sku}</td>
+                    <td className="py-2.5 px-3 text-xs text-gray-700">
+                      {line.productName}
+                      {line.isSubstitute && <Badge text="SUB" cls="ml-1.5 bg-amber-100 text-amber-700" />}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-xs font-mono text-gray-600">{line.requestedAmount}</td>
+                    <td className="py-2.5 px-3 text-right text-xs font-mono font-bold text-gray-800">{line.pickedAmount}</td>
+                    <td className="py-2.5 px-3 text-xs text-gray-500">{line.uom}</td>
+                    <td className="py-2.5 px-3 text-right text-xs font-mono text-gray-700">฿{line.unitPrice}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${LINE_STATUS_COLOR[line.status] || LINE_STATUS_COLOR.Active}`}>
+                        {line.status || 'Active'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-300 py-4 text-center">No lines available</div>
+        )}
+      </div>
+
+      {/* Packages */}
+      {order.packages?.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+            Packages <span className="font-normal text-gray-300">({order.packages.length})</span>
+          </div>
+          <div className="space-y-2">
+            {order.packages.map(pkg => (
+              <div key={pkg.id} className="flex flex-wrap items-center gap-3 border border-gray-100 rounded-xl px-4 py-3 bg-gray-50">
+                <div className="min-w-0">
+                  <div className="font-mono text-xs font-bold text-gray-700">{pkg.id}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 font-mono">Tracking: <span className="text-purple-600">{pkg.trackingId}</span></div>
+                </div>
+                <Badge text={pkg.status} cls={STATUS_COLOR[pkg.status] || 'bg-gray-100 text-gray-700'} />
+                {pkg.vehicleType && <span className="text-xs text-gray-500">{pkg.vehicleType}</span>}
+                {pkg.weight && <span className="text-xs text-gray-500">{pkg.weight} kg</span>}
+                {pkg.lineIds?.length > 0 && (
+                  <span className="text-xs text-gray-400">{pkg.lineIds.length} line(s)</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+          Actions
+          <span className="ml-1.5 font-normal text-gray-300 normal-case">· {order.status}</span>
+        </div>
+        {actions.length > 0 ? (
+          <div className="space-y-2">
+            {actions.map((action, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer">
+                <span className="font-medium text-sm text-gray-800 flex-1">{action.label}</span>
+                <Badge text={action.uc} cls="bg-blue-50 text-blue-600 border border-blue-100 font-mono shrink-0" />
+                <span className={`shrink-0 text-xs font-bold font-mono px-2 py-0.5 rounded ${METHOD_BADGE[action.method] || 'bg-gray-100 text-gray-700'}`}>
+                  {action.method}
+                </span>
+                <code className="text-xs text-gray-400 font-mono hidden lg:block max-w-xs truncate">
+                  {action.path.replace('{id}', order.id)}
+                </code>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-gray-300 py-2">No actions available for this status</div>
+        )}
+      </div>
+
+      {/* Timeline demo link */}
+      <div className="flex justify-center">
+        <button onClick={onViewTimeline}
+          className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 hover:border-blue-400 px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors">
+          View System Event Timeline — UC24 Demo (ORD-001)
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// USE CASE EXPLORER
+// ─────────────────────────────────────────────────────────────
+
+function UCCard({ uc, expandedUC, setExpandedUC }) {
+  const isOpen = expandedUC === uc.id;
+  return (
+      <div className={`border rounded-xl overflow-hidden transition-colors ${isOpen ? 'border-blue-200' : 'border-gray-200'}`}>
+        <button
+          onClick={() => setExpandedUC(isOpen ? null : uc.id)}
+          className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors ${isOpen ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <Badge text={uc.id} cls="bg-gray-100 text-gray-600 font-mono shrink-0" />
+            <span className="text-sm font-medium text-gray-800 truncate">{uc.title}</span>
+          </div>
+          <span className="text-gray-400 text-xs shrink-0">{isOpen ? '▲' : '▼'}</span>
+        </button>
+        {isOpen && (
+          <div className="px-4 pb-4 pt-3 bg-gray-50 border-t border-gray-100">
+            <div className="mb-2">
+              <span className="text-xs font-semibold text-gray-500">Trigger: </span>
+              <span className="text-xs text-gray-700">{uc.trigger}</span>
+            </div>
+            <div className="mb-3">
+              <span className="text-xs font-semibold text-gray-500">Actors: </span>
+              {uc.actors.map((a, i) => (
+                <span key={a} className="text-xs text-gray-700">
+                  {a}{i < uc.actors.length - 1 ? ' · ' : ''}
+                </span>
+              ))}
+            </div>
+            <div className="text-xs font-semibold text-gray-500 mb-2">Flow:</div>
+            <ol className="space-y-1.5">
+              {uc.steps.map((step, i) => (
+                <li key={i} className="flex gap-2.5 items-start">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">{i + 1}</span>
+                  <span className="text-xs text-gray-700 leading-relaxed">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
+    );
+}
+
+function UseCaseExplorer() {
+  const [expandedUC, setExpandedUC] = useState(null);
+  const outbound = ALL_USE_CASES.filter(uc => uc.section === 'outbound');
+  const inbound  = ALL_USE_CASES.filter(uc => uc.section === 'inbound');
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-gray-900">Use Cases</h1>
+        <p className="text-xs text-gray-400 mt-0.5">{ALL_USE_CASES.length} use cases · click any card to expand the flow</p>
+      </div>
+
+      <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+        <strong>Terminology note:</strong> <em>Outbound Order</em> = goods leaving the warehouse to a customer.
+        <em className="ml-1">Inbound Order</em> = goods arriving at the warehouse (supplier delivery, transfer, return).
+      </div>
+
+      <section className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="font-semibold text-gray-800">Outbound Order Flow</h2>
+          <Badge text={`${outbound.length} UCs`} cls="bg-blue-100 text-blue-700" />
+          <span className="text-xs text-gray-400">Customer orders leaving warehouse</span>
+        </div>
+        <div className="space-y-2">
+          {outbound.map(uc => <UCCard key={uc.id} uc={uc} expandedUC={expandedUC} setExpandedUC={setExpandedUC} />)}
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="font-semibold text-gray-800">Inbound Order Flow</h2>
+          <Badge text={`${inbound.length} UCs`} cls="bg-violet-100 text-violet-700" />
+          <span className="text-xs text-gray-400">Goods arriving at warehouse</span>
+        </div>
+        <div className="space-y-2">
+          {inbound.map(uc => <UCCard key={uc.id} uc={uc} expandedUC={expandedUC} setExpandedUC={setExpandedUC} />)}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// API REFERENCE VIEW
+// ─────────────────────────────────────────────────────────────
+
+function ApiReferenceView() {
+  const [activeCtrl, setActiveCtrl] = useState('Orders');
+  const totalEndpoints = API_REFERENCE.reduce((s, c) => s + c.endpoints.length, 0);
+
+  const ctrl = API_REFERENCE.find(c => c.controller === activeCtrl);
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-gray-900">API Reference</h1>
+        <p className="text-xs text-gray-400 mt-0.5">{totalEndpoints} endpoints · 4 controllers</p>
+      </div>
+
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 flex-wrap">
+        {API_REFERENCE.map(c => (
+          <button key={c.controller} onClick={() => setActiveCtrl(c.controller)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5
+              ${activeCtrl === c.controller ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {c.controller}
+            <span className="text-xs text-gray-400">({c.endpoints.length})</span>
+          </button>
+        ))}
+      </div>
+
+      {ctrl && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Badge text={ctrl.controller} cls={ctrl.badge} />
+            <span className="text-xs text-gray-400">{ctrl.endpoints.length} endpoints</span>
+          </div>
+          <div className="space-y-2">
+            {ctrl.endpoints.map((ep, i) => (
+              <div key={i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-gray-300 hover:shadow-sm transition-all">
+                <span className={`shrink-0 text-xs font-bold font-mono px-2 py-0.5 rounded ${METHOD_BADGE[ep.method] || 'bg-gray-100 text-gray-700'}`}>
+                  {ep.method}
+                </span>
+                <code className="text-sm font-mono text-gray-800 flex-1 min-w-0 truncate">{ep.path}</code>
+                <span className="text-xs text-gray-500 hidden lg:block shrink-0 max-w-xs truncate">{ep.desc}</span>
+                <Badge text={ep.uc} cls="bg-blue-50 text-blue-600 border border-blue-100 font-mono shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// KANBAN BOARD
+// ─────────────────────────────────────────────────────────────
+
+const OUTBOUND_COLS = [
+  { key: 'Pending',            label: 'Pending',      top: 'border-t-gray-300'    },
+  { key: 'BookingConfirmed',   label: 'Booking',      top: 'border-t-blue-400'    },
+  { key: 'PickStarted',        label: 'Picking',      top: 'border-t-sky-400'     },
+  { key: 'PickConfirmed',      label: 'Pick Done',    top: 'border-t-cyan-500'    },
+  { key: 'ReadyForCollection', label: 'Ready',        top: 'border-t-teal-400'    },
+  { key: 'Packed',             label: 'Packed',       top: 'border-t-indigo-400'  },
+  { key: 'OutForDelivery',     label: 'Dispatched',   top: 'border-t-purple-400'  },
+  { key: 'Delivering',         label: 'Delivering',   top: 'border-t-purple-500'  },
+  { key: 'Delivered',          label: 'Delivered',    top: 'border-t-green-400'   },
+  { key: 'Collected',          label: 'Collected',    top: 'border-t-teal-500'    },
+  { key: 'Invoiced',           label: 'Invoiced',     top: 'border-t-green-500'   },
+  { key: 'OnHold',             label: 'On Hold',      top: 'border-t-red-500',    exception: true },
+  { key: 'Paid',               label: 'Paid',         top: 'border-t-emerald-500' },
+  { key: 'Cancelled',          label: 'Cancelled',    top: 'border-t-red-400',    closed: true    },
+  { key: 'Returned',           label: 'Returned',     top: 'border-t-rose-400',   closed: true    },
+];
+
+const PO_STATUSES = ['Created', 'PartiallyReceived', 'FullyReceived', 'Closed'];
+const TO_STATUSES = ['Created', 'PickConfirmed', 'InTransit', 'Received', 'Completed'];
+
+function OrderCard({ order, onClick }) {
+  const urg     = orderUrgency(order);
+  const slot    = order.deliverySlot;
+  const slotUrg = slotUrgency(slot);
+  const borderCls = urg === 'critical'
+    ? 'border-red-300 bg-red-50 hover:border-red-400'
+    : urg === 'warning'
+    ? 'border-amber-300 bg-amber-50 hover:border-amber-400'
+    : 'border-gray-200 bg-white hover:border-blue-300';
+  return (
+    <button
+      onClick={() => onClick(order)}
+      className={`w-full text-left border rounded-xl p-3 mb-2 hover:shadow-md transition-all cursor-pointer ${borderCls}`}>
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="font-mono text-xs font-bold text-gray-700 truncate">{order.id}</span>
+        <Badge text={order.type} cls={`${TYPE_BADGE[order.type] || 'bg-gray-100 text-gray-700'} shrink-0`} />
+      </div>
+      <div className="text-sm font-medium text-gray-800 truncate">{order.customer}</div>
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-xs text-gray-400">{order.items} items · {order.store}</span>
+        <span className="text-xs font-bold text-gray-700">฿{order.amount?.toLocaleString()}</span>
+      </div>
+      {order.orderDate && (
+        <div className="text-xs text-gray-400 mt-1">{fmtOrderTime(order.orderDate)}</div>
+      )}
+      {slot && (
+        <div className={`mt-1.5 text-xs font-medium flex items-center gap-1
+          ${slotUrg === 'overdue' ? 'text-red-600'
+          : slotUrg === 'active'  ? 'text-orange-600'
+          : slotUrg === 'soon'    ? 'text-amber-600'
+          :                         'text-blue-500'}`}>
+          <span>{slotUrg === 'overdue' ? '⚠' : slotUrg === 'active' ? '⏱' : '🕐'}</span>
+          <span>
+            {new Date(slot.scheduledStart).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false})}–{new Date(slot.scheduledEnd).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false})}
+            {slotUrg === 'overdue' ? ' · Late' : slotUrg === 'active' ? ' · Active' : slotUrg === 'soon' ? ' · Soon' : ''}
+          </span>
+        </div>
+      )}
+      {order.holdReason && (
+        <div className="mt-1 text-xs text-red-700 font-semibold flex items-center gap-1">
+          <span>🚨</span><span>{order.holdReason}</span>
+        </div>
+      )}
+      {order.posRecalcPending && (
+        <div className="mt-1 text-xs text-amber-700 font-medium">⚠ Recalc Pending</div>
+      )}
+    </button>
+  );
+}
+
+function POCard({ po }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="font-mono text-xs font-bold text-violet-700">{po.id}</span>
+        <Badge text={po.status} cls={STATUS_COLOR[po.status] || 'bg-gray-100 text-gray-700'} />
+      </div>
+      <div className="text-sm font-medium text-gray-800 truncate">{po.supplier}</div>
+      <div className="text-xs text-gray-400 mt-1">{po.store} · {po.lines} lines</div>
+      <div className="text-xs font-bold text-gray-700 mt-0.5">฿{po.value?.toLocaleString()}</div>
+    </div>
+  );
+}
+
+function TOCard({ to }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="font-mono text-xs font-bold text-amber-700">{to.id}</span>
+        <Badge text={to.status} cls={STATUS_COLOR[to.status] || 'bg-gray-100 text-gray-700'} />
+      </div>
+      <div className="text-sm text-gray-700">{to.source} → {to.dest}</div>
+      <div className="text-xs text-gray-400 mt-1">
+        {to.lines} lines{to.tracking ? ` · ${to.tracking}` : ''}
+      </div>
+    </div>
+  );
+}
+
+function ReturnCard({ ret }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="font-mono text-xs font-bold text-rose-700">{ret.returnOrderNumber}</span>
+        <Badge text={ret.status} cls={RETURN_STATUS_COLOR[ret.status] || 'bg-gray-100 text-gray-700'} />
+      </div>
+      <div className="text-xs text-gray-600 font-mono">{ret.orderId}</div>
+      <div className="text-xs text-gray-500 mt-0.5">
+        {ret.returnReason} · {ret.items.length} item{ret.items.length !== 1 ? 's' : ''}
+      </div>
+    </div>
+  );
+}
+
+function KPISummary({ orders }) {
+  const active    = orders.filter(o => !['Paid','Cancelled','Returned'].includes(o.status));
+  const attention = orders.filter(o => orderUrgency(o) !== null);
+  const onHold    = orders.filter(o => o.status === 'OnHold');
+  const paidRev   = orders.filter(o => o.status === 'Paid').reduce((s, o) => s + (o.amount || 0), 0);
+  const kpis = [
+    { label: 'Active Orders',   value: active.length,               sub: `of ${orders.length} total`,                              color: 'blue'    },
+    { label: 'Needs Attention', value: attention.length,             sub: 'hold · late · recalc',                                   color: attention.length > 0 ? 'red' : 'gray' },
+    { label: 'On Hold',         value: onHold.length,                sub: onHold.map(o => o.id).join(', ') || 'none',               color: onHold.length > 0 ? 'amber' : 'gray' },
+    { label: 'Paid Revenue',    value: `฿${paidRev.toLocaleString()}`, sub: `${orders.filter(o => o.status === 'Paid').length} orders paid`, color: 'emerald' },
+  ];
+  const C = {
+    blue:    { bg: 'bg-blue-50',    bd: 'border-blue-200',    val: 'text-blue-700',    sub: 'text-blue-500'    },
+    red:     { bg: 'bg-red-50',     bd: 'border-red-200',     val: 'text-red-700',     sub: 'text-red-500'     },
+    amber:   { bg: 'bg-amber-50',   bd: 'border-amber-200',   val: 'text-amber-700',   sub: 'text-amber-500'   },
+    emerald: { bg: 'bg-emerald-50', bd: 'border-emerald-200', val: 'text-emerald-700', sub: 'text-emerald-500' },
+    gray:    { bg: 'bg-gray-50',    bd: 'border-gray-200',    val: 'text-gray-600',    sub: 'text-gray-400'    },
+  };
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      {kpis.map(k => {
+        const c = C[k.color];
+        return (
+          <div key={k.label} className={`${c.bg} border ${c.bd} rounded-xl px-4 py-3`}>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{k.label}</div>
+            <div className={`text-2xl font-black ${c.val}`}>{k.value}</div>
+            <div className={`text-xs mt-0.5 truncate ${c.sub}`}>{k.sub}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AttentionBanner({ orders }) {
+  const flagged = orders
+    .filter(o => orderUrgency(o) !== null)
+    .sort((a, b) => (orderUrgency(a) === 'critical' ? -1 : 1));
+  if (flagged.length === 0) return null;
+  return (
+    <div className="mb-4 border border-red-200 rounded-xl p-3 bg-red-50">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm font-bold text-red-700">Needs Attention</span>
+        <span className="text-xs text-red-600 bg-red-100 border border-red-200 rounded-full px-2 py-0.5 font-semibold">{flagged.length}</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {flagged.map(o => {
+          const urg = orderUrgency(o);
+          const reason = o.holdReason
+            ? o.holdReason
+            : o.posRecalcPending
+            ? 'Recalc Pending'
+            : slotUrgency(o.deliverySlot) === 'overdue'
+            ? 'Slot Overdue'
+            : 'Slot Active';
+          return (
+            <div key={o.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border
+              ${urg === 'critical' ? 'bg-red-100 border-red-300 text-red-800' : 'bg-amber-100 border-amber-300 text-amber-800'}`}>
+              <span>{urg === 'critical' ? '🚨' : '⚠'}</span>
+              <span className="font-mono font-bold">{o.id}</span>
+              <span>·</span>
+              <span>{reason}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCol({ col, cards, onCardClick }) {
+  const bgCls    = col.exception ? 'bg-red-50'   : 'bg-gray-50';
+  const countCls = col.exception
+    ? 'bg-red-100 border-red-200 text-red-700'
+    : 'bg-white border-gray-200 text-gray-500';
+  const lblCls   = col.exception ? 'text-red-600' : 'text-gray-500';
+  return (
+    <div className={`kanban-col ${bgCls} rounded-xl border-t-4 ${col.top} border border-gray-200 p-3 flex flex-col`}>
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <span className={`text-xs font-bold uppercase tracking-wider truncate ${lblCls}`}>
+          {col.exception && '⚠ '}{col.label}
+        </span>
+        <span className={`ml-1 border text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shrink-0 ${countCls}`}>
+          {cards.length}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto" style={{ maxHeight: 520 }}>
+        {cards.length === 0
+          ? <div className="text-xs text-gray-300 text-center py-6">—</div>
+          : cards.map(o => <OrderCard key={o.id} order={o} onClick={onCardClick} />)
+        }
+      </div>
+    </div>
+  );
+}
+
+function InboundMiniKanban({ title, badge, statuses, items, renderCard, borderColor }) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="font-semibold text-gray-800 text-sm">{title}</h2>
+        <Badge text={badge.text} cls={badge.cls} />
+        <span className="text-xs text-gray-400">{items.length} total</span>
+      </div>
+      <div className="kanban-scroll">
+        <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+          {statuses.map(status => {
+            const cards = items.filter(i => i.status === status);
+            return (
+              <div key={status} className={`min-w-52 max-w-52 bg-gray-50 rounded-xl border-t-4 ${borderColor} border border-gray-200 p-3`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wide truncate mr-1">{status}</span>
+                  <span className="text-xs text-gray-400 font-medium shrink-0">{cards.length}</span>
+                </div>
+                {cards.length === 0
+                  ? <div className="text-xs text-gray-300 py-3 text-center">—</div>
+                  : cards.map(c => renderCard(c))
+                }
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KanbanBoard({ onOrderClick }) {
+  const { orders, purchaseOrders, transferOrders, returns } = React.useContext(DataContext);
+  const [tab, setTab]                   = useState('outbound');
+  const [showClosed, setShowClosed]     = useState(false);
+  const [selectedStore, setSelectedStore] = useState('All');
+
+  const stores = React.useMemo(
+    () => ['All', ...[...new Set(orders.map(o => o.store))].sort()],
+    [orders]
+  );
+
+  const filteredOrders = selectedStore === 'All'
+    ? orders
+    : orders.filter(o => o.store === selectedStore);
+
+  const visibleCols = showClosed
+    ? OUTBOUND_COLS
+    : OUTBOUND_COLS.filter(c => !c.closed);
+
+  const grouped = OUTBOUND_COLS.reduce((acc, col) => {
+    acc[col.key] = filteredOrders.filter(o => o.status === col.key);
+    return acc;
+  }, {});
+
+  const closedCount = filteredOrders.filter(o => {
+    const col = OUTBOUND_COLS.find(c => c.key === o.status);
+    return col && col.closed;
+  }).length;
+
+  return (
+    <div className="p-4 pb-16">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Order Board</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Simulated: Jan 15, 2024 · 16:00 · click any card for details</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedStore}
+            onChange={e => setSelectedStore(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:border-blue-400">
+            {stores.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {[['outbound', 'Outbound'], ['inbound', 'Inbound']].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {tab === 'outbound' && (
+        <>
+          <KPISummary orders={filteredOrders} />
+          <AttentionBanner orders={filteredOrders} />
+          <div className="flex items-center justify-end mb-3">
+            <button
+              onClick={() => setShowClosed(v => !v)}
+              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg bg-white transition-colors">
+              {showClosed ? '▼ Hide Closed' : `▶ Show Closed (${closedCount})`}
+            </button>
+          </div>
+          <div className="kanban-scroll">
+            <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+              {visibleCols.map(col => (
+                <KanbanCol key={col.key} col={col} cards={grouped[col.key] || []} onCardClick={onOrderClick} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === 'inbound' && (
+        <div className="flex flex-col gap-8">
+          <InboundMiniKanban
+            title="Purchase Orders" badge={{ text: 'PO', cls: 'bg-violet-100 text-violet-700 border border-violet-200' }}
+            statuses={PO_STATUSES} items={purchaseOrders} borderColor="border-t-violet-400"
+            renderCard={p => <POCard key={p.id} po={p} />}
+          />
+          <InboundMiniKanban
+            title="Transfer Orders" badge={{ text: 'TO', cls: 'bg-amber-100 text-amber-700 border border-amber-200' }}
+            statuses={TO_STATUSES} items={transferOrders} borderColor="border-t-amber-400"
+            renderCard={t => <TOCard key={t.id} to={t} />}
+          />
+          <InboundMiniKanban
+            title="Returns" badge={{ text: 'RET', cls: 'bg-rose-100 text-rose-700 border border-rose-200' }}
+            statuses={RETURN_STATUSES} items={returns} borderColor="border-t-rose-400"
+            renderCard={r => <ReturnCard key={r.id} ret={r} />}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// STOCK FLOW — COMPONENTS
+// ─────────────────────────────────────────────────────────────
+
+// Unit dots — each circle is one physical unit coloured by who consumed it
+function UnitDots({ orders, total }) {
+  const consumed = orders.reduce((s, o) => s + o.qty, 0);
+  const units = [
+    ...orders.flatMap(o => Array(o.qty).fill(o)),
+    ...Array(total - consumed).fill(null),
+  ];
+  return (
+    <div className="flex gap-2 flex-wrap justify-center">
+      {units.map((o, i) => (
+        <div key={i} className="flex flex-col items-center gap-1">
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shadow
+            ${o ? o.dotCls : 'bg-gray-200 text-gray-400'}`}>
+            {i + 1}
+          </div>
+          <span className={`text-xs font-medium ${o ? o.labelCls : 'text-gray-400'}`}>
+            {o ? o.id : '—'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Proportional allocation bar
+function SegmentedBar({ orders, total }) {
+  const remaining = total - orders.reduce((s, o) => s + o.qty, 0);
+  const segments = [
+    ...orders.map(o => ({ label: `${o.id} (${o.qty} units)`, pct: (o.qty / total) * 100, cls: o.barCls })),
+    { label: `Remaining (${remaining})`, pct: (remaining / total) * 100, cls: 'bg-gray-200' },
+  ];
+  return (
+    <div>
+      <div className="flex h-8 rounded-xl overflow-hidden gap-0.5">
+        {segments.map((s, i) => (
+          <div key={i} style={{ width: `${s.pct}%` }}
+            className={`${s.cls} flex items-center justify-center text-white text-xs font-bold transition-all`}>
+            {s.pct >= 15 && `${Math.round(s.pct)}%`}
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-4 mt-2 flex-wrap">
+        {segments.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded ${s.cls}`} />
+            <span className="text-xs text-gray-600">{s.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Stock ledger table
+function LedgerTable({ ledger, total }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
+            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Direction</th>
+            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Reference</th>
+            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
+            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</th>
+            <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Balance</th>
+            <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ledger.map(row => (
+            <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <td className="py-3 px-3 font-mono text-xs text-gray-500">{row.time}</td>
+              <td className="py-3 px-3">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${row.dir === 'in' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {row.dir === 'in' ? '↓ INBOUND' : '↑ OUTBOUND'}
+                </span>
+              </td>
+              <td className="py-3 px-3">
+                <span className={`font-mono text-xs font-bold ${row.dir === 'in' ? 'text-violet-700' : 'text-blue-700'}`}>
+                  {row.ref}
+                </span>
+              </td>
+              <td className="py-3 px-3 text-xs text-gray-700 font-medium">{row.event}</td>
+              <td className={`py-3 px-3 text-right font-mono font-bold text-sm ${row.qtyChange > 0 ? 'text-violet-600' : 'text-blue-600'}`}>
+                {row.qtyChange > 0 ? `+${row.qtyChange}` : row.qtyChange}
+              </td>
+              <td className="py-3 px-3 text-right">
+                <span className="font-mono font-bold text-gray-900 text-sm">{row.balance}</span>
+                <div className="flex gap-0.5 justify-end mt-1">
+                  {Array(total).fill(0).map((_, i) => (
+                    <div key={i} className={`w-2 h-2 rounded-sm ${i < row.balance ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                  ))}
+                </div>
+              </td>
+              <td className="py-3 px-3 text-xs text-gray-500 max-w-xs">{row.detail}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Connector line between cards
+function Connector({ label, color = 'text-gray-400' }) {
+  return (
+    <div className="flex flex-col items-center py-1 shrink-0">
+      <div className="w-px h-4 bg-gray-300" />
+      <span className={`text-xs font-semibold ${color} px-2`}>{label}</span>
+      <div className="w-px h-4 bg-gray-300" />
+    </div>
+  );
+}
+
+// Reusable small ledger for a single location
+function MiniLedger({ rows, locationName, locationColor }) {
+  return (
+    <div>
+      <div className={`text-xs font-bold uppercase tracking-wide mb-2 ${locationColor}`}>{locationName} — Stock Ledger</div>
+      <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left py-1.5 px-3 text-gray-500 font-semibold">Time</th>
+              <th className="text-left py-1.5 px-3 text-gray-500 font-semibold">Dir</th>
+              <th className="text-left py-1.5 px-3 text-gray-500 font-semibold">Ref</th>
+              <th className="text-left py-1.5 px-3 text-gray-500 font-semibold">Event</th>
+              <th className="text-right py-1.5 px-3 text-gray-500 font-semibold">Qty</th>
+              <th className="text-right py-1.5 px-3 text-gray-500 font-semibold">Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => (
+              <tr key={row.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <td className="py-2 px-3 font-mono text-gray-400">{row.time}</td>
+                <td className="py-2 px-3">
+                  <span className={`font-bold px-1.5 py-0.5 rounded text-xs ${row.dir === 'in' ? 'bg-violet-100 text-violet-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {row.dir === 'in' ? '↓ IN' : '↑ OUT'}
+                  </span>
+                </td>
+                <td className={`py-2 px-3 font-mono font-bold ${row.dir === 'in' ? 'text-violet-700' : 'text-blue-700'}`}>{row.ref}</td>
+                <td className="py-2 px-3 text-gray-600">{row.event}</td>
+                <td className={`py-2 px-3 text-right font-mono font-bold ${row.qtyChange > 0 ? 'text-violet-600' : 'text-blue-600'}`}>
+                  {row.qtyChange > 0 ? `+${row.qtyChange}` : row.qtyChange}
+                </td>
+                <td className="py-2 px-3 text-right">
+                  <span className="font-mono font-bold text-gray-800">{row.balance}</span>
+                  <div className="flex gap-0.5 justify-end mt-0.5">
+                    {Array(row.total).fill(0).map((_, i) => (
+                      <div key={i} className={`w-2 h-2 rounded-sm ${i < row.balance ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FlowConnector({ label, color = 'text-gray-500', note }) {
+  return (
+    <div className="flex flex-col items-center py-0.5">
+      <div className="w-px h-3 bg-gray-300" />
+      <div className="flex items-center gap-1">
+        <span className={`text-xs font-bold ${color}`}>{label}</span>
+        {note && <span className="text-xs text-gray-400">· {note}</span>}
+      </div>
+      <div className="w-px h-3 bg-gray-300" />
+      <div className={`w-2 h-2 rotate-45 border-r-2 border-b-2 ${color.replace('text-', 'border-')} -mt-1`} />
+    </div>
+  );
+}
+
+function StockMiniBar({ label, events, total, colorCls }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-xs font-semibold text-gray-600">{label}</div>
+      {events.map(e => (
+        <div key={e.id} className="flex items-center gap-2">
+          <span className="font-mono text-xs text-gray-400 w-10 shrink-0">{e.time}</span>
+          <div className="flex gap-0.5 flex-1">
+            {Array(total).fill(0).map((_, i) => (
+              <div key={i} className={`flex-1 h-4 rounded-sm ${i < e.balance ? colorCls : 'bg-gray-100'}`} />
+            ))}
+          </div>
+          <span className={`text-xs font-bold w-4 text-right ${e.qtyChange > 0 ? 'text-violet-600' : 'text-red-500'}`}>
+            {e.balance}
+          </span>
+          <span className="text-xs text-gray-400 truncate w-32 hidden sm:block">{e.ref}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TransferFlowCase() {
+  const { stockFlow } = React.useContext(DataContext);
+  const { sku, centralLedger, storeALedger } = stockFlow.case2;
+  return (
+    <div className="space-y-5">
+
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+        <strong>New in this case:</strong> A Transfer Order acts as both an <em>outbound event at Central DC</em> (stock leaves)
+        and an <em>inbound event at Store A</em> (stock arrives). One PO feeds two different stores through the transfer bridge.
+        Orders consume from whichever WMS location they belong to.
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">
+          Multi-location Flow — PO → Transfer → Orders
+        </div>
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-violet-50 border-2 border-violet-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-mono font-bold text-violet-700">PO-001</span>
+              <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 rounded">INBOUND · PO</span>
+            </div>
+            <div className="text-sm font-semibold text-gray-800">Fresh Foods Ltd</div>
+            <div className="flex gap-3 mt-2">
+              <div className="flex-1 bg-white rounded-lg border border-violet-100 p-2 text-center">
+                <div className="text-xl font-black text-emerald-600">10</div>
+                <div className="text-xs text-gray-500">received</div>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-violet-100 p-2 text-center">
+                <div className="text-xs text-gray-500 mt-1">→ Central DC</div>
+                <div className="text-xs text-gray-400">Sloc A-12</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <FlowConnector label="+ 10 put away at 10:15" color="text-violet-600" />
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">WMS Stock</span>
+              <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded">Central DC</span>
+            </div>
+            <div className="text-sm font-semibold text-gray-800">{sku} · Sloc A-12</div>
+            <div className="flex gap-0.5 mt-2">
+              {Array(10).fill(0).map((_, i) => (
+                <div key={i} className="flex-1 h-5 rounded bg-amber-300 flex items-center justify-center text-white text-xs font-bold">{i+1}</div>
+              ))}
+            </div>
+            <div className="text-xs text-amber-700 text-center mt-1 font-medium">10 available after put-away</div>
+          </div>
+        </div>
+
+        <div className="flex justify-center my-1">
+          <div className="relative w-72 h-10">
+            <div className="absolute left-1/2 top-0 w-px h-4 bg-gray-300" />
+            <div className="absolute top-4 left-1/4 right-1/4 h-px bg-gray-300" />
+            <div className="absolute top-4 left-1/4 w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 right-1/4 w-px h-4 bg-gray-300 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-1/2 text-center text-xs text-amber-600 font-semibold">− 4 transfer</div>
+            <div className="absolute bottom-0 right-0 w-1/2 text-center text-xs text-blue-600 font-semibold">− 6 pick</div>
+          </div>
+        </div>
+
+        <div className="flex gap-4 justify-center">
+
+          <div className="flex flex-col items-center gap-1 w-44">
+            <div className="w-full bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono font-bold text-amber-700 text-xs">TR-001</span>
+                <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded">TRANSFER</span>
+              </div>
+              <div className="text-xs font-semibold text-gray-700">Central DC → Store A</div>
+              <div className="text-xs text-gray-500 mt-0.5">TRK-TR-001</div>
+              <div className="flex gap-2 mt-2">
+                <div className="flex-1 bg-white rounded border border-amber-200 p-1 text-center">
+                  <div className="font-black text-amber-600">4</div>
+                  <div className="text-xs text-gray-400">units</div>
+                </div>
+                <div className="flex-1 bg-white rounded border border-amber-200 p-1 text-center">
+                  <div className="text-xs text-emerald-600 font-bold mt-0.5">Done</div>
+                  <div className="text-xs text-gray-400">14:30</div>
+                </div>
+              </div>
+            </div>
+
+            <FlowConnector label="+ 4 arrive at 14:30" color="text-amber-600" />
+
+            <div className="w-full bg-orange-50 border-2 border-orange-300 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-orange-700 uppercase tracking-wide">WMS Stock</span>
+                <span className="text-xs bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded">Store A</span>
+              </div>
+              <div className="text-xs font-semibold text-gray-700">{sku}</div>
+              <div className="flex gap-0.5 mt-2">
+                {Array(4).fill(0).map((_, i) => (
+                  <div key={i} className="flex-1 h-5 rounded bg-orange-300 flex items-center justify-center text-white text-xs font-bold">{i+1}</div>
+                ))}
+              </div>
+              <div className="text-xs text-orange-700 text-center mt-1 font-medium">4 available after transfer</div>
+            </div>
+
+            <FlowConnector label="− 3 pick at 16:00" color="text-orange-600" />
+
+            <div className="w-full bg-white border-2 border-orange-200 rounded-xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-xs mx-auto mb-1">C</div>
+              <div className="font-mono font-bold text-gray-700 text-xs">ORD-C</div>
+              <div className="text-xs text-gray-600">Charlie Wong</div>
+              <div className="text-xs text-gray-400">Store A · 16:00</div>
+              <div className="text-2xl font-black text-orange-600 my-1">3</div>
+              <div className="text-xs text-gray-500">units picked</div>
+              <div className="mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Delivered</div>
+            </div>
+
+            <div className="w-full flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 mt-1">
+              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center font-black text-gray-500 shrink-0">1</div>
+              <div>
+                <div className="text-xs font-semibold text-gray-700">1 left at Store A</div>
+                <div className="text-xs text-gray-400">Available for next order</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-1 w-44">
+            <div className="w-full bg-white border-2 border-blue-200 rounded-xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs mx-auto mb-1">A</div>
+              <div className="font-mono font-bold text-gray-700 text-xs">ORD-A</div>
+              <div className="text-xs text-gray-600">Alice Johnson</div>
+              <div className="text-xs text-gray-400">Central DC · 15:31</div>
+              <div className="text-2xl font-black text-blue-600 my-1">6</div>
+              <div className="text-xs text-gray-500">units picked</div>
+              <div className="mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Delivered</div>
+            </div>
+            <div className="w-full flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-1">
+              <div className="w-7 h-7 rounded-full bg-red-200 flex items-center justify-center font-black text-red-500 shrink-0">0</div>
+              <div>
+                <div className="text-xs font-semibold text-red-700">0 left at Central DC</div>
+                <div className="text-xs text-red-400">Stock exhausted</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">Stock Depletion by Location</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <StockMiniBar label="Central DC (10 units received via PO)" events={centralLedger} total={10} colorCls="bg-amber-300" />
+          <StockMiniBar label="Store A (4 units received via Transfer)" events={storeALedger} total={4} colorCls="bg-orange-300" />
+        </div>
+
+        <div className="mt-5">
+          <div className="text-xs font-semibold text-gray-600 mb-2">Total across both locations (10 units from PO-001)</div>
+          <div className="flex h-8 rounded-xl overflow-hidden gap-0.5">
+            {[
+              { label: 'ORD-A Alice (6)',       pct: 60, cls: 'bg-blue-400'   },
+              { label: 'ORD-C Charlie (3)',      pct: 30, cls: 'bg-orange-400' },
+              { label: 'Remaining at Store A (1)', pct: 10, cls: 'bg-gray-200' },
+            ].map((s, i) => (
+              <div key={i} style={{ width: `${s.pct}%` }}
+                className={`${s.cls} flex items-center justify-center text-white text-xs font-bold`}>
+                {s.pct >= 20 && `${s.pct}%`}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-4 mt-2 flex-wrap">
+            {[
+              { cls: 'bg-blue-400',   label: 'ORD-A · Alice · Central DC (6)' },
+              { cls: 'bg-orange-400', label: 'ORD-C · Charlie · Store A (3)'  },
+              { cls: 'bg-gray-200',   label: 'Remaining at Store A (1)'       },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded ${s.cls}`} />
+                <span className="text-xs text-gray-600">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <MiniLedger rows={centralLedger} locationName="Central DC" locationColor="text-amber-600" />
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <MiniLedger rows={storeALedger} locationName="Store A" locationColor="text-orange-600" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">What OMS sees vs what WMS sees</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            {
+              title: 'OMS records (events only)',
+              color: 'bg-blue-50 border-blue-200 text-blue-800',
+              rows: [
+                'PO-001 → PurchaseOrderPutAwayConfirmed',
+                'TR-001 → TransferPickConfirmed (source)',
+                'TR-001 → TransferReceived (destination)',
+                'ORD-A → PickConfirmed (qty 6)',
+                'ORD-C → PickConfirmed (qty 3)',
+              ]
+            },
+            {
+              title: 'WMS knows (stock counts)',
+              color: 'bg-amber-50 border-amber-200 text-amber-800',
+              rows: [
+                'Central DC: A-12 had 10, now has 0',
+                'Store A: received 4 from TR-001, now has 1',
+                'Total on-hand APPLE-1KG: 1 unit (at Store A)',
+                'ORD-A reserved 6 from Sloc A-12',
+                'ORD-C reserved 3 from Store A shelf',
+              ]
+            }
+          ].map(col => (
+            <div key={col.title} className={`p-4 rounded-xl border ${col.color}`}>
+              <div className="font-semibold text-sm mb-2">{col.title}</div>
+              <ul className="space-y-1">
+                {col.rows.map((r, i) => (
+                  <li key={i} className="text-xs flex gap-2">
+                    <span className="shrink-0">•</span><span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StockFlowCase1() {
+  const { stockFlow } = React.useContext(DataContext);
+  const { sku, skuName, unitPrice, total, po, orders, ledger } = stockFlow.case1;
+  const ordersWithColors = orders.map(o => ({ ...o, ...(SF_ORDER_COLORS[o.id] || {}) }));
+  const remaining = total - ordersWithColors.reduce((s, o) => s + o.qty, 0);
+
+  return (
+    <div>
+
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-mono font-bold text-lg text-gray-900">{sku}</span>
+          <span className="text-gray-400">—</span>
+          <span className="text-gray-700">{skuName}</span>
+          <span className="ml-2 text-xs bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-mono">฿{unitPrice}/unit</span>
+        </div>
+        <p className="text-sm text-gray-500">
+          Scenario: 1 Purchase Order delivers {total} units → {ordersWithColors.length} customers consume {total - remaining} → {remaining} remains in WMS
+        </p>
+        <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <strong>Key point:</strong> OMS does not directly link {po.id} to ORD-A or ORD-B.
+          The link is through <strong>WMS stock</strong>: PO put-away increments available stock;
+          each PickConfirmed decrements it. The WMS is the stock-of-record.
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">Flow Diagram — Inbound → Stock → Outbound</div>
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-violet-50 border-2 border-violet-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono font-bold text-violet-700 text-sm">{po.id}</span>
+              <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 rounded font-medium">INBOUND · PO</span>
+            </div>
+            <div className="font-semibold text-gray-800">{po.supplier}</div>
+            <div className="text-xs text-gray-500 mt-0.5">{po.store} · Sloc {po.sloc}</div>
+            <div className="mt-3 flex gap-3">
+              <div className="flex-1 bg-white rounded-lg border border-violet-200 p-2 text-center">
+                <div className="text-2xl font-black text-violet-700">{po.orderedQty}</div>
+                <div className="text-xs text-gray-500">ordered</div>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-violet-200 p-2 text-center">
+                <div className="text-2xl font-black text-emerald-600">{po.receivedQty}</div>
+                <div className="text-xs text-gray-500">received</div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-2 text-xs text-gray-400">
+              <span>Received {po.receivedAt}</span>
+              <span>·</span>
+              <span>Put away {po.putAwayAt}</span>
+            </div>
+          </div>
+        </div>
+
+        <Connector label={`+ ${total} units put away`} color="text-violet-600" />
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">WMS Stock</span>
+              <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-medium">BRIDGE</span>
+            </div>
+            <div className="font-semibold text-gray-800">{sku} · Sloc {po.sloc}</div>
+            <div className="mt-3 flex gap-1">
+              {Array(total).fill(0).map((_, i) => (
+                <div key={i} className="flex-1 h-6 rounded bg-amber-300 flex items-center justify-center text-white text-xs font-bold">{i + 1}</div>
+              ))}
+            </div>
+            <div className="text-xs text-amber-700 mt-1.5 font-medium text-center">{total} units available after put-away</div>
+            <div className="text-xs text-amber-600 mt-0.5 text-center">OMS doesn't count these — WMS does</div>
+          </div>
+        </div>
+
+        <div className="flex justify-center my-2">
+          <div className="relative w-72 h-10">
+            <div className="absolute left-1/2 top-0 w-px h-4 bg-gray-300" />
+            <div className="absolute top-4 left-1/4 right-1/4 h-px bg-gray-300" />
+            <div className="absolute top-4 left-1/4 w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 right-1/4 w-px h-4 bg-gray-300 translate-x-1/2" />
+            {ordersWithColors.map((o, i) => (
+              <div key={o.id}
+                className={`absolute bottom-0 text-xs font-semibold ${o.labelCls}`}
+                style={{ left: i === 0 ? '25%' : '75%', transform: 'translateX(-50%)' }}>
+                − {o.qty}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4">
+          {ordersWithColors.map(o => (
+            <div key={o.id} className="w-32 bg-white border-2 border-blue-200 rounded-xl p-3 flex flex-col items-center text-center">
+              <span className={`w-8 h-8 rounded-full ${o.dotCls} flex items-center justify-center text-white font-bold text-xs mb-2`}>
+                {o.id.replace('ORD-', '')}
+              </span>
+              <span className="font-mono font-bold text-gray-700 text-sm">{o.id}</span>
+              <span className="text-xs text-gray-600 mt-0.5 truncate w-full">{o.customer}</span>
+              <div className={`mt-2 text-2xl font-black ${o.labelCls}`}>{o.qty}</div>
+              <div className="text-xs text-gray-500">units picked</div>
+              <div className={`mt-2 text-xs px-2 py-0.5 rounded font-medium ${o.statusCls}`}>{o.status}</div>
+              <div className="text-xs text-gray-400 mt-1">{o.pickedAt}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-center mt-5">
+          <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-5 py-3">
+            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-black text-lg">{remaining}</div>
+            <div>
+              <div className="font-semibold text-gray-700 text-sm">{remaining} unit{remaining !== 1 ? 's' : ''} remaining in WMS</div>
+              <div className="text-xs text-gray-400">Still on shelf Sloc {po.sloc} — available for the next order</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Stock Depletion — {total} Individual Units</div>
+
+        <div className="mb-5">
+          <div className="text-xs text-gray-500 mb-2 font-medium">Proportional breakdown</div>
+          <SegmentedBar orders={ordersWithColors} total={total} />
+        </div>
+
+        <div>
+          <div className="text-xs text-gray-500 mb-3 font-medium">Each unit — who got it?</div>
+          <UnitDots orders={ordersWithColors} total={total} />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">
+          Stock Movement Ledger
+          <span className="ml-2 text-gray-300 font-normal normal-case">running balance after each WMS event</span>
+        </div>
+        <LedgerTable ledger={ledger} total={total} />
+
+        <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="text-xs font-semibold text-slate-600 mb-1">Why OMS doesn't own the balance column</div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            The "Balance" column above lives in WMS, not OMS. OMS only knows that a <code className="bg-slate-200 px-1 rounded">PurchaseOrderPutAwayConfirmed</code> webhook arrived
+            (goods went in) and two <code className="bg-slate-200 px-1 rounded">PickConfirmed</code> webhooks arrived (goods went out). WMS tracks the actual count.
+            If you want to know "how many {sku} are on shelf right now?", you ask WMS — not OMS.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StockFlowCase3() {
+  const { stockFlow } = React.useContext(DataContext);
+  const { sku, skuName, unitPrice, total, po, orders, substitutions, ledger } = stockFlow.case3;
+
+  function orderColors(o) {
+    if (o.status === 'Cancelled')  return { dot: 'bg-red-300',   bar: 'bg-red-200',   label: 'text-red-400',   statusCls: 'bg-red-100 text-red-600'    };
+    if (o.hasSubstitution)         return { dot: 'bg-amber-500', bar: 'bg-amber-400', label: 'text-amber-700', statusCls: 'bg-amber-100 text-amber-700' };
+    return                                { dot: 'bg-blue-500',  bar: 'bg-blue-400',  label: 'text-blue-700',  statusCls: 'bg-green-100 text-green-700' };
+  }
+
+  const unitStates = [
+    ...Array(5).fill({ id: 'ORD-A', color: 'bg-blue-500'  }),
+    ...Array(2).fill({ id: 'ORD-C', color: 'bg-amber-500' }),
+    ...Array(3).fill({ id: '↩ B',   color: 'bg-gray-300'  }),
+  ];
+
+  return (
+    <div className="space-y-4">
+
+      <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl">
+        <div className="font-bold text-rose-800 text-sm mb-1">Scenario: Oversell → Late Cancellation → Short-Pick + Substitution</div>
+        <p className="text-xs text-rose-700 leading-relaxed">
+          Three orders totalling <strong>11 units</strong> were accepted against only <strong>10 in stock</strong>.
+          Picking ran concurrently. ORD-B's cancellation arrived <em>after</em> ORD-C's picker had already
+          reached the shelf and found only 2 units left. The short-pick triggered a substitution.
+          ORD-B's 3 returned units are available for future orders — but could not help Charlie.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">
+          Flow — Oversell + Cancellation + Short-Pick
+        </div>
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-violet-50 border-2 border-violet-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono font-bold text-violet-700">{po.id}</span>
+              <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 rounded">INBOUND · PO</span>
+            </div>
+            <div className="font-semibold text-gray-800">{po.supplier}</div>
+            <div className="mt-3 flex gap-3">
+              <div className="flex-1 bg-white rounded-lg border border-violet-200 p-2 text-center">
+                <div className="text-2xl font-black text-violet-700">{po.orderedQty}</div>
+                <div className="text-xs text-gray-500">ordered</div>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-violet-200 p-2 text-center">
+                <div className="text-2xl font-black text-emerald-600">{po.receivedQty}</div>
+                <div className="text-xs text-gray-500">received</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Connector label={`+ ${total} units put away`} color="text-violet-600" />
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">WMS Stock</span>
+              <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded">BRIDGE</span>
+            </div>
+            <div className="font-semibold text-gray-800">{sku} · Sloc {po.sloc}</div>
+            <div className="mt-2 flex gap-1">
+              {Array(total).fill(0).map((_, i) => (
+                <div key={i} className="flex-1 h-6 rounded bg-amber-300 flex items-center justify-center text-white text-xs font-bold">{i+1}</div>
+              ))}
+            </div>
+            <div className="text-xs text-amber-700 mt-1.5 font-medium text-center">{total} units available</div>
+            <div className="mt-2 p-2 bg-rose-100 border border-rose-200 rounded-lg text-center">
+              <span className="text-xs font-bold text-rose-700">Total demand: 5+3+3 = 11 &gt; 10 ⚠ Oversold by 1</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-center my-2">
+          <div className="relative w-96 h-10">
+            <div className="absolute left-1/2 top-0 w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 left-[10%] right-[10%] h-px bg-gray-300" />
+            <div className="absolute top-4 left-[17%] w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 left-1/2    w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 right-[17%] w-px h-4 bg-gray-300 translate-x-1/2" />
+            {orders.map((o, i) => {
+              const c = orderColors(o);
+              return (
+                <div key={o.id}
+                  className={`absolute bottom-0 text-xs font-semibold ${c.label} ${o.status === 'Cancelled' ? 'line-through' : ''}`}
+                  style={{ left: ['17%','50%','83%'][i], transform: 'translateX(-50%)' }}>
+                  −{o.pickedQty}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex gap-3 justify-center">
+          {orders.map(o => {
+            const c = orderColors(o);
+            return (
+              <div key={o.id}
+                className={`w-32 rounded-xl p-3 flex flex-col items-center text-center border-2
+                  ${o.status === 'Cancelled' ? 'bg-red-50 border-red-200 opacity-80'
+                  : o.hasSubstitution       ? 'bg-amber-50 border-amber-300'
+                  :                           'bg-white border-blue-200'}`}>
+                <div className={`w-9 h-9 rounded-full ${c.dot} flex items-center justify-center text-white font-bold text-xs mb-2`}>
+                  {o.id.replace('ORD-','')}
+                </div>
+                <span className="font-mono font-bold text-gray-700 text-xs">{o.id}</span>
+                <span className="text-xs text-gray-600 mt-0.5 truncate w-full text-center">{o.customer}</span>
+
+                {o.status === 'Cancelled' ? (
+                  <div className="mt-2 text-center">
+                    <div className={`text-2xl font-black ${c.label} line-through`}>{o.orderedQty}</div>
+                    <div className="text-xs text-gray-400">ordered</div>
+                    <div className="mt-1 text-xs font-bold text-rose-600">+3 returned</div>
+                    <div className="text-xs text-gray-400">{o.cancelledAt}</div>
+                  </div>
+                ) : o.hasSubstitution ? (
+                  <div className="mt-2 text-center">
+                    <div className={`text-2xl font-black ${c.label}`}>{o.pickedQty}<span className="text-sm font-normal text-gray-400">/{o.orderedQty}</span></div>
+                    <div className="text-xs text-amber-700 font-semibold">short-pick</div>
+                    <div className="mt-1 text-xs bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">+{o.shortQty} sub</div>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-center">
+                    <div className={`text-2xl font-black ${c.label}`}>{o.pickedQty}</div>
+                    <div className="text-xs text-gray-500">picked</div>
+                  </div>
+                )}
+
+                <div className={`mt-2 text-xs px-2 py-0.5 rounded font-medium ${c.statusCls}`}>{o.status}</div>
+                <div className="text-xs text-gray-400 mt-1">{o.pickedAt}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-center mt-4">
+          <div className="bg-rose-50 border border-rose-200 rounded-xl px-5 py-3 flex items-center gap-3 max-w-md">
+            <span className="text-2xl shrink-0">↩</span>
+            <div>
+              <div className="text-xs font-bold text-rose-700">ORD-B cancelled 16:30 — 3 units returned to shelf</div>
+              <div className="text-xs text-rose-600 mt-0.5">
+                Charlie's pick happened at 16:00 — 30 minutes before the cancellation arrived.
+                The 3 returned units are available for the next order.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Final State — {total} Units</div>
+        <div className="flex gap-2 flex-wrap justify-center mb-4">
+          {unitStates.map((u, i) => (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs shadow ${u.color}`}>
+                {u.id === '↩ B' ? '↩' : i + 1}
+              </div>
+              <span className="text-xs text-gray-400 font-medium" style={{ fontSize: 9 }}>{u.id}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-5 flex-wrap justify-center text-xs">
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-blue-500" /><span className="text-gray-600">ORD-A · Alice · 5 units · Delivered</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-amber-500" /><span className="text-gray-600">ORD-C · Charlie · 2 units APPLE-1KG · Short-pick</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-gray-300" /><span className="text-gray-600">ORD-B · 3 units returned to shelf</span></div>
+        </div>
+        <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 text-center">
+          +1 unit of ORANGE-1KG (substitute SKU) was also picked for ORD-C — tracked in a separate SKU ledger
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">order_line_substitutions</div>
+        <div className="text-xs text-gray-400 mb-4">Written when a picker cannot fully fulfil a line and offers a replacement product</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {[
+                  ['Order',       'text-left'],
+                  ['Original SKU','text-left'],
+                  ['Requested',   'text-right'],
+                  ['Picked',      'text-right'],
+                  ['Short',       'text-right'],
+                  ['Substitute SKU','text-left'],
+                  ['Sub Qty',     'text-right'],
+                  ['Sub Price',   'text-right'],
+                  ['Approved',    'text-center'],
+                  ['At',          'text-left'],
+                ].map(([h, align]) => (
+                  <th key={h} className={`py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${align}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {substitutions.map((s, i) => (
+                <tr key={i} className="border-b border-gray-100 hover:bg-amber-50">
+                  <td className="py-3 px-3 font-mono text-xs font-bold text-amber-700">{s.orderId}</td>
+                  <td className="py-3 px-3">
+                    <div className="font-mono text-xs text-gray-700 font-semibold">{s.originalSku}</div>
+                    <div className="text-xs text-gray-400">{s.originalProductName}</div>
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono text-sm text-gray-700">{s.requestedQty}</td>
+                  <td className="py-3 px-3 text-right font-mono text-sm text-gray-700">{s.pickedQty}</td>
+                  <td className="py-3 px-3 text-right">
+                    <span className="font-mono font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded text-sm">−{s.shortQty}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="font-mono text-xs font-bold text-amber-700">{s.substituteSku}</div>
+                    <div className="text-xs text-gray-400">{s.substituteProductName}</div>
+                  </td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-amber-700">{s.substituteQty}</td>
+                  <td className="py-3 px-3 text-right font-mono text-xs text-gray-600">฿{s.substituteUnitPrice}</td>
+                  <td className="py-3 px-3 text-center">
+                    {s.customerApproved
+                      ? <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">✓ Yes</span>
+                      : <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded">✗ No</span>}
+                  </td>
+                  <td className="py-3 px-3 font-mono text-xs text-gray-400">{s.approvedAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+          <strong>DB mapping:</strong> This row maps to <code className="bg-slate-200 px-1 rounded">orders.order_line_substitutions</code>.
+          <code className="bg-slate-200 px-1 rounded ml-1">order_line_id</code> references the ORD-C APPLE-1KG line.
+          A separate <code className="bg-slate-200 px-1 rounded">order_lines</code> row is inserted for ORANGE-1KG with
+          <code className="bg-slate-200 px-1 rounded ml-1">is_substitute = true</code>. POS recalculates the total
+          after substitution is confirmed, setting <code className="bg-slate-200 px-1 rounded">pos_recalc_pending = false</code>.
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">
+          Stock Movement Ledger — APPLE-1KG
+        </div>
+        <div className="text-xs text-gray-400 mb-4">ORANGE-1KG substitute is tracked in its own separate SKU ledger</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                {[['Time','text-left'],['Direction','text-left'],['Reference','text-left'],['Event','text-left'],['Qty','text-right'],['Balance','text-right'],['Detail','text-left']].map(([h,a]) => (
+                  <th key={h} className={`py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${a}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.map(row => (
+                <tr key={row.id} className={`border-b border-gray-100 transition-colors
+                  ${row.short     ? 'bg-amber-50 hover:bg-amber-100'
+                  : row.cancelled ? 'bg-rose-50 hover:bg-rose-100'
+                  :                 'hover:bg-gray-50'}`}>
+                  <td className="py-3 px-3 font-mono text-xs text-gray-500">{row.time}</td>
+                  <td className="py-3 px-3">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded
+                      ${row.cancelled ? 'bg-rose-100 text-rose-700'
+                      : row.dir === 'in' ? 'bg-violet-100 text-violet-700'
+                      :                   'bg-blue-100 text-blue-700'}`}>
+                      {row.cancelled ? '↩ RETURNED' : row.dir === 'in' ? '↓ INBOUND' : '↑ OUTBOUND'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={`font-mono text-xs font-bold
+                      ${row.cancelled ? 'text-rose-600'
+                      : row.dir === 'in' ? 'text-violet-700'
+                      :                   'text-blue-700'}`}>{row.ref}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-gray-700 font-medium">{row.event}</span>
+                      {row.short     && <span className="text-xs bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">SHORT</span>}
+                      {row.cancelled && <span className="text-xs bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded font-bold">CANCEL</span>}
+                    </div>
+                  </td>
+                  <td className={`py-3 px-3 text-right font-mono font-bold text-sm
+                    ${row.qtyChange > 0 ? 'text-violet-600'
+                    : row.short         ? 'text-amber-600'
+                    :                     'text-blue-600'}`}>
+                    {row.qtyChange > 0 ? `+${row.qtyChange}` : row.qtyChange}
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <span className={`font-mono font-bold text-sm ${row.balance === 0 ? 'text-rose-600 font-black' : 'text-gray-900'}`}>
+                      {row.balance}
+                    </span>
+                    <div className="flex gap-0.5 justify-end mt-1">
+                      {Array(total).fill(0).map((_, i) => (
+                        <div key={i} className={`w-2 h-2 rounded-sm ${i < row.balance ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-xs">{row.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 flex gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-amber-100 border border-amber-200" /><span className="text-gray-500">Short-pick — balance reached 0, substitution triggered</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-rose-100 border border-rose-200" /><span className="text-gray-500">Cancellation return — 3 units restored (arrived too late)</span></div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+const CONDITION_STYLE = {
+  Resellable: { badge: 'bg-emerald-100 text-emerald-800 border border-emerald-200', dot: 'bg-emerald-400', note: 'Back to shelf — stock restored' },
+  Repairable: { badge: 'bg-amber-100 text-amber-800 border border-amber-200',   dot: 'bg-amber-400',   note: 'Sent to repair bay — stock on hold' },
+  Dispose:    { badge: 'bg-red-100 text-red-700 border border-red-200',          dot: 'bg-red-400',     note: 'Written off — no stock change' },
+};
+
+function StockFlowCase4() {
+  const { stockFlow } = React.useContext(DataContext);
+  const { sku, skuName, unitPrice, total, originalOrder, return: ret, returnItems, refund } = stockFlow.case4;
+
+  const resellableQty = returnItems.filter(i => i.condition === 'Resellable').reduce((s, i) => s + i.qty, 0);
+  const disposeQty    = returnItems.filter(i => i.condition === 'Dispose').reduce((s, i) => s + i.qty, 0);
+
+  const unitStates = [
+    ...Array(ret.keptQty).fill(   { label: 'Kept',       color: 'bg-gray-300'   }),
+    ...Array(resellableQty).fill( { label: 'Resellable', color: 'bg-emerald-400'}),
+    ...Array(disposeQty).fill(    { label: 'Dispose',    color: 'bg-red-400'    }),
+  ];
+
+  return (
+    <div className="space-y-4">
+
+      <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl">
+        <div className="font-bold text-teal-800 text-sm mb-1">Scenario: Customer Return — Inspection, Put-Away, and Refund</div>
+        <p className="text-xs text-teal-700 leading-relaxed">
+          Alice received <strong>5 bags</strong> from ORD-001 and returns <strong>3</strong> due to a quality issue.
+          A driver collects the bags and brings them back to the warehouse.
+          Staff inspect each item and assign a condition: <em>Resellable</em> bags go back on the shelf (stock restored),
+          <em>Dispose</em> bags are written off. A refund is issued for all 3 returned items regardless of condition.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">Return Lifecycle — {ret.returnNumber}</div>
+
+        <div className="flex items-start gap-0 overflow-x-auto pb-2">
+          {[
+            { time: ret.requestedAt, label: 'Requested',  dot: 'bg-blue-400',    desc: 'Alice submits return request in app' },
+            { time: ret.pickedUpAt,  label: 'Picked Up',  dot: 'bg-purple-400',  desc: 'Driver collects bags from Alice' },
+            { time: ret.receivedAt,  label: 'Received',   dot: 'bg-orange-400',  desc: 'Warehouse dock checks in package' },
+            { time: ret.inspectedAt, label: 'Inspected',  dot: 'bg-amber-400',   desc: 'Staff assigns condition per item' },
+            { time: ret.putAwayAt,   label: 'Put Away',   dot: 'bg-emerald-500', desc: 'Resellable shelved; Dispose written off' },
+            { time: refund.processedAt, label: 'Refunded', dot: 'bg-green-500',  desc: `฿${refund.refundAmount} → ${refund.method}` },
+          ].map((step, i, arr) => (
+            <React.Fragment key={step.label}>
+              <div className="flex flex-col items-center shrink-0" style={{ minWidth: 80 }}>
+                <div className={`w-9 h-9 rounded-full ${step.dot} flex items-center justify-center text-white font-bold text-xs shadow`}>
+                  {i + 1}
+                </div>
+                <div className="font-semibold text-gray-700 text-xs mt-1 text-center">{step.label}</div>
+                <div className="font-mono text-xs text-gray-400">{step.time}</div>
+                <div className="text-center text-gray-400 mt-1 leading-tight" style={{ fontSize: 9, maxWidth: 72 }}>{step.desc}</div>
+              </div>
+              {i < arr.length - 1 && <div className="h-0.5 mt-4 flex-1 mx-1 bg-gray-200 shrink-0" style={{ minWidth: 12 }} />}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-5">
+          Flow — Delivery → Return → Inspection → Stock / Write-off
+        </div>
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono font-bold text-blue-700">{originalOrder.id}</span>
+              <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded">Delivered</span>
+            </div>
+            <div className="font-semibold text-gray-800">{originalOrder.customer}</div>
+            <div className="flex gap-3 mt-3">
+              <div className="flex-1 bg-white rounded-lg border border-blue-200 p-2 text-center">
+                <div className="text-2xl font-black text-blue-700">{originalOrder.qty}</div>
+                <div className="text-xs text-gray-500">delivered</div>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-blue-200 p-2 text-center">
+                <div className="text-xs text-gray-500 mt-1">{originalOrder.deliveredAt}</div>
+                <div className="text-xs font-mono text-blue-600">฿{unitPrice * originalOrder.qty}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Connector label={`↩ ${ret.returnedQty} of ${originalOrder.qty} units returned`} color="text-teal-600" />
+
+        <div className="flex justify-center">
+          <div className="w-72 bg-teal-50 border-2 border-teal-300 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-mono font-bold text-teal-700">{ret.id}</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded">{ret.status}</span>
+            </div>
+            <div className="text-sm text-gray-700 font-semibold">{ret.customer}</div>
+            <div className="text-xs text-gray-500 mt-0.5">Reason: {ret.returnReason}</div>
+            <div className="flex gap-3 mt-3">
+              <div className="flex-1 bg-white rounded-lg border border-teal-200 p-2 text-center">
+                <div className="text-2xl font-black text-rose-600">{ret.returnedQty}</div>
+                <div className="text-xs text-gray-500">returned</div>
+              </div>
+              <div className="flex-1 bg-white rounded-lg border border-teal-200 p-2 text-center">
+                <div className="text-2xl font-black text-gray-400">{ret.keptQty}</div>
+                <div className="text-xs text-gray-500">kept by customer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Connector label="Inspected at warehouse" color="text-amber-600" />
+
+        <div className="flex justify-center my-1">
+          <div className="relative w-72 h-10">
+            <div className="absolute left-1/2 top-0 w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 left-1/4 right-1/4 h-px bg-gray-300" />
+            <div className="absolute top-4 left-1/4 w-px h-4 bg-gray-300 -translate-x-1/2" />
+            <div className="absolute top-4 right-1/4 w-px h-4 bg-gray-300 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-1/2 text-center text-xs text-emerald-700 font-semibold">Resellable (×{resellableQty})</div>
+            <div className="absolute bottom-0 right-0 w-1/2 text-center text-xs text-red-600 font-semibold">Dispose (×{disposeQty})</div>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-4">
+          <div className="flex flex-col items-center gap-1 w-40">
+            <div className="w-full bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3 text-center">
+              <div className="w-9 h-9 rounded-full bg-emerald-400 flex items-center justify-center text-white font-bold text-lg mx-auto mb-2">✓</div>
+              <div className="font-bold text-emerald-800 text-sm">Resellable</div>
+              <div className="text-2xl font-black text-emerald-600 mt-1">{resellableQty}</div>
+              <div className="text-xs text-gray-500">units</div>
+              <div className="mt-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded">Sloc A-12</div>
+            </div>
+            <FlowConnector label="+2 back to stock" color="text-emerald-600" />
+            <div className="w-full bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3 text-center">
+              <div className="text-xs font-bold text-emerald-700 uppercase tracking-wide mb-1">WMS Stock</div>
+              <div className="text-2xl font-black text-emerald-600">+{resellableQty}</div>
+              <div className="text-xs text-gray-500">restored</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-1 w-40">
+            <div className="w-full bg-red-50 border-2 border-red-200 rounded-xl p-3 text-center">
+              <div className="w-9 h-9 rounded-full bg-red-400 flex items-center justify-center text-white font-bold text-lg mx-auto mb-2">✕</div>
+              <div className="font-bold text-red-700 text-sm">Dispose</div>
+              <div className="text-2xl font-black text-red-500 mt-1">{disposeQty}</div>
+              <div className="text-xs text-gray-500">unit</div>
+              <div className="mt-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded">No Sloc assigned</div>
+            </div>
+            <div className="flex flex-col items-center py-1">
+              <div className="w-px h-3 bg-gray-300" />
+              <span className="text-xs font-bold text-red-500 px-2">Write-off</span>
+              <div className="w-px h-3 bg-gray-300" />
+            </div>
+            <div className="w-full bg-red-50 border-2 border-red-200 rounded-xl p-3 text-center">
+              <div className="text-xs font-bold text-red-600 uppercase tracking-wide mb-1">Written Off</div>
+              <div className="text-2xl font-black text-red-400 line-through">{disposeQty}</div>
+              <div className="text-xs text-gray-500">no stock change</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">5 Units — Final State</div>
+        <div className="flex gap-2 flex-wrap justify-center mb-4">
+          {unitStates.map((u, i) => (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div className={`w-9 h-9 rounded-full ${u.color} flex items-center justify-center text-white font-bold text-xs shadow
+                ${u.label === 'Dispose' ? 'ring-2 ring-red-300 ring-offset-1' : ''}`}>
+                {i + 1}
+              </div>
+              <span className="text-gray-400 font-medium" style={{ fontSize: 9 }}>{u.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-5 flex-wrap justify-center text-xs">
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-gray-300" /><span className="text-gray-600">Kept by Alice (2) — no return</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-emerald-400" /><span className="text-gray-600">Resellable (2) — back on shelf</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-red-400" /><span className="text-gray-600">Dispose (1) — written off</span></div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">returns.return_items</div>
+        <div className="text-xs text-gray-400 mb-4">One row per returned product. <code className="bg-gray-100 px-1 rounded">condition</code> and <code className="bg-gray-100 px-1 rounded">assigned_sloc</code> are set during warehouse inspection.</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {[['return_item_id','text-left'],['return_id','text-left'],['sku','text-left'],['qty','text-right'],['condition','text-left'],['assigned_sloc','text-left'],['put_away_at','text-left'],['Stock Action','text-left']].map(([h,a]) => (
+                  <th key={h} className={`py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${a}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {returnItems.map(item => {
+                const cs = CONDITION_STYLE[item.condition];
+                return (
+                  <tr key={item.id} className={`border-b border-gray-100
+                    ${item.condition === 'Resellable' ? 'hover:bg-emerald-50'
+                    : item.condition === 'Dispose'    ? 'hover:bg-red-50'
+                    :                                   'hover:bg-amber-50'}`}>
+                    <td className="py-3 px-3 font-mono text-xs text-gray-600">{item.id}</td>
+                    <td className="py-3 px-3 font-mono text-xs font-bold text-teal-700">{ret.id}</td>
+                    <td className="py-3 px-3 font-mono text-xs font-semibold text-gray-700">{item.sku}</td>
+                    <td className="py-3 px-3 text-right font-mono font-bold text-gray-800">{item.qty}</td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2.5 h-2.5 rounded-full ${cs.dot}`} />
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${cs.badge}`}>{item.condition}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 font-mono text-xs">
+                      {item.sloc
+                        ? <span className="text-emerald-700 font-bold">{item.sloc}</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="py-3 px-3 font-mono text-xs text-gray-400">{item.putAwayAt}</td>
+                    <td className="py-3 px-3 text-xs">
+                      {item.condition === 'Resellable'
+                        ? <span className="text-emerald-700 font-semibold">{item.stockAction}</span>
+                        : <span className="text-red-500 font-semibold">{item.stockAction}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+          <strong>Condition values:</strong>
+          <span className="ml-2 font-bold text-emerald-700">Resellable</span> — item is undamaged; goes back on the shelf; WMS stock incremented.
+          <span className="ml-2 font-bold text-amber-700">Repairable</span> — item needs repair; sent to repair bay; stock on hold.
+          <span className="ml-2 font-bold text-red-600">Dispose</span> — item is destroyed or unsellable; written off; triggers cost-of-goods adjustment.
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Refund & Credit Note</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">returns.return_refunds</div>
+            <div className="space-y-2">
+              {[
+                ['refund_id',    refund.id,                            'font-mono text-gray-700'],
+                ['return_id',    ret.id,                               'font-mono text-teal-700 font-bold'],
+                ['refund_amount',`฿${refund.refundAmount}`,            'font-mono text-emerald-700 font-bold text-lg'],
+                ['currency',     refund.currency,                      'font-mono text-gray-600'],
+                ['refund_method',refund.method,                        'font-mono text-blue-700'],
+                ['status',       refund.status,                        'font-mono font-bold text-emerald-700'],
+                ['processed_at', refund.processedAt,                   'font-mono text-gray-400'],
+              ].map(([col, val, cls]) => (
+                <div key={col} className="flex justify-between items-center border-b border-emerald-100 pb-1.5">
+                  <span className="text-xs text-gray-500 font-mono">{col}</span>
+                  <span className={`text-xs ${cls}`}>{val}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs text-emerald-700 bg-emerald-100 rounded-lg p-2">
+              Refund covers all 3 returned items: 2 Resellable + 1 Dispose.
+              Condition affects stock, not refund eligibility.
+            </div>
+          </div>
+
+          <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">payment.credit_notes</div>
+            <div className="space-y-2">
+              {[
+                ['credit_note_number', refund.creditNoteNumber,   'font-mono text-violet-700 font-bold'],
+                ['order_id',          originalOrder.id,           'font-mono text-blue-700'],
+                ['amount',            `฿${refund.refundAmount}`,  'font-mono text-emerald-700 font-bold text-lg'],
+                ['currency',          refund.currency,            'font-mono text-gray-600'],
+                ['reason',            refund.reason,              'font-mono text-violet-700'],
+                ['source',            'ReturnRequest',            'font-mono text-gray-600'],
+                ['status',            'Issued',                   'font-mono font-bold text-violet-700'],
+              ].map(([col, val, cls]) => (
+                <div key={col} className="flex justify-between items-center border-b border-violet-100 pb-1.5">
+                  <span className="text-xs text-gray-500 font-mono">{col}</span>
+                  <span className={`text-xs ${cls}`}>{val}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs text-violet-700 bg-violet-100 rounded-lg p-2">
+              Credit note is the legal document reversing the original invoice. Required for tax compliance.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Stock Movement Ledger — APPLE-1KG</div>
+        <div className="text-xs text-gray-400 mb-4">
+          Starts at 0 (stock exhausted after original delivery). Return puts 2 units back.
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                {[['Time','text-left'],['Direction','text-left'],['Reference','text-left'],['Event','text-left'],['Qty','text-right'],['Balance','text-right'],['Detail','text-left']].map(([h,a]) => (
+                  <th key={h} className={`py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${a}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {stockFlow.case4.ledger.map(row => (
+                <tr key={row.id} className={`border-b border-gray-100 transition-colors
+                  ${row.resellable ? 'bg-emerald-50 hover:bg-emerald-100'
+                  : row.disposed   ? 'bg-gray-50 hover:bg-gray-100'
+                  :                  'hover:bg-gray-50'}`}>
+                  <td className="py-3 px-3 font-mono text-xs text-gray-500">{row.time}</td>
+                  <td className="py-3 px-3">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded
+                      ${row.resellable ? 'bg-emerald-100 text-emerald-700'
+                      : row.disposed   ? 'bg-gray-200 text-gray-500'
+                      : row.dir === 'in' ? 'bg-violet-100 text-violet-700'
+                      :                   'bg-blue-100 text-blue-700'}`}>
+                      {row.resellable ? '↩ RETURN IN'
+                      : row.disposed  ? '✕ WRITE-OFF'
+                      : row.dir === 'in' ? '↓ INBOUND'
+                      :                   '↑ OUTBOUND'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={`font-mono text-xs font-bold
+                      ${row.resellable ? 'text-emerald-700'
+                      : row.disposed   ? 'text-gray-400'
+                      : row.dir === 'in' ? 'text-violet-700' : 'text-blue-700'}`}>{row.ref}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs text-gray-700 font-medium">{row.event}</span>
+                      {row.resellable && <span className="text-xs bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded font-bold">RESELLABLE</span>}
+                      {row.disposed   && <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold">DISPOSED</span>}
+                    </div>
+                  </td>
+                  <td className={`py-3 px-3 text-right font-mono font-bold text-sm
+                    ${row.qtyChange > 0 ? 'text-emerald-600'
+                    : row.qtyChange < 0 ? 'text-blue-600'
+                    :                     'text-gray-400'}`}>
+                    {row.qtyChange > 0 ? `+${row.qtyChange}` : row.qtyChange === 0 ? '±0' : row.qtyChange}
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <span className={`font-mono font-bold text-sm ${row.balance === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+                      {row.balance}
+                    </span>
+                    <div className="flex gap-0.5 justify-end mt-1">
+                      {Array(total).fill(0).map((_, i) => (
+                        <div key={i} className={`w-2 h-2 rounded-sm ${i < row.balance ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-xs">{row.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 flex gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-200" /><span className="text-gray-500">Resellable return — stock incremented in WMS</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-4 h-4 rounded bg-gray-100 border border-gray-200" /><span className="text-gray-500">Dispose — no stock change, cost written off</span></div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PREPAID FLOW VIEW
+// ─────────────────────────────────────────────────────────────
+
+function ActorChip({ actorKey }) {
+  const a = PREPAID_ACTOR_MAP[actorKey] || { label: actorKey, cls: 'bg-gray-100 text-gray-700 border border-gray-200' };
+  return <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${a.cls}`}>{actorKey}</span>;
+}
+
+function PrepaidStepRow({ step, stepNum }) {
+  const s = PREPAID_MSG_STYLE[step.type] || PREPAID_MSG_STYLE.request;
+  return (
+    <div className={`flex items-start gap-3 py-3 border-b border-gray-50 last:border-0 ${step.optional ? 'opacity-55' : ''}`}>
+      <div className="shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-400 mt-0.5">{stepNum}</div>
+      <div className={`shrink-0 w-2.5 h-2.5 rounded-full mt-2.5 ${s.dotCls}`} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1 flex-wrap">
+          {step.from.map(a => <ActorChip key={a} actorKey={a} />)}
+          <span className="text-gray-400 text-xs font-bold mx-0.5">→</span>
+          {step.to.map(a => <ActorChip key={a} actorKey={a} />)}
+          <span className={`text-xs px-1.5 py-0.5 rounded font-medium border ${s.badge}`}>{s.label}</span>
+          {step.optional && <span className="text-xs text-gray-400 italic">optional</span>}
+        </div>
+        <div className="text-sm font-semibold text-gray-800 mt-1">{step.label}</div>
+        {step.note && <div className="text-xs text-gray-500 mt-0.5 leading-relaxed">{step.note}</div>}
+      </div>
+    </div>
+  );
+}
+
+function PrepaidFlowView() {
+  const { prepaidTimeline } = React.useContext(DataContext);
+  let n = 0;
+
+  const bookingEvents  = (prepaidTimeline || []).filter(e => e.phase === 'booking');
+  const outboundEvents = (prepaidTimeline || []).filter(e => e.phase === 'outbound');
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900">Prepaid Order Flow</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Customer creates a prepaid delivery order · from time slot booking to settlement tax invoice</p>
+      </div>
+
+      {/* Key distinctions */}
+      <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="font-bold text-amber-800 text-sm mb-2">How Prepaid differs from Post-Paid</div>
+        <ul className="space-y-1.5">
+          {[
+            ['Booking first',              'Customer locks a delivery slot via TMS/CBE before submitting the sale order'],
+            ['No BookingConfirmed step',   'WMS goes directly to PickStarted — booking is pre-confirmed via TMS/CBE'],
+            ['WMS triggers POS recalc',    'WMS can request price recalculation multiple times during picking (not just on substitution)'],
+            ['Pre-delivery invoice',       'SC sends ABB/Tax Invoice to WMS AFTER PickConfirmed, BEFORE TMS dispatches'],
+            ['STS settles the invoice',    'Post-delivery, STS (Settlement Tax System) issues the official tax invoice — not POS'],
+          ].map(([bold, text]) => (
+            <li key={bold} className="text-xs text-amber-700 flex gap-2">
+              <span className="shrink-0 mt-0.5">•</span>
+              <span><strong>{bold}:</strong> {text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Actors + legend */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">System Actors</div>
+        <div className="flex flex-wrap gap-3">
+          {PREPAID_ACTORS.map(a => (
+            <div key={a.key} className="flex items-center gap-1.5">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${a.cls}`}>{a.key}</span>
+              <span className="text-xs text-gray-400">{a.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-gray-100">
+          {Object.entries(PREPAID_MSG_STYLE).map(([k, s]) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full ${s.dotCls}`} />
+              <span className="text-xs text-gray-500">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Sequence diagram */}
+      <div className="space-y-4 mb-8">
+        {PREPAID_PHASES.map(phase => (
+          <div key={phase.key} className={`rounded-2xl border ${phase.border} shadow-sm overflow-hidden`}>
+            <div className={`px-5 py-3 ${phase.bg}`}>
+              <div className="font-bold text-gray-800 text-sm">{phase.label}</div>
+              {phase.note && <div className="text-xs text-gray-600 mt-0.5 leading-relaxed">{phase.note}</div>}
+            </div>
+            <div className="bg-white px-5">
+              {phase.steps.map(step => { n++; return <PrepaidStepRow key={step.id} step={step} stepNum={n} />; })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Prepaid event timeline */}
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-gray-900">Prepaid Event Timeline</h2>
+        <p className="text-xs text-gray-400 mt-0.5">Sample event log for prepaid delivery order PRE-001 · ฿1,150</p>
+      </div>
+
+      <div className="flex flex-wrap gap-4 mb-3 px-1">
+        {Object.entries(EVT_STYLE).map(([k, s]) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded-full ${s.dot}`} />
+            <span className="text-xs text-gray-500">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        {bookingEvents.length > 0 && (
+          <>
+            <SectionDivider label="Slot & Booking — TMS / CHG Backend" color="bg-green-200" />
+            {bookingEvents.map(e => <TimelineRow key={e.id} evt={e} />)}
+          </>
+        )}
+        <SectionDivider label="Order Fulfilment — OMS / WMS / TMS / POS / STS" color="bg-blue-200" />
+        {outboundEvents.map(e => <TimelineRow key={e.id} evt={e} />)}
+        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+          <div className="text-amber-700 font-bold">Prepaid Order Complete</div>
+          <div className="text-xs text-amber-600 mt-1">
+            Invoice issued at 09:46 (before dispatch) · Delivered at 15:22 · STS tax invoice received at 15:30
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StockFlowView() {
+  const [activeCase, setActiveCase] = React.useState('case1');
+  const cases = [
+    { key: 'case1', label: 'Case 1 — PO → Orders' },
+    { key: 'case2', label: 'Case 2 — PO → Transfer → Orders' },
+    { key: 'case3', label: 'Case 3 — Oversell + Cancellation + Substitution' },
+    { key: 'case4', label: 'Case 4 — Customer Return' },
+  ];
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 flex-wrap">
+        {cases.map(({ key, label }) => (
+          <button key={key} onClick={() => setActiveCase(key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+              ${activeCase === key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeCase === 'case1' && <StockFlowCase1 />}
+      {activeCase === 'case2' && <TransferFlowCase />}
+      {activeCase === 'case3' && <StockFlowCase3 />}
+      {activeCase === 'case4' && <StockFlowCase4 />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// APP SHELL
+// ─────────────────────────────────────────────────────────────
+
+const NAV_TABS = [
+  { key: 'kanban',    label: 'Orders'         },
+  { key: 'prepaid',   label: 'Prepaid Flow'   },
+  { key: 'usecases',  label: 'Use Cases'      },
+  { key: 'stockflow', label: 'Stock Flow'     },
+  { key: 'apiref',    label: 'API Reference'  },
+];
+
+function App() {
+  const [view, setView]               = useState('kanban');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const handleNavClick = useCallback(key => {
+    setView(key);
+    if (key !== 'kanban') setSelectedOrder(null);
+  }, []);
+
+  const openOrderDetail = useCallback(order => setSelectedOrder(order), []);
+  const closeOrderDetail = useCallback(() => setSelectedOrder(null), []);
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-screen-2xl mx-auto px-4 h-12 flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-sm">O</span>
+          </div>
+          <span className="font-bold text-gray-900 text-sm mr-4">Sprint Connect OMS</span>
+          <nav className="flex gap-0.5">
+            {NAV_TABS.map(({ key, label }) => (
+              <button key={key} onClick={() => handleNavClick(key)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                  ${view === key ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}>
+                {label}
+              </button>
+            ))}
+          </nav>
+          {view === 'kanban' && selectedOrder && (
+            <span className="ml-3 text-xs text-gray-400">
+              Order: <span className="font-mono text-gray-600 font-medium">{selectedOrder.id}</span>
+              <button onClick={closeOrderDetail} className="ml-2 text-gray-400 hover:text-gray-600">✕</button>
+            </span>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-screen-2xl mx-auto">
+        {view === 'kanban'    && !selectedOrder && <KanbanBoard onOrderClick={openOrderDetail} />}
+        {view === 'kanban'    &&  selectedOrder && (
+          <OrderDetailView
+            order={selectedOrder}
+            onBack={closeOrderDetail}
+            onViewTimeline={() => setView('timeline')}
+          />
+        )}
+        {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); }} />}
+        {view === 'prepaid'   && <PrepaidFlowView />}
+        {view === 'usecases'  && <UseCaseExplorer />}
+        {view === 'stockflow' && <StockFlowView />}
+        {view === 'apiref'    && <ApiReferenceView />}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <DataProvider><App /></DataProvider>
+);
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+namespace OmsApi;
+
+public record PackageDto(string TrackingId, string VehicleType, double Weight, List<string> LineIds);
+public record PackedRequest(string OrderId, List<PackageDto> Packages, DateTime PackedAt);
+
+public class PackedHandler(InMemoryStore store)
+{
+    public IResult Handle(PackedRequest req)
+    {
+        var o = store.FindOrder(req.OrderId);
+        if (o is null) return ApiResult.NotFound("order", req.OrderId);
+        if (o.Status != OrderStatus.PickConfirmed) return ApiResult.InvalidTransition(o.Status, OrderStatus.Packed);
+        if (o.PosRecalcPending)
+            return Results.BadRequest(new { error_code = "POS_RECALC_PENDING",
+                message = "POS recalculation must be confirmed before packing.", trace_id = Guid.NewGuid() });
+
+        o.Packages = req.Packages.Select((p, i) => new OrderPackageDto
+        {
+            Id = $"PKG-{i + 1:D3}",
+            TrackingId = p.TrackingId,
+            VehicleType = p.VehicleType,
+            Weight = p.Weight,
+            Status = OrderStatus.Packed,
+            LineIds = p.LineIds
+        }).ToList();
+
+        o.Status = OrderStatus.Packed;
+        o.UpdatedAt = DateTime.UtcNow;
+        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "Packed", OrderStatus.Packed,
+            $"{req.Packages.Count} package(s) packed at {req.PackedAt:o}."));
+        return Results.Ok(o);
+    }
+}
