@@ -8,7 +8,9 @@ public class ReturnsController(
     GetReturnsHandler getReturns,
     GetReturnHandler getReturn,
     GetReturnItemsHandler getReturnItems,
-    CreateReturnHandler createReturn) : ControllerBase
+    CreateReturnHandler createReturn,
+    CancelReturnHandler cancelReturn,
+    GetReturnRefundHandler getReturnRefund) : ControllerBase
 {
     [HttpGet]
     public IResult GetAll() => getReturns.Handle();
@@ -21,4 +23,10 @@ public class ReturnsController(
 
     [HttpPost]
     public IResult Create([FromBody] CreateReturnRequest req) => createReturn.Handle(req);
+
+    [HttpPatch("{id}/cancel")]
+    public IResult Cancel(string id, [FromBody] CancelReturnRequest req) => cancelReturn.Handle(id, req);
+
+    [HttpGet("{id}/refund")]
+    public IResult GetRefund(string id) => getReturnRefund.Handle(id);
 }

@@ -20,6 +20,13 @@ public class InMemoryStore
     public List<TimelineEventDto> PrepaidTimeline { get; private set; } = [];
 
     private readonly Dictionary<string, List<TimelineEventDto>> _orderEvents = [];
+    private readonly Dictionary<string, List<SubstitutionDto>> _substitutions = [];
+    private readonly Dictionary<string, List<WebhookLogDto>> _webhookLogs = [];
+    private readonly Dictionary<string, List<GoodsReceiptDto>> _goodsReceipts = [];
+    private readonly Dictionary<string, List<TransferConfirmationDto>> _transferConfirmations = [];
+    private readonly List<DamagedReceiptDto> _damagedReceipts = [];
+    private readonly Dictionary<string, RefundDto> _refunds = [];
+    private readonly Dictionary<string, CreditNoteDto> _creditNotes = [];
 
     public InMemoryStore(IWebHostEnvironment env)
     {
@@ -68,12 +75,67 @@ public class InMemoryStore
         list.Add(evt);
     }
 
+    // ── Substitutions ─────────────────────────────────────────────────────────
+
+    public List<SubstitutionDto> GetSubstitutions(string orderId)
+    {
+        _substitutions.TryGetValue(orderId, out var list);
+        return list ?? [];
+    }
+
+    public SubstitutionDto? FindSubstitution(string orderId, string subId) =>
+        GetSubstitutions(orderId).FirstOrDefault(s => s.SubstitutionId.Equals(subId, StringComparison.OrdinalIgnoreCase));
+
+    public SubstitutionDto AddSubstitution(SubstitutionDto sub)
+    {
+        if (!_substitutions.TryGetValue(sub.OrderId, out var list))
+        {
+            list = [];
+            _substitutions[sub.OrderId] = list;
+        }
+        list.Add(sub);
+        return sub;
+    }
+
+    // ── Webhook Logs ──────────────────────────────────────────────────────────
+
+    public List<WebhookLogDto> GetWebhookLogs(string orderId)
+    {
+        _webhookLogs.TryGetValue(orderId, out var list);
+        return list ?? [];
+    }
+
+    public void AddWebhookLog(string orderId, WebhookLogDto log)
+    {
+        if (!_webhookLogs.TryGetValue(orderId, out var list))
+        {
+            list = [];
+            _webhookLogs[orderId] = list;
+        }
+        list.Add(log);
+    }
+
     // ── Returns ───────────────────────────────────────────────────────────────
 
     public ReturnDto? FindReturn(string id) =>
         Returns.FirstOrDefault(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
     public void AddReturn(ReturnDto ret) => Returns.Add(ret);
+
+    public RefundDto? GetRefund(string returnId)
+    {
+        _refunds.TryGetValue(returnId, out var r);
+        return r;
+    }
+
+    public CreditNoteDto? GetCreditNote(string returnId)
+    {
+        _creditNotes.TryGetValue(returnId, out var cn);
+        return cn;
+    }
+
+    public void SetRefund(string returnId, RefundDto refund) => _refunds[returnId] = refund;
+    public void SetCreditNote(string returnId, CreditNoteDto cn) => _creditNotes[returnId] = cn;
 
     // ── Inbound ───────────────────────────────────────────────────────────────
 
@@ -85,6 +147,50 @@ public class InMemoryStore
 
     public void AddPO(PurchaseOrderDto po) => PurchaseOrders.Add(po);
     public void AddTO(TransferOrderDto to) => TransferOrders.Add(to);
+
+    public List<GoodsReceiptDto> GetGoodsReceipts(string poId)
+    {
+        _goodsReceipts.TryGetValue(poId, out var list);
+        return list ?? [];
+    }
+
+    public void AddGoodsReceipt(string poId, GoodsReceiptDto gr)
+    {
+        if (!_goodsReceipts.TryGetValue(poId, out var list))
+        {
+            list = [];
+            _goodsReceipts[poId] = list;
+        }
+        list.Add(gr);
+    }
+
+    public List<TransferConfirmationDto> GetTransferConfirmations(string toId)
+    {
+        _transferConfirmations.TryGetValue(toId, out var list);
+        return list ?? [];
+    }
+
+    public void AddTransferConfirmation(string toId, TransferConfirmationDto conf)
+    {
+        if (!_transferConfirmations.TryGetValue(toId, out var list))
+        {
+            list = [];
+            _transferConfirmations[toId] = list;
+        }
+        list.Add(conf);
+    }
+
+    public DamagedReceiptDto? FindDamagedReceipt(string id) =>
+        _damagedReceipts.FirstOrDefault(d => d.DamagedReceiptId.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    public DamagedReceiptDto AddDamagedReceipt(DamagedReceiptDto dr)
+    {
+        _damagedReceipts.Add(dr);
+        return dr;
+    }
+
+    public string NextDamagedReceiptId() =>
+        NextId("DMG", _damagedReceipts.Select(d => d.DamagedReceiptId));
 
     // ── Stock ─────────────────────────────────────────────────────────────────
 

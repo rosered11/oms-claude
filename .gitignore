@@ -1,3 +1,5 @@
 ﻿.venv
 api/bin
 api/obj
+api/.vs
+api/OmsApi.csproj.user

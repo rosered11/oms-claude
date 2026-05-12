@@ -7,10 +7,27 @@ public static class OrderStatus
     public const string PickStarted = "PickStarted";
     public const string PickConfirmed = "PickConfirmed";
     public const string Packed = "Packed";
+    public const string ReadyForCollection = "ReadyForCollection";
     public const string OutForDelivery = "OutForDelivery";
     public const string Delivered = "Delivered";
+    public const string Collected = "Collected";
     public const string Invoiced = "Invoiced";
     public const string Paid = "Paid";
     public const string OnHold = "OnHold";
     public const string Cancelled = "Cancelled";
+    public const string Returned = "Returned";
+
+    private static readonly HashSet<string> TerminalOrLate =
+    [
+        OutForDelivery, Delivered, Collected, Invoiced, Paid, Cancelled, Returned
+    ];
+
+    public static bool CanCancel(string status) =>
+        status is Pending or BookingConfirmed or OnHold;
+
+    public static bool CanHold(string status) =>
+        status is not (Cancelled or Delivered or Collected or Paid or Returned);
+
+    public static bool CanUpdateSlot(string status) =>
+        !TerminalOrLate.Contains(status);
 }

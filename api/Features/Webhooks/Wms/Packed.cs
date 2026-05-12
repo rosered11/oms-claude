@@ -28,6 +28,14 @@ public class PackedHandler(InMemoryStore store)
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "Packed", OrderStatus.Packed,
             $"{req.Packages.Count} package(s) packed at {req.PackedAt:o}."));
-        return Results.Ok(o);
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "WMS",
+            EventType = "Packed",
+            Detail = $"{req.Packages.Count} package(s) packed.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.Packed, packagesCreated = req.Packages.Count });
     }
 }

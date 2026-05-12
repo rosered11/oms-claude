@@ -4,9 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Repository Is
 
-This is a **design-first documentation repository** for the Sprint Connect Order Management System (OMS) — a modular monolith planned in .NET. There is no compiled application code here yet. The repository contains:
+This repository contains the Sprint Connect Order Management System (OMS) — a modular monolith in .NET 10. It contains:
 
-- `input/` — Authoritative domain specifications (API blueprint, ER diagrams, data dictionary, field mappings)
+- `docs/` — Authoritative domain specifications (API blueprint v2.0, ER diagrams, data dictionary, field mappings, ubiquitous language)
+- `api/` — ASP.NET Core Web API (.NET 10) — in-memory implementation of all OMS endpoints
 - `web-ui/` — A standalone React+Tailwind prototype using local JSON files (no live API connection)
 - `.claude/agents/` — Specialized domain agents for DDD review, documentation, and feature development
 
@@ -24,6 +25,18 @@ Seven domain agents are configured in `.claude/agents/`. Invoke them for domain-
 | `DDDReviewer` | Aggregate boundary leaks, anemic model, invariant gaps |
 | `DocumentationAgent` | API Blueprint, ER diagrams, ubiquitous language glossary |
 
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | C# .NET 10, ASP.NET Core Web API |
+| Database | MySQL — 4 schemas (`orders`, `payment`, `returns`, `config`) + separate audit DB |
+| Cache | Redis — read model projections only (CQRS query side) |
+| Deployment | Kubernetes — 2 replicas `oms-api` (stateless), 1 replica `oms-outbox-worker` (single-writer) |
+| Security | JWT per channel, HMAC-SHA256 per webhook integration, HashiCorp Vault for secrets |
+
+**Scale:** ~70,000 order lines / day (~50,000 orders), peak 3–5 orders/second.
+
 ## Domain Architecture
 
 The system is a **modular monolith** with five bounded contexts, each owning its own MySQL schema:
@@ -34,9 +47,19 @@ The system is a **modular monolith** with five bounded contexts, each owning its
 | Payment | `payment.*` | Invoices, transactions, credit notes, fees, promotions |
 | Returns | `returns.*` | Return requests, conditions, put-away, refunds |
 | Inbound | `inbound.*` | Purchase orders, transfer orders, goods receipts |
-| Configuration | `config.*` | Stores, business units, rollout policies |
+| Configuration | `config.*` | Stores, business units, rollout policies, outbox routing rules |
 
-**Cross-context communication** uses the **Outbox pattern** — domain events are staged atomically with aggregate mutations and dispatched by a background worker to WMS, TMS, and POS systems.
+**Cross-context communication** uses the **Outbox pattern** — domain events are staged atomically with aggregate mutations and dispatched by the `oms-outbox-worker` (single-writer, 1 replica) to external systems via ACL adapters: `WmsAdapter`, `TmsAdapter`, `PosAdapter`, `StsAdapter`. No message broker is used.
+
+**Cross-module access:** by ID only — no cross-schema JOINs anywhere in the codebase.
+
+**Dynamic outbox routing:** the `config.outbox_routing_rules` table maps `(channel_type, business_unit, trigger_event)` to target systems and endpoint keys. Different marketplace channels (Lazada, TikTok, etc.) can route the same domain event to different APIs.
+
+## Order Channels
+
+The `channel_type` field determines business rules and routing. Allowed values:
+
+`Gateway` · `Marketplace` · `Kiosk` · `POSTerminal` · `BulkImport` · `Web` · `App` · `POS` · `CallCenter`
 
 ## Order State Machine
 
@@ -65,10 +88,12 @@ Key invariants:
 
 ## Key Reference Files
 
-- `input/oms-api-blueprint.md` — 36+ REST endpoints in Apiary FORMAT 1A; canonical API spec
-- `input/oms-er-diagrams.md` — Mermaid ER diagrams and service architecture decisions
-- `input/oms-data-dictionary.md` — plain-language definitions for every table and column
-- `input/oms-api-field-mapping.md` — maps every API field to its database column
+- `docs/oms-api-blueprint.md` — REST endpoints (canonical API spec, v2.0)
+- `docs/oms-overview.md` — System overview, use cases, state machine, design invariants
+- `docs/oms-er-diagrams.md` — Mermaid ER diagrams and service architecture decisions
+- `docs/oms-data-dictionary.md` — Plain-language definitions for every table and column
+- `docs/oms-api-field-mapping.md` — Maps every API field to its database column
+- `docs/oms-ubiquitous-language.md` — Domain glossary
 
 ## Web UI Prototype
 

@@ -14,6 +14,14 @@ public class BookingConfirmedHandler(InMemoryStore store)
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "BookingConfirmed", OrderStatus.BookingConfirmed,
             $"WMS booking ref {req.WmsBookingRef} confirmed at {req.ConfirmedAt:o}."));
-        return Results.Ok(o);
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "WMS",
+            EventType = "BookingConfirmed",
+            Detail = $"WMS booking ref {req.WmsBookingRef} confirmed.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.BookingConfirmed });
     }
 }

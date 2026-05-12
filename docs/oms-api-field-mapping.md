@@ -61,6 +61,8 @@ Maps every API request and response field to its source or target database table
 51. [Webhooks — POS: recalculation-result](#51-post-webhooksposrecalculation-result)
 52. [Webhooks — POS: pos-recalc-completed](#52-post-webhookspospos-recalc-completed)
 53. [Cross-reference: which tables each read API touches](#53-cross-reference-read-api-table-usage)
+54. [POST /webhooks/sts/abb-tax-invoice](#54-post-webhooksstsabb-tax-invoice)
+55. [POST /webhooks/sts/credit-note](#55-post-webhooksstscredit-note)
 
 ---
 
@@ -84,6 +86,7 @@ Maps every API request and response field to its source or target database table
 | `deliverySlot.scheduledEnd` | timestamp | `orders.delivery_slots` | `scheduled_end` | |
 | `createdAt` | timestamp | `orders.orders` | `created_at` | |
 | `updatedAt` | timestamp | `orders.orders` | `updated_at` | |
+| *(filter: `channel`)* | — | `orders.orders` | `channel_type` | Optional query param; allowed values: `Gateway`, `Marketplace`, `Kiosk`, `POSTerminal`, `BulkImport`, `Web`, `App`, `POS`, `CallCenter` |
 
 ---
 
@@ -943,3 +946,52 @@ Root fields identical to list above. Additional `lines[]`:
 | `inbound.transfer_order_lines` | | | | | | | | | | | R | R | R |
 | `returns.returns` | | | | | | | | | | | | | |
 | `returns.return_items` | | | | | | | | | | | | | |
+
+---
+
+## 54. POST /webhooks/sts/abb-tax-invoice
+
+**Trigger:** STS sends the ABB/Tax Invoice document link. Pre-paid: fires after `PickConfirmed`, OMS forwards to WMS + Gateway. POD: fires after `Delivered`, OMS forwards to TMS + Gateway. Routing decided by `orders.is_prepaid`.
+
+### Request body → DB writes
+
+| Request Field | Table Written | Column Updated | Action |
+|---|---|---|---|
+| `orderId` | `orders.order_webhook_logs` | `source_system = 'STS'`, `event_type = 'AbbTaxInvoice'`, `received_at`, `detail` = invoiceNumber | INSERT |
+| `invoiceNumber` | `payment.invoices` | `invoice_number`, `invoice_type = 'AbbTaxInvoice'`, `status = 'Generated'` | INSERT |
+| `invoiceLink` | `payment.invoices` | `invoice_link` | UPDATE |
+| `amount` | `payment.invoices` | `total_amount` | UPDATE |
+| `currency` | `payment.invoices` | `currency` | UPDATE |
+| `issuedAt` | `payment.invoices` | `generated_at` | UPDATE |
+| *(X-Idempotency-Key)* | `payment.invoices` | `source_sts_ref` | UPDATE |
+| *(if is_prepaid = true)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToWmsEvent'`, payload includes `invoiceLink` | INSERT → WMS for printing before dispatch |
+| *(if is_prepaid = false)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToTmsEvent'`, payload includes `invoiceLink` | INSERT → TMS driver receipt after delivery |
+| *(always)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToGatewayEvent'`, payload includes `invoiceLink` | INSERT → CFW Gateway for customer |
+
+---
+
+## 55. POST /webhooks/sts/credit-note
+
+**Trigger:** STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS. POD: forwards to TMS. Routing decided by `orders.is_prepaid`.
+
+### Request body → DB writes
+
+| Request Field | Table Written | Column Updated | Action |
+|---|---|---|---|
+| `orderId` | `orders.order_webhook_logs` | `source_system = 'STS'`, `event_type = 'StsCreditNote'`, `received_at`, `detail` = creditNoteNumber | INSERT |
+| `creditNoteNumber` | `payment.credit_notes` | `credit_note_number`, `reason = 'PriceAdjustment'`, `source = 'STS'`, `status = 'Issued'` | INSERT |
+| `creditNoteLink` | `payment.credit_notes` | `credit_note_link` | UPDATE |
+| `amount` | `payment.credit_notes` | `amount` | UPDATE |
+| `currency` | `payment.credit_notes` | `currency` | UPDATE |
+| *(X-Idempotency-Key)* | `payment.credit_notes` | `source_sts_ref` | UPDATE |
+| *(if is_prepaid = true)* | `orders.order_outbox` | `event_type = 'CreditNoteSentToWmsEvent'`, payload includes `creditNoteLink` | INSERT → WMS |
+| *(if is_prepaid = false)* | `orders.order_outbox` | `event_type = 'CreditNoteSentToTmsEvent'`, payload includes `creditNoteLink` | INSERT → TMS |
+
+---
+
+**STS webhook write targets** (not read endpoints — shown separately):
+
+| Webhook | Tables Written |
+|---|---|
+| `POST /webhooks/sts/abb-tax-invoice` | `orders.order_webhook_logs`, `payment.invoices` (`invoice_link`, `source_sts_ref`, `generated_at`), `orders.order_outbox` ×2 (WMS or TMS + Gateway) |
+| `POST /webhooks/sts/credit-note` | `orders.order_webhook_logs`, `payment.credit_notes` (`credit_note_link`, `source_sts_ref`), `orders.order_outbox` ×1 (WMS or TMS) |

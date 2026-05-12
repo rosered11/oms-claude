@@ -19,7 +19,15 @@ public class PackageDispatchedHandler(InMemoryStore store)
                 $"Package {req.TrackingId} dispatched at {req.DispatchedAt:o}."));
         }
 
+        store.AddWebhookLog(o.Id, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "TMS",
+            EventType = "PackageDispatched",
+            Detail = $"Package {req.TrackingId} dispatched.",
+            ReceivedAt = DateTime.UtcNow
+        });
         o.UpdatedAt = DateTime.UtcNow;
-        return Results.Ok(o);
+        return Results.Accepted(null, new { accepted = true, orderId = o.Id, newOrderStatus = OrderStatus.OutForDelivery, newPackageStatus = OrderStatus.OutForDelivery });
     }
 }

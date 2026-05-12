@@ -8,7 +8,7 @@ public class CancelOrderHandler(InMemoryStore store)
     {
         var o = store.FindOrder(id);
         if (o is null) return ApiResult.NotFound("order", id);
-        if (o.Status is OrderStatus.Delivered or OrderStatus.Paid or OrderStatus.Cancelled)
+        if (!OrderStatus.CanCancel(o.Status))
             return ApiResult.InvalidTransition(o.Status, OrderStatus.Cancelled);
 
         o.Status = OrderStatus.Cancelled;

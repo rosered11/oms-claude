@@ -8,12 +8,21 @@ public class PickStartedHandler(InMemoryStore store)
     {
         var o = store.FindOrder(req.OrderId);
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
-        if (o.Status != OrderStatus.BookingConfirmed) return ApiResult.InvalidTransition(o.Status, OrderStatus.PickStarted);
+        if (o.Status is not (OrderStatus.BookingConfirmed or OrderStatus.Pending))
+            return ApiResult.InvalidTransition(o.Status, OrderStatus.PickStarted);
 
         o.Status = OrderStatus.PickStarted;
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "PickStarted", OrderStatus.PickStarted,
             $"Picker {req.PickerId} started at {req.StartedAt:o}."));
-        return Results.Ok(o);
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "WMS",
+            EventType = "PickStarted",
+            Detail = $"Picker {req.PickerId} started at {req.StartedAt:o}.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.PickStarted });
     }
 }

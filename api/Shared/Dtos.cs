@@ -151,6 +151,99 @@ public class TransferOrderDto
     public DateTime UpdatedAt { get; set; }
 }
 
+// ── Substitutions ─────────────────────────────────────────────────────────────
+
+public class SubstitutionDto
+{
+    public string SubstitutionId { get; set; } = "";
+    public string OrderId { get; set; } = "";
+    public string OrderLineId { get; set; } = "";
+    public string OriginalSku { get; set; } = "";
+    public string OriginalProductName { get; set; } = "";
+    public string SubstituteSku { get; set; } = "";
+    public string SubstituteProductName { get; set; } = "";
+    public decimal SubstituteUnitPrice { get; set; }
+    public decimal SubstitutedAmount { get; set; }
+    public bool? CustomerApproved { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+// ── Webhook Logs ──────────────────────────────────────────────────────────────
+
+public class WebhookLogDto
+{
+    public string WebhookLogId { get; set; } = "";
+    public string SourceSystem { get; set; } = "";
+    public string EventType { get; set; } = "";
+    public string Detail { get; set; } = "";
+    public DateTime ReceivedAt { get; set; }
+}
+
+// ── Refund / Credit Note ──────────────────────────────────────────────────────
+
+public class RefundDto
+{
+    public string RefundId { get; set; } = "";
+    public decimal RefundAmount { get; set; }
+    public string Currency { get; set; } = "THB";
+    public string RefundMethod { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string ReferenceNo { get; set; } = "";
+    public DateTime ProcessedAt { get; set; }
+}
+
+public class CreditNoteDto
+{
+    public string CreditNoteId { get; set; } = "";
+    public string CreditNoteNumber { get; set; } = "";
+    public string InvoiceId { get; set; } = "";
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "THB";
+    public string Reason { get; set; } = "";
+    public string Status { get; set; } = "";
+}
+
+// ── Goods Receipts ─────────────────────────────────────────────────────────────
+
+public class GoodsReceiptLineDto
+{
+    public string Sku { get; set; } = "";
+    public decimal ReceivedQty { get; set; }
+    public string Condition { get; set; } = "";
+    public string Sloc { get; set; } = "";
+}
+
+public class GoodsReceiptDto
+{
+    public string GoodsReceiveNo { get; set; } = "";
+    public string Status { get; set; } = "";
+    public DateTime ReceivedAt { get; set; }
+    public DateTime? PutAwayAt { get; set; }
+    public List<GoodsReceiptLineDto> Lines { get; set; } = [];
+}
+
+// ── Transfer Confirmations ─────────────────────────────────────────────────────
+
+public class TransferConfirmationDto
+{
+    public string Type { get; set; } = "";
+    public DateTime ConfirmedAt { get; set; }
+    public string ConfirmedBy { get; set; } = "";
+    public string? Tracking { get; set; }
+}
+
+// ── Damaged Receipts ──────────────────────────────────────────────────────────
+
+public class DamagedReceiptDto
+{
+    public string DamagedReceiptId { get; set; } = "";
+    public string OrderId { get; set; } = "";
+    public string TrackingId { get; set; } = "";
+    public string Status { get; set; } = "Received";
+    public DateTime ReceivedAt { get; set; }
+}
+
 // ── Stock ─────────────────────────────────────────────────────────────────────
 
 public class StockLedgerDto

@@ -19,7 +19,15 @@ public class PackageDeliveredHandler(InMemoryStore store)
                 $"Delivered to {req.RecipientName} at {req.DeliveredAt:o}."));
         }
 
+        store.AddWebhookLog(o.Id, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "TMS",
+            EventType = "PackageDelivered",
+            Detail = $"Delivered to {req.RecipientName}.",
+            ReceivedAt = DateTime.UtcNow
+        });
         o.UpdatedAt = DateTime.UtcNow;
-        return Results.Ok(o);
+        return Results.Accepted(null, new { accepted = true, orderId = o.Id, newStatus = OrderStatus.Delivered, invoiceTriggered = true });
     }
 }

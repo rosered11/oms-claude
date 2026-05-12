@@ -8,7 +8,7 @@ public class HoldOrderHandler(InMemoryStore store)
     {
         var o = store.FindOrder(id);
         if (o is null) return ApiResult.NotFound("order", id);
-        if (o.Status is OrderStatus.Cancelled or OrderStatus.Delivered or OrderStatus.Paid)
+        if (!OrderStatus.CanHold(o.Status))
             return ApiResult.InvalidTransition(o.Status, OrderStatus.OnHold);
 
         o.PreHoldStatus = o.Status;

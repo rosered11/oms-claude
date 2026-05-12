@@ -39,7 +39,7 @@ Obtain a Bearer JWT for API access.
 
 List orders (paginated). Used by the Kanban Board. (UC17)
 
-**Query parameters:** `status`, `store`, `type` (fulfillment type), `page` (default 1), `limit` (max 200, default 50)
+**Query parameters:** `status`, `store`, `type` (fulfillment type), `channel` (channel type — e.g. `Marketplace`, `Gateway`, `Web`), `page` (default 1), `limit` (max 200, default 50)
 
 **Response 200:**
 ```json
@@ -1060,6 +1060,88 @@ POS confirms full recalculation cycle closed. All amounts finalised. Unblocks pa
 ```
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001" }`
+
+---
+
+## Group: STS Webhooks
+
+Inbound callbacks from the Settlement & Tax System (STS). STS generates official ABB/Tax Invoice and Credit Note documents and notifies OMS with download links.
+
+OMS routes these links to downstream systems based on `orders.is_prepaid`:
+
+| Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
+|---|---|---|---|
+| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + CFW Gateway | WMS |
+| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + CFW Gateway | TMS |
+
+**Shared STS webhook headers:**
+
+| Header | Description |
+|---|---|
+| `X-Source-System` | Always `STS` |
+| `X-Idempotency-Key` | UUID — duplicate requests with same key are ignored |
+| `X-Webhook-Signature` | HMAC-SHA256 of request body using shared secret |
+
+---
+
+### POST /webhooks/sts/abb-tax-invoice
+
+STS sends the ABB/Tax Invoice document link. Timing and forwarding targets differ by payment type.
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "invoiceNumber": "ABB-2024-001",
+  "invoiceLink": "https://sts.example.com/invoices/ABB-2024-001.pdf",
+  "amount": 2380,
+  "currency": "THB",
+  "issuedAt": "2024-01-15T16:00:00Z"
+}
+```
+
+**Response 202:**
+```json
+{
+  "accepted": true,
+  "orderId": "ORD-001",
+  "invoiceNumber": "ABB-2024-001",
+  "invoiceId": "inv-001",
+  "forwardedTo": ["WMS", "Gateway"]
+}
+```
+
+**Response 409:** `{ "error": "conflict", "detail": "ABB/Tax Invoice ABB-2024-001 already received for ORD-001." }`
+
+---
+
+### POST /webhooks/sts/credit-note
+
+STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS. POD: forwards to TMS.
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-2024-001",
+  "creditNoteLink": "https://sts.example.com/credit-notes/CN-2024-001.pdf",
+  "amount": 200,
+  "currency": "THB",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+```
+
+**Response 202:**
+```json
+{
+  "accepted": true,
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-2024-001",
+  "forwardedTo": ["WMS"]
+}
+```
+
+**Response 409:** `{ "error": "conflict", "detail": "Credit Note CN-2024-001 already received for ORD-001." }`
 
 ---
 

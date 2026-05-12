@@ -26,6 +26,14 @@ public class PickConfirmedHandler(InMemoryStore store)
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "PickConfirmed", OrderStatus.PickConfirmed,
             $"{req.Lines.Count} lines confirmed picked at {req.PickedAt:o}."));
-        return Results.Ok(o);
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "WMS",
+            EventType = "PickConfirmed",
+            Detail = $"{req.Lines.Count} lines picked.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.PickConfirmed });
     }
 }

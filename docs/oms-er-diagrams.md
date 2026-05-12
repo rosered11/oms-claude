@@ -25,6 +25,7 @@ erDiagram
         varchar hold_reason
         bool    substitution_flag
         bool    pos_recalc_pending
+        bool    is_prepaid
         timestamptz created_at
         timestamptz updated_at
         varchar created_by
@@ -203,6 +204,8 @@ erDiagram
         decimal total_amount
         varchar currency
         varchar status
+        varchar invoice_link
+        varchar source_sts_ref
         timestamptz generated_at
         timestamptz issued_at
     }
@@ -215,6 +218,8 @@ erDiagram
         varchar currency
         varchar reason
         varchar status
+        varchar credit_note_link
+        varchar source_sts_ref
         timestamptz issued_at
     }
 
@@ -430,8 +435,21 @@ erDiagram
         timestamptz updated_at
     }
 
+    outbox_routing_rules {
+        bigint  rule_id PK
+        varchar channel_type
+        varchar business_unit
+        varchar trigger_event
+        varchar target_system
+        varchar endpoint_key
+        int     execution_order
+        bool    is_active
+        timestamptz created_at
+    }
+
     store_locations    }o--|| business_units         : "belongs to"
     store_locations    ||--o{ rollout_policies        : "governed by"
+    business_units     ||--o{ outbox_routing_rules    : "routes via"
 ```
 
 ---
