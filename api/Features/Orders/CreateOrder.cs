@@ -101,6 +101,10 @@ public class CreateOrderHandler(InMemoryStore store)
         store.AddOrder(order);
         store.AppendEvent(id, ApiResult.DomainEvent("OrderCreated", OrderStatus.Pending,
             $"Order {num} created via {req.ChannelType}."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("TMS", "SaleOrderSentToTMS",
+            $"SC → TMS: Sale Order {num} dispatched for driver slot scheduling."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "SaleOrderSentToWMS",
+            $"SC → WMS: Sale Order {num} dispatched for warehouse picking."));
         return Results.Created($"/api/orders/{id}", order);
     }
 }

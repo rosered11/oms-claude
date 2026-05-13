@@ -9,7 +9,9 @@ public class TriggerRecalculateHandler(InMemoryStore store)
 
         o.PosRecalcPending = true;
         o.UpdatedAt = DateTime.UtcNow;
-        store.AppendEvent(id, ApiResult.DomainEvent("RecalcRequested", o.Status, "Manual POS recalculation triggered."));
+        store.AppendEvent(id, ApiResult.DomainEvent("RecalcRequested", o.Status, "POS recalculation triggered by WMS mid-pick."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("POS", "RecalculationForwarded",
+            $"SC → POS: Recalculation forwarded. Current basket: {o.Amount} THB. Promo engine and tax calculation applied."));
         return Results.Accepted(null, new { orderId = id, posRecalcPending = true, recalcTriggeredAt = DateTime.UtcNow });
     }
 }

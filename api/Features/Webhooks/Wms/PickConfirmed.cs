@@ -34,6 +34,12 @@ public class PickConfirmedHandler(InMemoryStore store)
             Detail = $"{req.Lines.Count} lines picked.",
             ReceivedAt = DateTime.UtcNow
         });
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("POS", "PickConfirmedEvent",
+            $"SC → POS: PickConfirmedEvent dispatched. {req.Lines.Count} line(s) confirmed — partial pick check forwarded."));
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("TMS", "PickConfirmedSentToTMS",
+            $"SC → TMS: Pick Confirmed (basket qty). Order ready for driver pickup."));
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("GW", "PickConfirmedSentToGW",
+            $"SC → GW: Pick Confirmed. Customer notified of basket confirmation."));
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.PickConfirmed });
     }
 }

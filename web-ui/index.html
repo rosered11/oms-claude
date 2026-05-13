@@ -755,11 +755,15 @@ function SectionDivider({ label, color }) {
   );
 }
 
-function OrderTimeline({ onBack }) {
-  const { orderTimeline } = React.useContext(DataContext);
-  const inbound  = orderTimeline.filter(e => e.phase === 'inbound');
-  const bridge   = orderTimeline.filter(e => e.phase === 'bridge');
-  const outbound = orderTimeline.filter(e => e.phase === 'outbound');
+function OrderTimeline({ onBack, orderId: initialOrderId }) {
+  const { orders, apiBase } = React.useContext(DataContext);
+  const [selectedId, setSelectedId] = React.useState(initialOrderId || (orders?.[0]?.id ?? 'ORD-001'));
+
+  React.useEffect(() => {
+    if (initialOrderId) setSelectedId(initialOrderId);
+  }, [initialOrderId]);
+
+  const selectedOrder = orders?.find(o => o.id === selectedId);
 
   return (
     <div className="max-w-3xl mx-auto p-4 pb-16">
@@ -768,80 +772,30 @@ function OrderTimeline({ onBack }) {
       </button>
 
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
-        <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900">ORD-001</h1>
-              <Badge text="Paid" cls={STATUS_COLOR.Paid} />
-              <Badge text="Delivery" cls={TYPE_BADGE.Delivery} />
-            </div>
-            <p className="text-sm text-gray-600">Alice Johnson · Central DC · 5 items</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Linked PO: <span className="font-mono text-violet-600 font-semibold">PO-001</span>
-              <span className="mx-1">·</span> Supplier: Fresh Foods Ltd
-            </p>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Live Order Timeline</div>
+            {selectedOrder && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-900">{selectedOrder.orderNumber}</span>
+                <Badge text={selectedOrder.status} cls={STATUS_COLOR[selectedOrder.status] || 'bg-gray-100 text-gray-700'} />
+                <span className="text-sm text-gray-500">{selectedOrder.customer} · {selectedOrder.storeId}</span>
+              </div>
+            )}
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-3xl font-bold text-gray-900">฿2,380</div>
-            <div className="text-xs text-gray-400">final (promo applied at recalc)</div>
-            <div className="text-xs text-gray-400 line-through">฿2,450 original</div>
-          </div>
+          <select
+            value={selectedId}
+            onChange={e => setSelectedId(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            {(orders || []).map(o => (
+              <option key={o.id} value={o.id}>{o.orderNumber} — {o.customer} ({o.status})</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
-        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">UC24 — Inbound → Outbound Pipeline</div>
-        <StatusPipeline activeKey="paid" />
-        <div className="flex gap-4 mt-4 flex-wrap">
-          {[['bg-violet-500', 'Inbound (PO receipt)'], ['bg-amber-400', 'Stock bridge (WMS)'], ['bg-blue-500', 'Outbound (delivery)']].map(([dot, lbl]) => (
-            <div key={lbl} className="flex items-center gap-1.5">
-              <div className={`w-2.5 h-2.5 rounded-full ${dot}`} />
-              <span className="text-xs text-gray-500">{lbl}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-4 mb-3 px-1">
-        {Object.entries(EVT_STYLE).map(([k, s]) => (
-          <div key={k} className="flex items-center gap-1.5">
-            <div className={`w-3 h-3 rounded-full ${s.dot}`} />
-            <span className="text-xs text-gray-500">{s.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-        <div className="text-sm font-semibold text-gray-700 mb-4">
-          Full Event Log <span className="text-gray-400 font-normal">({orderTimeline.length} events)</span>
-        </div>
-
-        <SectionDivider label="Phase 1 — Inbound: Goods Arrive at Warehouse" color="bg-violet-200" />
-        {inbound.map(e => <TimelineRow key={e.id} evt={e} />)}
-
-        {bridge.map(e => (
-          <div key={e.id} className="my-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center text-white text-lg shrink-0">⇩</div>
-            <div>
-              <div className="font-bold text-amber-800 text-sm">{e.event}</div>
-              <div className="text-xs text-amber-700 mt-0.5">{e.detail}</div>
-            </div>
-          </div>
-        ))}
-
-        <SectionDivider label="Phase 2 — Outbound: Customer Order Fulfilled" color="bg-blue-200" />
-        {outbound.map(e => <TimelineRow key={e.id} evt={e} />)}
-
-        <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-          <div className="text-emerald-700 font-bold">Order Complete ✓</div>
-          <div className="text-xs text-emerald-600 mt-1">
-            Inbound PO goods received at 09:28 · Customer order placed at 14:02 · Payment confirmed at 19:31
-          </div>
-          <div className="text-xs text-emerald-600 mt-0.5">
-            Inbound → stock available: <strong>1h 47m</strong> · Order → paid: <strong>5h 29m</strong> · Total end-to-end: <strong>11h 31m</strong>
-          </div>
-        </div>
-      </div>
+      <LiveTimeline orderId={selectedId} apiBase={apiBase} />
     </div>
   );
 }
@@ -3176,10 +3130,12 @@ const NAV_TABS = [
 function App() {
   const [view, setView]               = useState('kanban');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [timelineOrderId, setTimelineOrderId] = useState(null);
 
   const handleNavClick = useCallback(key => {
     setView(key);
     if (key !== 'kanban') setSelectedOrder(null);
+    if (key !== 'timeline') setTimelineOrderId(null);
   }, []);
 
   const openOrderDetail = useCallback(order => setSelectedOrder(order), []);
@@ -3221,11 +3177,11 @@ function App() {
           <OrderDetailView
             order={selectedOrder}
             onBack={closeOrderDetail}
-            onViewTimeline={() => setView('timeline')}
+            onViewTimeline={() => { setTimelineOrderId(selectedOrder.id); setView('timeline'); }}
             onOrderUpdated={handleOrderUpdated}
           />
         )}
-        {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); }} />}
+        {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); setTimelineOrderId(null); }} orderId={timelineOrderId} />}
         {view === 'prepaid'   && <PrepaidFlowView />}
         {view === 'usecases'  && <UseCaseExplorer />}
         {view === 'stockflow' && <StockFlowView />}

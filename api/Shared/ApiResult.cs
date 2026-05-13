@@ -32,4 +32,16 @@ public static class ApiResult
         Detail = detail,
         OccurredAt = DateTime.UtcNow
     };
+
+    public static TimelineEventDto OutboxEvent(string targetSystem, string evt, string detail) => new()
+    {
+        Time = DateTime.UtcNow.ToString("o"),
+        Phase = "outbound",
+        Type = "outbox",
+        System = targetSystem,
+        Event = evt,
+        OutStatus = "Published",
+        Detail = detail,
+        OccurredAt = DateTime.UtcNow
+    };
 }

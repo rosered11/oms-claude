@@ -15,6 +15,8 @@ public class RecalcCompletedHandler(InMemoryStore store)
 
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("POS", "RecalcCompleted", o.Status,
             $"Recalculation closed. Final amount: {req.FinalAmount} {req.Currency}."));
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("WMS", "AmountSentToWMS",
+            $"SC → WMS: Updated amount {req.FinalAmount} {req.Currency} confirmed back to warehouse."));
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, posRecalcPending = false });
     }
