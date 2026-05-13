@@ -1,6 +1,6 @@
 namespace OmsApi;
 
-public record PackageDto(string TrackingId, string VehicleType, double Weight, List<string> LineIds);
+public record PackageDto(string TrackingId, string VehicleType, decimal Weight, List<string> LineIds);
 public record PackedRequest(string OrderId, List<PackageDto> Packages, DateTime PackedAt);
 
 public class PackedHandler(InMemoryStore store)
@@ -14,6 +14,7 @@ public class PackedHandler(InMemoryStore store)
             return Results.BadRequest(new { error_code = "POS_RECALC_PENDING",
                 message = "POS recalculation must be confirmed before packing.", trace_id = Guid.NewGuid() });
 
+        var now = DateTime.UtcNow;
         o.Packages = req.Packages.Select((p, i) => new OrderPackageDto
         {
             Id = $"PKG-{i + 1:D3}",
@@ -21,7 +22,9 @@ public class PackedHandler(InMemoryStore store)
             VehicleType = p.VehicleType,
             Weight = p.Weight,
             Status = OrderStatus.Packed,
-            LineIds = p.LineIds
+            LineIds = p.LineIds,
+            CreatedAt = now,
+            UpdatedAt = now
         }).ToList();
 
         o.Status = OrderStatus.Packed;

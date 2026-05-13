@@ -27,8 +27,8 @@ public class OrdersController(
     public IResult GetAll(
         [FromQuery] string? status, [FromQuery] string? channelType,
         [FromQuery] string? fulfillmentType, [FromQuery] string? storeId,
-        [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        => getOrders.Handle(status, channelType, fulfillmentType, storeId, search, page, pageSize);
+        [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int limit = 50)
+        => getOrders.Handle(status, channelType, fulfillmentType, storeId, search, page, limit);
 
     [HttpGet("{id}")]
     public IResult Get(string id) => getOrder.Handle(id);

@@ -88,12 +88,19 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
   "storeId": "store-central-dc",
   "fulfillmentType": "Delivery",
   "paymentMethod": "Prepaid",
+  "isPrepaid": true,
   "customer": {
     "name": "Alice Johnson",
     "phone": "0812345678",
-    "email": "alice@example.com"
+    "email": "alice@example.com",
+    "externalCustomerId": "CRM-ALICE-001"
   },
   "deliveryAddress": {
+    "addressType": "Delivery",
+    "firstName": "Alice",
+    "lastName": "Johnson",
+    "mobilePhone": "0812345678",
+    "email": "alice@example.com",
     "address1": "123 Main St",
     "subdistrict": "Silom",
     "district": "Bang Rak",
@@ -102,7 +109,9 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
   },
   "deliverySlot": {
     "scheduledStart": "2024-01-15T14:00:00Z",
-    "scheduledEnd": "2024-01-15T16:00:00Z"
+    "scheduledEnd": "2024-01-15T16:00:00Z",
+    "bookedVia": "TMS",
+    "bookingRef": "CBE-BK-001"
   },
   "lines": [
     {
@@ -416,7 +425,7 @@ Get current delivery slot. (UC19)
 
 Reschedule delivery window. Not allowed once order is `OutForDelivery` or later. (UC19)
 
-**Request:** `{ "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T22:00:00Z" }`
+**Request:** `{ "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T22:00:00Z", "bookedVia": "TMS", "bookingRef": "CBE-BK-002" }`
 
 **Response 200:** Updated slot object.
 
@@ -838,7 +847,9 @@ WMS confirms returned items are shelved. Triggers atomic refund calculation and 
 ```json
 {
   "returnId": "RET-001",
-  "items": [ { "sku": "APPLE-1KG", "condition": "Resellable", "sloc": "B-05" } ],
+  "items": [
+    { "sku": "APPLE-1KG", "condition": "Resellable", "sloc": "B-05", "quantity": 2, "performedBy": "wms-picker-07" }
+  ],
   "putAwayAt": "2024-01-15T11:00:00Z"
 }
 ```
@@ -913,7 +924,17 @@ WMS at destination confirms stock arrived and put away. Completes Transfer Order
 
 WMS checks in a damaged package returned by TMS driver. Order → `OnHold (PackageDamaged)`. (UC23)
 
-**Request:** `{ "orderId": "ORD-006", "trackingId": "TRK-2024-006", "receivedAt": "..." }`
+**Request:**
+```json
+{
+  "orderId": "ORD-006",
+  "trackingId": "TRK-2024-006",
+  "receivedAt": "2024-01-15T12:00:00Z",
+  "items": [
+    { "sku": "APPLE-1KG", "condition": "Repairable", "sloc": null, "quantity": 3 }
+  ]
+}
+```
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-006", "damagedReceiptId": "DMG-001", "newOrderStatus": "OnHold", "holdReason": "PackageDamaged" }`
 
@@ -927,8 +948,9 @@ WMS confirms damaged items inspected, condition assigned, shelved/disposed. (UC2
 ```json
 {
   "damagedReceiptId": "DMG-001",
-  "items": [ { "sku": "APPLE-1KG", "condition": "Repairable", "sloc": "DMG-01", "qty": 12 } ],
-  "putAwayAt": "2024-01-15T12:00:00Z"
+  "items": [ { "sku": "APPLE-1KG", "condition": "Repairable", "sloc": "DMG-01", "quantity": 12 } ],
+  "putAwayAt": "2024-01-15T12:00:00Z",
+  "updatedBy": "wms-inspector-02"
 }
 ```
 
@@ -1008,7 +1030,14 @@ POS confirms fiscal invoice issued. → `Invoiced`. (UC12)
 
 **Request:**
 ```json
-{ "orderId": "ORD-001", "invoiceNumber": "INV-2024-001", "totalAmount": 2380, "currency": "THB", "invoicedAt": "2024-01-15T19:25:00Z" }
+{
+  "orderId": "ORD-001",
+  "invoiceNumber": "INV-2024-001",
+  "invoiceType": "Standard",
+  "totalAmount": 2380,
+  "currency": "THB",
+  "invoicedAt": "2024-01-15T19:25:00Z"
+}
 ```
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Invoiced", "invoiceId": "inv-001" }`
@@ -1021,7 +1050,15 @@ POS confirms payment received. → `Paid`. (UC13)
 
 **Request:**
 ```json
-{ "orderId": "ORD-001", "invoiceNumber": "INV-2024-001", "paymentMethod": "CreditCard", "paidAmount": 2380, "currency": "THB", "paidAt": "2024-01-15T19:31:00Z" }
+{
+  "orderId": "ORD-001",
+  "invoiceNumber": "INV-2024-001",
+  "paymentMethod": "CreditCard",
+  "paidAmount": 2380,
+  "currency": "THB",
+  "paidAt": "2024-01-15T19:31:00Z",
+  "gatewayRef": "GW-TXN-20240115-001"
+}
 ```
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Paid" }`

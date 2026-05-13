@@ -159,7 +159,7 @@ Maps every API request and response field to its source or target database table
 | `packageId` | string | `orders.order_packages` | `package_id` | |
 | `trackingId` | string | `orders.order_packages` | `tracking_id` | |
 | `vehicleType` | string | `orders.order_packages` | `vehicle_type` | |
-| `weight` | number | `orders.order_packages` | `package_weight` | |
+| `packageWeight` | number | `orders.order_packages` | `package_weight` | |
 | `status` | string | `orders.order_packages` | `status` | |
 | `lineIds[]` | string[] | `orders.order_package_lines` | `order_line_id` | All lines in this package |
 
@@ -232,6 +232,8 @@ Response: `orderId` + `webhooks[]` array.
 | `sourceSystem` | string | `orders.order_webhook_logs` | `source_system` |
 | `eventType` | string | `orders.order_webhook_logs` | `event_type` |
 | `detail` | string | `orders.order_webhook_logs` | `detail` |
+| `idempotencyKey` | string \| null | `orders.order_webhook_logs` | `idempotency_key` |
+| `rawPayload` | object \| null | `orders.order_webhook_logs` | `raw_payload` |
 | `receivedAt` | timestamp | `orders.order_webhook_logs` | `received_at` |
 
 ---
@@ -264,6 +266,8 @@ Response: `orderId` + `substitutions[]` array.
 | `slotId` | string | `orders.delivery_slots` | `slot_id` |
 | `scheduledStart` | timestamp | `orders.delivery_slots` | `scheduled_start` |
 | `scheduledEnd` | timestamp | `orders.delivery_slots` | `scheduled_end` |
+| `bookedVia` | string \| null | `orders.delivery_slots` | `booked_via` |
+| `bookingRef` | string \| null | `orders.delivery_slots` | `booking_ref` |
 | `storeId` | string | `orders.delivery_slots` | `store_id` |
 
 ---
@@ -375,6 +379,8 @@ All writes in a single DB transaction.
 |---|---|---|---|
 | `scheduledStart` | `orders.delivery_slots` | `scheduled_start` | UPDATE |
 | `scheduledEnd` | `orders.delivery_slots` | `scheduled_end` | UPDATE |
+| `bookedVia` | `orders.delivery_slots` | `booked_via` | UPDATE (optional; preserved if omitted) |
+| `bookingRef` | `orders.delivery_slots` | `booking_ref` | UPDATE (optional; preserved if omitted) |
 | *(derived)* | `orders.delivery_slots` | `updated_at` | UPDATE |
 
 ---
@@ -485,6 +491,9 @@ Root fields identical to list above, plus:
 | `currency` | string | `payment.credit_notes` | `currency` |
 | `reason` | string | `payment.credit_notes` | `reason` |
 | `status` | string | `payment.credit_notes` | `status` |
+| `creditNoteLink` | string \| null | `payment.credit_notes` | `credit_note_link` |
+| `sourceStsRef` | string \| null | `payment.credit_notes` | `source_sts_ref` |
+| `issuedAt` | timestamp \| null | `payment.credit_notes` | `issued_at` |
 
 ---
 
@@ -697,7 +706,7 @@ Root fields identical to list above. Additional `lines[]`:
 | `orderId` | `orders.order_webhook_logs` | `event_type = 'Packed'`, `received_at` | INSERT |
 | `packages[].trackingId` | `orders.order_packages` | `tracking_id` | INSERT per package |
 | `packages[].vehicleType` | `orders.order_packages` | `vehicle_type` | INSERT |
-| `packages[].weight` | `orders.order_packages` | `package_weight` | INSERT |
+| `packages[].packageWeight` | `orders.order_packages` | `package_weight` | INSERT |
 | `packages[].lineIds[]` | `orders.order_package_lines` | `package_id`, `order_line_id` | INSERT per line per package |
 | *(derived)* | `orders.order_outbox` | `event_type = 'PackedEvent'` | INSERT — notifies TMS to dispatch |
 
@@ -799,7 +808,7 @@ Root fields identical to list above. Additional `lines[]`:
 | `items[].sku` | `inbound.damaged_goods_items` | `sku` | INSERT per item |
 | `items[].condition` | `inbound.damaged_goods_items` | `condition` | INSERT |
 | `items[].sloc` | `inbound.damaged_goods_items` | `sloc` | INSERT |
-| `items[].qty` | `inbound.damaged_goods_items` | `quantity` | INSERT |
+| `items[].quantity` | `inbound.damaged_goods_items` | `quantity` | INSERT |
 | `putAwayAt` | `inbound.damaged_goods_items` | `confirmed_at` | INSERT |
 | *(derived)* | `orders.order_outbox` | `event_type = 'DamagedGoodsPutAwayEvent'` | INSERT |
 

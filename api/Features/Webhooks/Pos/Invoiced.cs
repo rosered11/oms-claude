@@ -1,7 +1,7 @@
 namespace OmsApi;
 
 public record InvoicedRequest(string OrderId, string InvoiceNumber, decimal TotalAmount,
-    string Currency, DateTime InvoicedAt);
+    string Currency, string InvoiceType, DateTime InvoicedAt, string? IdempotencyKey = null);
 
 public class InvoicedHandler(InMemoryStore store)
 {
@@ -12,8 +12,25 @@ public class InvoicedHandler(InMemoryStore store)
         if (o.Status is not (OrderStatus.Delivered or OrderStatus.Collected))
             return ApiResult.InvalidTransition(o.Status, OrderStatus.Invoiced);
 
+        var now = DateTime.UtcNow;
+        var invoiceId = $"inv-{req.OrderId}-{req.InvoiceNumber}";
+
         o.Status = OrderStatus.Invoiced;
-        o.UpdatedAt = DateTime.UtcNow;
+        o.UpdatedAt = now;
+
+        store.SetInvoice(req.OrderId, new InvoiceDto
+        {
+            InvoiceId = invoiceId,
+            OrderId = req.OrderId,
+            InvoiceNumber = req.InvoiceNumber,
+            InvoiceType = req.InvoiceType,
+            TotalAmount = req.TotalAmount,
+            Currency = req.Currency,
+            Status = "Issued",
+            GeneratedAt = now,
+            IssuedAt = req.InvoicedAt
+        });
+
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("POS", "Invoiced", OrderStatus.Invoiced,
             $"Invoice {req.InvoiceNumber} issued for {req.TotalAmount} {req.Currency}."));
         store.AddWebhookLog(req.OrderId, new WebhookLogDto
@@ -22,8 +39,16 @@ public class InvoicedHandler(InMemoryStore store)
             SourceSystem = "POS",
             EventType = "Invoiced",
             Detail = $"Invoice {req.InvoiceNumber} — {req.TotalAmount} {req.Currency}.",
-            ReceivedAt = DateTime.UtcNow
+            IdempotencyKey = req.IdempotencyKey,
+            ReceivedAt = now
         });
-        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.Invoiced, invoiceId = $"inv-{req.OrderId}" });
+
+        return Results.Accepted(null, new
+        {
+            accepted = true,
+            orderId = req.OrderId,
+            newStatus = OrderStatus.Invoiced,
+            invoiceId
+        });
     }
 }

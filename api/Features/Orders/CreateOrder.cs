@@ -1,14 +1,24 @@
 namespace OmsApi;
 
+public record CreateOrderAddressRequest(
+    string AddressType, string FirstName, string LastName, string MobilePhone,
+    string? Email, string Address1, string Subdistrict, string District,
+    string Province, string PostalCode);
+
 public record CreateOrderLineRequest(string Sku, string ProductName, string Barcode,
     decimal RequestedQty, decimal UnitPrice, string UnitOfMeasure);
 
-public record CreateOrderSlotRequest(DateTime ScheduledStart, DateTime ScheduledEnd);
+public record CreateOrderSlotRequest(DateTime ScheduledStart, DateTime ScheduledEnd,
+    string? BookedVia = null, string? BookingRef = null);
 
 public record CreateOrderRequest(
     string SourceOrderId, string ChannelType, string BusinessUnit, string StoreId,
-    string FulfillmentType, string PaymentMethod, string CustomerName, string CustomerPhone,
-    string? CustomerEmail, CreateOrderSlotRequest? DeliverySlot, List<CreateOrderLineRequest> Lines);
+    string FulfillmentType, string PaymentMethod, bool IsPrepaid,
+    string CustomerName, string CustomerPhone, string? CustomerEmail,
+    string? ExternalCustomerId,
+    CreateOrderAddressRequest? DeliveryAddress,
+    CreateOrderSlotRequest? DeliverySlot,
+    List<CreateOrderLineRequest> Lines);
 
 public class CreateOrderHandler(InMemoryStore store)
 {
@@ -18,13 +28,34 @@ public class CreateOrderHandler(InMemoryStore store)
         var num = store.NextId("SC", store.Orders.Select(o => o.OrderNumber));
         var now = DateTime.UtcNow;
 
+        var addresses = new List<OrderAddressDto>();
+        if (req.DeliveryAddress is { } addr)
+        {
+            addresses.Add(new OrderAddressDto
+            {
+                AddressId = $"ADDR-{Guid.NewGuid():N}"[..12],
+                AddressType = addr.AddressType,
+                FirstName = addr.FirstName,
+                LastName = addr.LastName,
+                MobilePhone = addr.MobilePhone,
+                Email = addr.Email,
+                Address1 = addr.Address1,
+                Subdistrict = addr.Subdistrict,
+                District = addr.District,
+                Province = addr.Province,
+                PostalCode = addr.PostalCode
+            });
+        }
+
         var order = new OrderDto
         {
             Id = id,
             OrderNumber = num,
+            SourceOrderId = req.SourceOrderId,
             Customer = req.CustomerName,
             CustomerPhone = req.CustomerPhone,
             CustomerEmail = req.CustomerEmail,
+            ExternalCustomerId = req.ExternalCustomerId,
             ChannelType = req.ChannelType,
             BusinessUnit = req.BusinessUnit,
             StoreId = req.StoreId,
@@ -35,16 +66,22 @@ public class CreateOrderHandler(InMemoryStore store)
             Type = "Standard",
             FulfillmentType = req.FulfillmentType,
             PaymentMethod = req.PaymentMethod,
+            IsPrepaid = req.IsPrepaid,
             Items = req.Lines.Count,
             Amount = req.Lines.Sum(l => l.RequestedQty * l.UnitPrice),
             CreatedBy = "api",
             UpdatedBy = "api",
+            Addresses = addresses,
             DeliverySlot = req.DeliverySlot is { } slot ? new DeliverySlotDto
             {
                 SlotId = $"SLOT-{Guid.NewGuid():N}"[..12],
                 StoreId = req.StoreId,
                 ScheduledStart = slot.ScheduledStart,
-                ScheduledEnd = slot.ScheduledEnd
+                ScheduledEnd = slot.ScheduledEnd,
+                BookedVia = slot.BookedVia,
+                BookingRef = slot.BookingRef,
+                CreatedAt = now,
+                UpdatedAt = now
             } : null,
             Lines = req.Lines.Select((l, i) => new OrderLineDto
             {
@@ -55,7 +92,9 @@ public class CreateOrderHandler(InMemoryStore store)
                 RequestedAmount = l.RequestedQty,
                 PickedAmount = 0,
                 Uom = l.UnitOfMeasure,
-                UnitPrice = l.UnitPrice
+                UnitPrice = l.UnitPrice,
+                CreatedAt = now,
+                UpdatedAt = now
             }).ToList()
         };
 

@@ -1,6 +1,7 @@
 namespace OmsApi;
 
-public record PutAwayItemDto(string Sku, string Condition, string Sloc);
+public record PutAwayItemDto(string Sku, string Condition, string Sloc, decimal Quantity = 0,
+    string PerformedBy = "WMS");
 public record PutAwayConfirmedRequest(string ReturnId, List<PutAwayItemDto> Items, DateTime PutAwayAt);
 
 public class PutAwayConfirmedHandler(InMemoryStore store)
@@ -10,6 +11,8 @@ public class PutAwayConfirmedHandler(InMemoryStore store)
         var ret = store.FindReturn(req.ReturnId);
         if (ret is null) return ApiResult.NotFound("return", req.ReturnId);
 
+        var now = DateTime.UtcNow;
+
         foreach (var item in req.Items)
         {
             var ri = ret.Items.FirstOrDefault(i => i.Sku.Equals(item.Sku, StringComparison.OrdinalIgnoreCase));
@@ -18,12 +21,27 @@ public class PutAwayConfirmedHandler(InMemoryStore store)
                 ri.Condition = item.Condition;
                 ri.AssignedSloc = item.Sloc;
                 ri.PutAwayStatus = "PutAway";
+                ri.PutAwayAt = req.PutAwayAt;
+                ri.UpdatedAt = now;
+
+                store.AddReturnPutAwayLog(new ReturnPutAwayLogDto
+                {
+                    LogId = $"LOG-{Guid.NewGuid():N}"[..12],
+                    ReturnId = req.ReturnId,
+                    ReturnItemId = ri.Id,
+                    Sku = item.Sku,
+                    AssignedSloc = item.Sloc,
+                    Condition = item.Condition,
+                    Quantity = item.Quantity > 0 ? item.Quantity : ri.Quantity,
+                    PerformedBy = item.PerformedBy,
+                    PerformedAt = req.PutAwayAt
+                });
             }
         }
 
         ret.Status = "PutAway";
         ret.PutAwayAt = req.PutAwayAt;
-        ret.UpdatedAt = DateTime.UtcNow;
+        ret.UpdatedAt = now;
 
         var creditNoteId = $"CN-RET-{ret.Id}";
         ret.CreditNoteId = creditNoteId;
@@ -39,7 +57,8 @@ public class PutAwayConfirmedHandler(InMemoryStore store)
             RefundMethod = ret.Items.FirstOrDefault()?.PaymentMethod ?? "Unknown",
             Status = "Processed",
             ReferenceNo = $"REF-TXN-{ret.Id}",
-            ProcessedAt = req.PutAwayAt
+            ProcessedAt = req.PutAwayAt,
+            CreatedAt = now
         });
 
         store.SetCreditNote(ret.Id, new CreditNoteDto
@@ -50,7 +69,8 @@ public class PutAwayConfirmedHandler(InMemoryStore store)
             Amount = refundAmount,
             Currency = "THB",
             Reason = "Return",
-            Status = "Issued"
+            Status = "Issued",
+            IssuedAt = now
         });
 
         return Results.Accepted(null, new

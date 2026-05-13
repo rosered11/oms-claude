@@ -8,5 +8,5 @@ public class AuthController : ControllerBase
 {
     [HttpPost("token")]
     public IResult Token() =>
-        Results.Ok(new { accessToken = "dev-token", tokenType = "Bearer", expiresIn = 3600 });
+        Results.Ok(new { access_token = "dev-token", token_type = "Bearer", expires_in = 3600 });
 }

@@ -1,6 +1,8 @@
 namespace OmsApi;
 
-public record DamagedGoodsReceivedRequest(string OrderId, string TrackingId, DateTime ReceivedAt);
+public record DamagedGoodsItemRequest(string Sku, string Condition, string? Sloc, decimal Quantity);
+public record DamagedGoodsReceivedRequest(string OrderId, string TrackingId, DateTime ReceivedAt,
+    List<DamagedGoodsItemRequest>? Items = null);
 
 public class DamagedGoodsReceivedHandler(InMemoryStore store)
 {
@@ -10,13 +12,24 @@ public class DamagedGoodsReceivedHandler(InMemoryStore store)
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
 
         var receiptId = store.NextDamagedReceiptId();
-        store.AddDamagedReceipt(new DamagedReceiptDto
+        var receipt = new DamagedReceiptDto
         {
             DamagedReceiptId = receiptId,
             OrderId = req.OrderId,
             TrackingId = req.TrackingId,
-            ReceivedAt = req.ReceivedAt
-        });
+            Status = "Received",
+            ReceivedAt = req.ReceivedAt,
+            Items = (req.Items ?? []).Select((item, i) => new DamagedGoodsItemDto
+            {
+                ItemId = $"{receiptId}-I{i + 1:D3}",
+                DamagedReceiptId = receiptId,
+                Sku = item.Sku,
+                Condition = item.Condition,
+                Sloc = item.Sloc,
+                Quantity = item.Quantity
+            }).ToList()
+        };
+        store.AddDamagedReceipt(receipt);
 
         o.PreHoldStatus = o.Status;
         o.Status = OrderStatus.OnHold;

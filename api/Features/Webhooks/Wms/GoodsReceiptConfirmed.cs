@@ -1,8 +1,9 @@
 namespace OmsApi;
 
-public record GoodsReceiptLineRequest(string Sku, decimal ReceivedQty);
+public record GoodsReceiptLineRequest(string Sku, decimal ReceivedQty, string Condition = "Resellable",
+    string? Sloc = null);
 public record GoodsReceiptConfirmedRequest(string PurchaseOrderId, string GoodsReceiveNo,
-    List<GoodsReceiptLineRequest> Lines, DateTime ReceivedAt);
+    List<GoodsReceiptLineRequest> Lines, DateTime ReceivedAt, string? UpdatedBy = null);
 
 public class GoodsReceiptConfirmedHandler(InMemoryStore store)
 {
@@ -11,9 +12,24 @@ public class GoodsReceiptConfirmedHandler(InMemoryStore store)
         var po = store.FindPO(req.PurchaseOrderId);
         if (po is null) return ApiResult.NotFound("purchase order", req.PurchaseOrderId);
 
+        var now = DateTime.UtcNow;
         po.GoodsReceiveNo = req.GoodsReceiveNo;
         po.Status = "FullyReceived";
-        po.UpdatedAt = DateTime.UtcNow;
+        po.UpdatedAt = now;
+        po.UpdatedBy = req.UpdatedBy;
+
+        foreach (var line in req.Lines)
+        {
+            var poLine = po.Lines.FirstOrDefault(l =>
+                l.Sku.Equals(line.Sku, StringComparison.OrdinalIgnoreCase));
+            if (poLine is not null)
+            {
+                poLine.ReceivedQty = (int)line.ReceivedQty;
+                poLine.Condition = line.Condition;
+                poLine.Sloc = line.Sloc ?? poLine.Sloc;
+                poLine.ReceivedAt = req.ReceivedAt;
+            }
+        }
 
         store.AddGoodsReceipt(req.PurchaseOrderId, new GoodsReceiptDto
         {
@@ -24,7 +40,8 @@ public class GoodsReceiptConfirmedHandler(InMemoryStore store)
             {
                 Sku = l.Sku,
                 ReceivedQty = l.ReceivedQty,
-                Condition = "Resellable"
+                Condition = l.Condition,
+                Sloc = l.Sloc ?? ""
             }).ToList()
         });
 

@@ -28,6 +28,20 @@ public class InMemoryStore
     private readonly Dictionary<string, RefundDto> _refunds = [];
     private readonly Dictionary<string, CreditNoteDto> _creditNotes = [];
 
+    // order_holds
+    private readonly Dictionary<string, List<OrderHoldDto>> _orderHolds = [];
+
+    // payment module
+    private readonly Dictionary<string, InvoiceDto> _invoices = [];
+    private readonly Dictionary<string, OrderPaymentDto> _orderPayments = [];
+    private readonly Dictionary<string, List<PaymentTransactionDto>> _paymentTransactions = [];
+    private readonly Dictionary<string, List<OrderLineAmountDto>> _lineAmounts = [];
+    private readonly Dictionary<string, List<OrderFeeDto>> _orderFees = [];
+    private readonly Dictionary<string, List<OrderPromotionDto>> _orderPromotions = [];
+
+    // return_put_away_logs
+    private readonly Dictionary<string, List<ReturnPutAwayLogDto>> _returnPutAwayLogs = [];
+
     public InMemoryStore(IWebHostEnvironment env)
     {
         var dataPath = Path.Combine(env.ContentRootPath, "..", "web-ui", "data");
@@ -74,6 +88,28 @@ public class InMemoryStore
         evt.Id = list.Count + 1;
         list.Add(evt);
     }
+
+    // ── Order Holds ───────────────────────────────────────────────────────────
+
+    public List<OrderHoldDto> GetOrderHolds(string orderId)
+    {
+        _orderHolds.TryGetValue(orderId, out var list);
+        return list ?? [];
+    }
+
+    public OrderHoldDto AddOrderHold(OrderHoldDto hold)
+    {
+        if (!_orderHolds.TryGetValue(hold.OrderId, out var list))
+        {
+            list = [];
+            _orderHolds[hold.OrderId] = list;
+        }
+        list.Add(hold);
+        return hold;
+    }
+
+    public OrderHoldDto? GetActiveHold(string orderId) =>
+        GetOrderHolds(orderId).LastOrDefault(h => h.ReleasedAt is null);
 
     // ── Substitutions ─────────────────────────────────────────────────────────
 
@@ -136,6 +172,114 @@ public class InMemoryStore
 
     public void SetRefund(string returnId, RefundDto refund) => _refunds[returnId] = refund;
     public void SetCreditNote(string returnId, CreditNoteDto cn) => _creditNotes[returnId] = cn;
+
+    // ── Return Put-Away Logs ──────────────────────────────────────────────────
+
+    public List<ReturnPutAwayLogDto> GetReturnPutAwayLogs(string returnId)
+    {
+        _returnPutAwayLogs.TryGetValue(returnId, out var list);
+        return list ?? [];
+    }
+
+    public void AddReturnPutAwayLog(ReturnPutAwayLogDto log)
+    {
+        if (!_returnPutAwayLogs.TryGetValue(log.ReturnId, out var list))
+        {
+            list = [];
+            _returnPutAwayLogs[log.ReturnId] = list;
+        }
+        list.Add(log);
+    }
+
+    // ── Invoices ──────────────────────────────────────────────────────────────
+
+    public InvoiceDto? GetInvoice(string orderId)
+    {
+        _invoices.TryGetValue(orderId, out var inv);
+        return inv;
+    }
+
+    public void SetInvoice(string orderId, InvoiceDto invoice) => _invoices[orderId] = invoice;
+
+    // ── Order Payments ────────────────────────────────────────────────────────
+
+    public OrderPaymentDto? GetOrderPayment(string orderId)
+    {
+        _orderPayments.TryGetValue(orderId, out var p);
+        return p;
+    }
+
+    public void SetOrderPayment(string orderId, OrderPaymentDto payment) => _orderPayments[orderId] = payment;
+
+    public List<PaymentTransactionDto> GetPaymentTransactions(string paymentId)
+    {
+        _paymentTransactions.TryGetValue(paymentId, out var list);
+        return list ?? [];
+    }
+
+    public void AddPaymentTransaction(PaymentTransactionDto txn)
+    {
+        if (!_paymentTransactions.TryGetValue(txn.PaymentId, out var list))
+        {
+            list = [];
+            _paymentTransactions[txn.PaymentId] = list;
+        }
+        list.Add(txn);
+    }
+
+    // ── Line Amounts ──────────────────────────────────────────────────────────
+
+    public List<OrderLineAmountDto> GetLineAmounts(string orderLineId)
+    {
+        _lineAmounts.TryGetValue(orderLineId, out var list);
+        return list ?? [];
+    }
+
+    public void AddLineAmount(string orderLineId, OrderLineAmountDto amount)
+    {
+        if (!_lineAmounts.TryGetValue(orderLineId, out var list))
+        {
+            list = [];
+            _lineAmounts[orderLineId] = list;
+        }
+        list.Add(amount);
+    }
+
+    // ── Order Fees ────────────────────────────────────────────────────────────
+
+    public List<OrderFeeDto> GetOrderFees(string orderId)
+    {
+        _orderFees.TryGetValue(orderId, out var list);
+        return list ?? [];
+    }
+
+    public void AddOrderFee(OrderFeeDto fee)
+    {
+        if (!_orderFees.TryGetValue(fee.OrderId, out var list))
+        {
+            list = [];
+            _orderFees[fee.OrderId] = list;
+        }
+        list.Add(fee);
+    }
+
+    // ── Order Promotions ──────────────────────────────────────────────────────
+
+    public List<OrderPromotionDto> GetOrderPromotions(string orderId)
+    {
+        _orderPromotions.TryGetValue(orderId, out var list);
+        return list ?? [];
+    }
+
+    public void AddOrderPromotion(OrderPromotionDto promo)
+    {
+        if (!_orderPromotions.TryGetValue(promo.OrderId, out var list))
+        {
+            list = [];
+            _orderPromotions[promo.OrderId] = list;
+        }
+        list.Add(promo);
+    }
 
     // ── Inbound ───────────────────────────────────────────────────────────────
 

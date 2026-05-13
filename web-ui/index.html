@@ -26,9 +26,22 @@ const { useState, useCallback } = React;
 const DataContext = React.createContext(null);
 
 const API_BASE = 'http://localhost:5050/api';
+let _token = null;
+
+async function initAuth() {
+  try {
+    const r = await fetch(`${API_BASE}/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: 'oms-client-01', clientSecret: 's3cr3t', scope: 'orders:read orders:write' }),
+    });
+    if (r.ok) { const d = await r.json(); _token = d.access_token || d.accessToken; }
+  } catch {}
+}
 
 async function apiFetch(path) {
-  const r = await fetch(`${API_BASE}${path}`);
+  const headers = _token ? { 'Authorization': `Bearer ${_token}` } : {};
+  const r = await fetch(`${API_BASE}${path}`, { headers });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
@@ -134,23 +147,25 @@ function DataProvider({ children }) {
   const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
-    Promise.all([
-      apiFetch('/orders?pageSize=200'),
-      apiFetch('/inbound/purchase-orders'),
-      apiFetch('/inbound/transfer-orders'),
-      apiFetch('/returns'),
-      apiFetch('/orders/ORD-001/timeline').catch(() => []),
-      apiFetch('/stock/APPLE-1KG/ledger').catch(() => null),
-    ]).then(([ordersResp, purchaseOrders, transferOrders, returns, orderTimeline, stockLedger]) => {
-      setData({
-        orders: ordersResp.data,
-        purchaseOrders,
-        transferOrders,
-        returns,
-        orderTimeline,
-        stockLedger,
-      });
-    }).catch(e => setError(e.message));
+    initAuth().then(() =>
+      Promise.all([
+        apiFetch('/orders?limit=200'),
+        apiFetch('/inbound/purchase-orders'),
+        apiFetch('/inbound/transfer-orders'),
+        apiFetch('/returns'),
+        apiFetch('/orders/ORD-001/timeline').catch(() => ({ events: [] })),
+        apiFetch('/stock/APPLE-1KG/ledger').catch(() => null),
+      ]).then(([ordersResp, poResp, toResp, returnsResp, timelineResp, stockLedger]) => {
+        setData({
+          orders: ordersResp.items,
+          purchaseOrders: poResp.items,
+          transferOrders: toResp.items,
+          returns: returnsResp.items,
+          orderTimeline: timelineResp.events ?? [],
+          stockLedger,
+        });
+      }).catch(e => setError(e.message))
+    );
   }, []);
 
   if (error) return (
@@ -832,6 +847,84 @@ function OrderTimeline({ onBack }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// LIVE TIMELINE TAB
+// ─────────────────────────────────────────────────────────────
+
+function fmtEvtTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  } catch { return iso; }
+}
+
+function normEvtType(t) {
+  const m = { domain: 'domain', inbound: 'webhook', outbox: 'outbox' };
+  return m[(t || '').toLowerCase()] || 'domain';
+}
+
+function LiveTimeline({ orderId, apiBase }) {
+  const [data, setData]       = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError]     = React.useState(null);
+
+  function load() {
+    setLoading(true);
+    setError(null);
+    const h = _token ? { Authorization: `Bearer ${_token}` } : {};
+    fetch(`${apiBase}/orders/${orderId}/timeline`, { headers: h })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d  => { setData(d);  setLoading(false); })
+      .catch(() => { setError('Could not load timeline — is the API running?'); setLoading(false); });
+  }
+
+  React.useEffect(() => { load(); }, [orderId]);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm font-semibold text-gray-700">
+          Live Event Timeline
+          {data && <span className="ml-2 font-normal text-gray-400">({data.summary.totalEvents} events)</span>}
+        </div>
+        <button onClick={load}
+          className="text-xs text-blue-500 hover:text-blue-700 border border-blue-200 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors">
+          ↻ Refresh
+        </button>
+      </div>
+
+      {loading && <div className="text-center py-8 text-gray-400 text-sm">Loading…</div>}
+      {error   && <div className="text-center py-6 text-red-400 text-sm">{error}</div>}
+
+      {data && !loading && (
+        <>
+          <div className="flex flex-wrap gap-4 mb-5 px-1">
+            {[['bg-slate-400','State Change'],['bg-emerald-500','Webhook In'],['bg-violet-500','Outbox Out']].map(([dot,lbl]) => (
+              <div key={lbl} className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-full ${dot}`} />
+                <span className="text-xs text-gray-500">{lbl}</span>
+              </div>
+            ))}
+          </div>
+
+          {data.events.length === 0
+            ? <div className="text-xs text-gray-300 py-4 text-center">No events recorded yet</div>
+            : data.events.map((e, i) => (
+                <TimelineRow key={i} evt={{ ...e, time: fmtEvtTime(e.time), type: normEvtType(e.type) }} />
+              ))
+          }
+
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500 flex flex-wrap gap-4">
+            <span>{data.summary.totalEvents} event{data.summary.totalEvents !== 1 ? 's' : ''}</span>
+            {data.summary.totalEndToEndMinutes > 0 && (
+              <><span>·</span><span>Total span: <strong className="text-gray-700">{data.summary.totalEndToEndMinutes}m</strong></span></>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // ORDER DETAIL VIEW
 // ─────────────────────────────────────────────────────────────
 
@@ -839,6 +932,7 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
   const { apiBase } = React.useContext(DataContext);
   const [order, setOrder] = React.useState(initialOrder);
   const [toast, setToast] = React.useState(null);
+  const [tab, setTab] = React.useState('details');
   const actions = ORDER_ACTIONS[order.status] || [];
 
   function showToast(msg, type = 'success') {
@@ -883,7 +977,7 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
     else if (resolvedPath.includes('/webhooks/pos/collected'))
       body = { orderId: id, collectedAt: now, collectedBy: order.customer };
     else if (resolvedPath.includes('/webhooks/pos/invoiced'))
-      body = { orderId: id, invoiceNumber: `INV-${id}-${Date.now()}`, totalAmount: order.amount, currency: 'THB', invoicedAt: now };
+      body = { orderId: id, invoiceNumber: `INV-${id}-${Date.now()}`, invoiceType: 'Standard', totalAmount: order.amount, currency: 'THB', invoicedAt: now };
     else if (resolvedPath.includes('/webhooks/pos/payment-confirmed'))
       body = { orderId: id, invoiceNumber: `INV-${id}`, paymentMethod: order.paymentMethod || 'Cash', paidAmount: order.amount, currency: 'THB', paidAt: now };
     else if (resolvedPath.includes('/hold') && !resolvedPath.includes('release'))
@@ -893,10 +987,11 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
     else if (resolvedPath.includes('/cancel'))
       body = { reason: 'Cancelled via dashboard', cancelledBy: 'dashboard-user' };
 
+    const authHeader = _token ? { 'Authorization': `Bearer ${_token}` } : {};
     try {
       const res = await fetch(`${apiBase}${resolvedPath}`, {
         method,
-        headers: body ? { 'Content-Type': 'application/json' } : {},
+        headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
@@ -905,7 +1000,7 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
         return;
       }
       showToast(`${action.label} — done`);
-      const updatedRes = await fetch(`${apiBase}/orders/${id}`);
+      const updatedRes = await fetch(`${apiBase}/orders/${id}`, { headers: authHeader });
       if (updatedRes.ok) {
         const updated = await updatedRes.json();
         setOrder(updated);
@@ -975,6 +1070,18 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
           </div>
         </div>
       </div>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl">
+        {[['details', 'Details'], ['timeline', 'Live Timeline']].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === k ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'details' && (<>
 
       {/* Delivery slot */}
       {order.deliverySlot && (
@@ -1091,6 +1198,10 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
           View System Event Timeline — UC24 Demo (ORD-001)
         </button>
       </div>
+
+      </>)}
+
+      {tab === 'timeline' && <LiveTimeline orderId={order.id} apiBase={apiBase} />}
     </div>
   );
 }
@@ -1317,7 +1428,7 @@ function POCard({ po }) {
         <Badge text={po.status} cls={STATUS_COLOR[po.status] || 'bg-gray-100 text-gray-700'} />
       </div>
       <div className="text-sm font-medium text-gray-800 truncate">{po.supplier}</div>
-      <div className="text-xs text-gray-400 mt-1">{po.store} · {po.lines} lines</div>
+      <div className="text-xs text-gray-400 mt-1">{po.store} · {po.lineCount} lines</div>
       <div className="text-xs font-bold text-gray-700 mt-0.5">฿{po.value?.toLocaleString()}</div>
     </div>
   );
@@ -1332,7 +1443,7 @@ function TOCard({ to }) {
       </div>
       <div className="text-sm text-gray-700">{to.source} → {to.dest}</div>
       <div className="text-xs text-gray-400 mt-1">
-        {to.lines} lines{to.tracking ? ` · ${to.tracking}` : ''}
+        {to.lineCount} lines{to.tracking ? ` · ${to.tracking}` : ''}
       </div>
     </div>
   );

@@ -1,0 +1,13 @@
+{
+  "name": "oms-claude",
+  "private": true,
+  "scripts": {
+    "serve:ui": "serve web-ui -p 3000",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open"
+  },
+  "devDependencies": {
+    "cypress": "^13.17.0",
+    "serve": "^14.2.4"
+  }
+}

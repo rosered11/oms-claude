@@ -3,7 +3,7 @@ namespace OmsApi;
 public class GetOrdersHandler(InMemoryStore store)
 {
     public IResult Handle(string? status, string? channelType, string? fulfillmentType,
-        string? storeId, string? search, int page, int pageSize)
+        string? storeId, string? search, int page, int limit)
     {
         var q = store.Orders.AsEnumerable();
 
@@ -20,7 +20,7 @@ public class GetOrdersHandler(InMemoryStore store)
                            || o.Customer.Contains(search, StringComparison.OrdinalIgnoreCase));
 
         var total = q.Count();
-        var items = q.OrderByDescending(o => o.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        return Results.Ok(new { data = items, total, page, pageSize });
+        var items = q.OrderByDescending(o => o.CreatedAt).Skip((page - 1) * limit).Take(limit).ToList();
+        return Results.Ok(new { items, total, page, limit });
     }
 }

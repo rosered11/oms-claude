@@ -20,6 +20,7 @@ Cypress.Commands.add('createPrepaidOrder', (overrides = {}) => {
     storeId:         'STORE-001',
     fulfillmentType: 'Delivery',
     paymentMethod:   'Prepaid',
+    isPrepaid:       true,
     customerName:    'Test Customer',
     customerPhone:   '0812345678',
     customerEmail:   'test@example.com',

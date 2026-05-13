@@ -1,6 +1,7 @@
 namespace OmsApi;
 
-public record TransferReceivedRequest(string TransferOrderId, DateTime ReceivedAt);
+public record TransferReceivedRequest(string TransferOrderId, DateTime ReceivedAt,
+    string? UpdatedBy = null);
 
 public class TransferReceivedHandler(InMemoryStore store)
 {
@@ -9,14 +10,19 @@ public class TransferReceivedHandler(InMemoryStore store)
         var to = store.FindTO(req.TransferOrderId);
         if (to is null) return ApiResult.NotFound("transfer order", req.TransferOrderId);
 
+        var now = DateTime.UtcNow;
         to.Status = "Completed";
-        to.UpdatedAt = DateTime.UtcNow;
+        to.UpdatedAt = now;
+        to.UpdatedBy = req.UpdatedBy;
+
+        foreach (var line in to.Lines)
+            line.ConfirmedAt ??= req.ReceivedAt;
 
         store.AddTransferConfirmation(req.TransferOrderId, new TransferConfirmationDto
         {
             Type = "TransferReceived",
             ConfirmedAt = req.ReceivedAt,
-            ConfirmedBy = "WMS",
+            ConfirmedBy = req.UpdatedBy ?? "WMS",
             Tracking = to.Tracking
         });
 

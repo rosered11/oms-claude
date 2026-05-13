@@ -53,7 +53,7 @@ The act of stopping an order before it reaches the warehouse for dispatch. Cance
 The system that manages delivery slot availability and booking records. Slot requests from customers are routed through GW → PS → TMS → CBE. Relevant only in the **Prepaid Flow**.
 
 **Channel Type**
-Where an order originated: `Web`, `App`, `POS`, or `CallCenter`. Determines routing rules and notification templates.
+Where an order originated: `Gateway`, `Marketplace`, `Kiosk`, `POSTerminal`, `BulkImport`, `Web`, `App`, `POS`, or `CallCenter`. Determines routing rules, notification templates, and outbox routing via `config.outbox_routing_rules`.
 
 **Click & Collect**
 A **Fulfillment Type** where the customer places an order online but collects it in person at a store. The order lifecycle ends with **Ready for Collection** → **Collected** rather than **Delivered**.
