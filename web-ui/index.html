@@ -33,71 +33,137 @@ async function apiFetch(path) {
   return r.json();
 }
 
-async function localFetch(path) {
-  const r = await fetch(path);
-  if (!r.ok) throw new Error(`${r.status}`);
-  return r.json();
-}
+// ─────────────────────────────────────────────────────────────
+// ILLUSTRATIVE CONSTANTS — stock flow scenarios & prepaid timeline
+// (no API endpoint; embedded as demo data)
+// ─────────────────────────────────────────────────────────────
+
+const STOCK_FLOW_DATA = {
+  case1: {
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 10,
+    po: { id: "PO-001", supplier: "Fresh Foods Ltd", store: "Central DC", orderedQty: 10, receivedQty: 10, sloc: "A-12", receivedAt: "09:28", putAwayAt: "10:15" },
+    orders: [
+      { id: "ORD-A", customer: "Alice Johnson", qty: 6, pickedAt: "15:31", status: "Delivered" },
+      { id: "ORD-B", customer: "Bob Smith",     qty: 3, pickedAt: "16:45", status: "OutForDelivery" },
+    ],
+    ledger: [
+      { id: 1, time: "10:15", dir: "in",  ref: "PO-001", event: "PurchaseOrderPutAwayConfirmed", qtyChange:  10, balance: 10, detail: "Fresh Foods Ltd — 10 bags shelved at Sloc A-12. WMS stock now available." },
+      { id: 2, time: "15:31", dir: "out", ref: "ORD-A",  event: "PickConfirmed",                 qtyChange:  -6, balance:  4, detail: "Alice Johnson picks 6 bags for Delivery order. 4 units remain in WMS." },
+      { id: 3, time: "16:45", dir: "out", ref: "ORD-B",  event: "PickConfirmed",                 qtyChange:  -3, balance:  1, detail: "Bob Smith picks 3 bags for Delivery order. 1 unit remains in WMS." },
+    ],
+  },
+  case2: {
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120,
+    transfer: { id: "TR-001", source: "Central DC", dest: "Store A", qty: 4, tracking: "TRK-TR-001", pickedAt: "11:00", arrivedAt: "14:30", status: "Completed" },
+    orders: [
+      { id: "ORD-A", customer: "Alice Johnson", qty: 6, store: "Central DC", pickedAt: "15:31", status: "Delivered" },
+      { id: "ORD-C", customer: "Charlie Wong",  qty: 3, store: "Store A",    pickedAt: "16:00", status: "Delivered" },
+    ],
+    centralLedger: [
+      { id: 1, time: "10:15", dir: "in",  ref: "PO-001", event: "PurchaseOrderPutAwayConfirmed", qtyChange:  10, balance: 10, total: 10, detail: "10 bags shelved at Sloc A-12" },
+      { id: 2, time: "11:00", dir: "out", ref: "TR-001", event: "TransferPickConfirmed",         qtyChange:  -4, balance:  6, total: 10, detail: "4 bags picked & packed for transfer → Store A (TRK-TR-001)" },
+      { id: 3, time: "15:31", dir: "out", ref: "ORD-A",  event: "PickConfirmed",                 qtyChange:  -6, balance:  0, total: 10, detail: "Alice Johnson picks 6 bags for delivery" },
+    ],
+    storeALedger: [
+      { id: 1, time: "14:30", dir: "in",  ref: "TR-001", event: "TransferReceived", qtyChange:  4, balance: 4, total: 4, detail: "4 bags received from Central DC via TRK-TR-001" },
+      { id: 2, time: "16:00", dir: "out", ref: "ORD-C",  event: "PickConfirmed",    qtyChange: -3, balance: 1, total: 4, detail: "Charlie Wong picks 3 bags for delivery" },
+    ],
+  },
+  case3: {
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 10,
+    po: { id: "PO-001", supplier: "Fresh Foods Ltd", store: "Central DC", orderedQty: 10, receivedQty: 10, sloc: "A-12", receivedAt: "09:28", putAwayAt: "10:15" },
+    orders: [
+      { id: "ORD-A", customer: "Alice Johnson", orderedQty: 5, pickedQty: 5, pickedAt: "15:00", status: "Delivered" },
+      { id: "ORD-B", customer: "Bob Smith",     orderedQty: 3, pickedQty: 3, pickedAt: "15:20", status: "Cancelled", cancelledAt: "16:30" },
+      { id: "ORD-C", customer: "Charlie Wong",  orderedQty: 3, pickedQty: 2, pickedAt: "16:00", status: "Delivered", shortQty: 1, hasSubstitution: true },
+    ],
+    substitutions: [
+      { orderId: "ORD-C", orderLineId: "line-ORD-C-01", originalSku: "APPLE-1KG", originalProductName: "Apple (1 kg bag)", requestedQty: 3, pickedQty: 2, shortQty: 1, substituteSku: "ORANGE-1KG", substituteProductName: "Orange (1 kg bag)", substituteUnitPrice: 110, substituteQty: 1, customerApproved: true, approvedAt: "16:05" },
+    ],
+    ledger: [
+      { id: 1, time: "10:15", dir: "in",  ref: "PO-001", event: "PurchaseOrderPutAwayConfirmed", qtyChange:  10, balance: 10,                detail: "Fresh Foods Ltd — 10 bags shelved at Sloc A-12." },
+      { id: 2, time: "15:00", dir: "out", ref: "ORD-A",  event: "PickConfirmed",                 qtyChange:  -5, balance:  5,                detail: "Alice Johnson picks 5 bags. 5 units remain." },
+      { id: 3, time: "15:20", dir: "out", ref: "ORD-B",  event: "PickConfirmed",                 qtyChange:  -3, balance:  2,                detail: "Bob Smith picks 3 bags. 2 remain. Cancellation not yet received by OMS." },
+      { id: 4, time: "16:00", dir: "out", ref: "ORD-C",  event: "PickConfirmed (Short)",         qtyChange:  -2, balance:  0, short: true,   detail: "Charlie needs 3 — only 2 APPLE-1KG on shelf. Short-pick: 2 APPLE-1KG + 1 ORANGE-1KG substitute. Bob's cancellation arrived too late." },
+      { id: 5, time: "16:30", dir: "in",  ref: "ORD-B",  event: "OrderCancelled",                qtyChange:   3, balance:  3, cancelled: true, detail: "Bob cancels. 3 bags returned to shelf — too late for Charlie's short-pick, but available for future orders." },
+    ],
+  },
+  case4: {
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 5,
+    originalOrder: { id: "ORD-001", customer: "Alice Johnson", qty: 5, deliveredAt: "19:22", status: "Delivered" },
+    return: { id: "RET-001", returnNumber: "RET-001", customer: "Alice Johnson", returnReason: "QualityIssue", returnedQty: 3, keptQty: 2, requestedAt: "10:00", pickedUpAt: "11:30", receivedAt: "13:15", inspectedAt: "13:45", putAwayAt: "14:00", status: "Refunded" },
+    returnItems: [
+      { id: "RI-001", sku: "APPLE-1KG", qty: 2, condition: "Resellable", sloc: "A-12", putAwayAt: "14:00", stockAction: "+2 restored to WMS" },
+      { id: "RI-002", sku: "APPLE-1KG", qty: 1, condition: "Dispose",    sloc: null,   putAwayAt: "14:00", stockAction: "written off — no stock change" },
+    ],
+    refund: { id: "REF-001", creditNoteNumber: "CN-RET-001", refundAmount: 360, currency: "THB", method: "CreditCard", status: "Processed", reason: "Return", processedAt: "14:15" },
+    ledger: [
+      { id: 1, time: "19:22", dir: "out", ref: "ORD-001", event: "PickConfirmed",          qtyChange: -5, balance: 0,                   detail: "Alice Johnson — 5 bags picked and delivered. WMS stock at 0." },
+      { id: 2, time: "14:00", dir: "in",  ref: "RET-001", event: "ReturnPutAwayConfirmed", qtyChange:  2, balance: 2, resellable: true,  detail: "2 of 3 returned bags inspected Resellable — shelved at Sloc A-12. Stock restored +2." },
+      { id: 3, time: "14:00", dir: "off", ref: "RET-001", event: "ReturnDisposed",         qtyChange:  0, balance: 2, disposed: true,    detail: "1 bag inspected Dispose — damaged in transit. Written off. No stock change." },
+    ],
+  },
+};
+
+const PREPAID_TIMELINE_DATA = [
+  { id:  1, time: "09:00", phase: "booking",  type: "domain",  system: "CBE", event: "TimeSlotRequested",         detail: "Customer → GW → PS → TMS → CBE. Available delivery windows queried. Slot 14:00–16:00 selected." },
+  { id:  2, time: "09:05", phase: "booking",  type: "domain",  system: "CBE", event: "BookingCreated",            detail: "Customer → GW → PS → TMS → CBE. Delivery booking confirmed. Slot locked in TMS and CHG Backend." },
+  { id:  3, time: "09:10", phase: "outbound", type: "domain",  system: "OMS", event: "OrderCreated",              detail: "PRE-001 — PrePaid · Delivery · 4 items · ฿1,200. Status → Pending" },
+  { id:  4, time: "09:10", phase: "outbound", type: "outbox",  system: "CBE", event: "SaleOrderSentToCBE",        detail: "SC → CBE: Sale Order dispatched. Payment amount registered in CHG Backend.", outStatus: "Published" },
+  { id:  5, time: "09:10", phase: "outbound", type: "outbox",  system: "WMS", event: "SaleOrderSentToWMS",        detail: "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", outStatus: "Published" },
+  { id:  6, time: "09:15", phase: "outbound", type: "webhook", system: "WMS", event: "PickStarted",               detail: "POST /webhooks/wms/pick-started. No BookingConfirmed step — booking pre-confirmed via TMS/CBE. Status → PickStarted" },
+  { id:  7, time: "09:15", phase: "outbound", type: "outbox",  system: "TMS", event: "PickStartedEvent",          detail: "SC → TMS: PickStartedEvent dispatched. TMS notified for driver slot scheduling.", outStatus: "Published" },
+  { id:  8, time: "09:20", phase: "outbound", type: "webhook", system: "WMS", event: "POSRecalculationRequested", detail: "WMS → SC: POS Recalculation request (mid-pick). Current basket: ฿1,200. Can repeat multiple times." },
+  { id:  9, time: "09:20", phase: "outbound", type: "outbox",  system: "POS", event: "RecalculationForwarded",    detail: "SC → POS: Recalculation forwarded. Promo engine and tax calculation applied.", outStatus: "Published" },
+  { id: 10, time: "09:21", phase: "outbound", type: "webhook", system: "POS", event: "AmountRecalculated",        detail: "POS → SC: Amount Recalculation. Final total: ฿1,150 (promo −฿50 applied)." },
+  { id: 11, time: "09:21", phase: "outbound", type: "outbox",  system: "WMS", event: "AmountSentToWMS",           detail: "SC → WMS: Updated amount ฿1,150 confirmed back to warehouse.", outStatus: "Published" },
+  { id: 12, time: "09:45", phase: "outbound", type: "webhook", system: "WMS", event: "PickConfirmed",             detail: "POST /webhooks/wms/pick-confirmed (basket qty). 4/4 lines fully picked. Status → PickConfirmed" },
+  { id: 13, time: "09:45", phase: "outbound", type: "outbox",  system: "POS", event: "PickConfirmedEvent",        detail: "SC → POS: PickConfirmedEvent dispatched. Partial pick notification to POS.", outStatus: "Published" },
+  { id: 14, time: "09:46", phase: "outbound", type: "outbox",  system: "WMS", event: "ABBInvoiceSentToWMS",       detail: "SC → WMS: ABB/Tax Invoice PRE-paid #INV-PRE-001 · ฿1,150. Invoice issued BEFORE TMS dispatches.", outStatus: "Published" },
+  { id: 15, time: "09:46", phase: "outbound", type: "outbox",  system: "TMS", event: "PickConfirmedSentToTMS",    detail: "SC → TMS: Pick Confirmed (basket qty). Order ready for driver pickup.", outStatus: "Published" },
+  { id: 16, time: "13:50", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDispatched",         detail: "POST /webhooks/tms/package-dispatched. TRK-PRE-001 — driver picks up package. Status → OutForDelivery" },
+  { id: 17, time: "13:50", phase: "outbound", type: "outbox",  system: "GW",  event: "OutForDeliveryNotified",    detail: "SC → GW: Out for Delivery. Customer notified via app push notification.", outStatus: "Published" },
+  { id: 18, time: "15:22", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDelivered",          detail: "POST /webhooks/tms/package-delivered. TRK-PRE-001 delivered to customer. Status → Delivered" },
+  { id: 19, time: "15:22", phase: "outbound", type: "outbox",  system: "GW",  event: "DeliveredNotified",         detail: "SC → GW: Delivered. Customer delivery confirmation sent.", outStatus: "Published" },
+  { id: 20, time: "15:30", phase: "outbound", type: "webhook", system: "STS", event: "ABBTaxInvoiceReceived",     detail: "STS → SC: Official ABB/Tax Invoice #ABB-2024-PRE-001 · ฿1,150 issued by Settlement Tax System." },
+  { id: 21, time: "15:30", phase: "outbound", type: "outbox",  system: "GW",  event: "TaxInvoiceForwarded",       detail: "SC → GW: ABB/Tax Invoice forwarded to customer. Prepaid transaction complete.", outStatus: "Published" },
+];
 
 function DataProvider({ children }) {
-  const [data, setData]     = React.useState(null);
-  const [error, setError]   = React.useState(null);
-  const [apiMode, setApiMode] = React.useState(false);
+  const [data, setData] = React.useState(null);
+  const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
-    // Try live API first; fall back to local JSON files.
-    apiFetch('/orders?pageSize=200')
-      .then(async (ordersResp) => {
-        const [purchaseOrders, transferOrders, returns, prepaidTimeline, stockFlow, orderTimeline] =
-          await Promise.all([
-            apiFetch('/inbound/purchase-orders'),
-            apiFetch('/inbound/transfer-orders'),
-            apiFetch('/returns'),
-            // prepaid-timeline and stock-flow have no API endpoint; use local files
-            localFetch('data/prepaid-timeline.json').catch(() => []),
-            localFetch('data/stock-flow.json').catch(() => []),
-            localFetch('data/order-timeline.json').catch(() => []),
-          ]);
-        setApiMode(true);
-        setData({
-          orders: ordersResp.data,
-          purchaseOrders,
-          transferOrders,
-          returns,
-          orderTimeline,
-          stockFlow,
-          prepaidTimeline,
-        });
-      })
-      .catch(() => {
-        // API unavailable — fall back to local JSON files
-        Promise.all([
-          localFetch('data/orders.json'),
-          localFetch('data/purchase-orders.json'),
-          localFetch('data/transfer-orders.json'),
-          localFetch('data/order-timeline.json'),
-          localFetch('data/stock-flow.json'),
-          localFetch('data/returns.json'),
-          localFetch('data/prepaid-timeline.json').catch(() => []),
-        ])
-        .then(([orders, purchaseOrders, transferOrders, orderTimeline, stockFlow, returns, prepaidTimeline]) =>
-          setData({ orders, purchaseOrders, transferOrders, orderTimeline, stockFlow, returns, prepaidTimeline })
-        )
-        .catch(e => setError(e.message));
+    Promise.all([
+      apiFetch('/orders?pageSize=200'),
+      apiFetch('/inbound/purchase-orders'),
+      apiFetch('/inbound/transfer-orders'),
+      apiFetch('/returns'),
+      apiFetch('/orders/ORD-001/timeline').catch(() => []),
+      apiFetch('/stock/APPLE-1KG/ledger').catch(() => null),
+    ]).then(([ordersResp, purchaseOrders, transferOrders, returns, orderTimeline, stockLedger]) => {
+      setData({
+        orders: ordersResp.data,
+        purchaseOrders,
+        transferOrders,
+        returns,
+        orderTimeline,
+        stockLedger,
       });
+    }).catch(e => setError(e.message));
   }, []);
 
   if (error) return (
     <div className="p-8 text-red-600 text-sm">
-      <strong>Failed to load data:</strong> {error}<br />
-      <span className="text-gray-500">Open via a local server: <code>python -m http.server</code> then visit localhost:8000</span>
+      <strong>API unavailable:</strong> {error}<br />
+      <span className="text-gray-500">Start the API: <code>cd api && dotnet run</code> — then refresh.</span>
     </div>
   );
   if (!data) return (
     <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm">Loading…</div>
   );
   return (
-    <DataContext.Provider value={{ ...data, apiMode, apiBase: API_BASE }}>
+    <DataContext.Provider value={{ ...data, apiBase: API_BASE }}>
       {children}
     </DataContext.Provider>
   );
@@ -769,8 +835,86 @@ function OrderTimeline({ onBack }) {
 // ORDER DETAIL VIEW
 // ─────────────────────────────────────────────────────────────
 
-function OrderDetailView({ order, onBack, onViewTimeline }) {
+function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderUpdated }) {
+  const { apiBase } = React.useContext(DataContext);
+  const [order, setOrder] = React.useState(initialOrder);
+  const [toast, setToast] = React.useState(null);
   const actions = ORDER_ACTIONS[order.status] || [];
+
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  async function executeAction(action) {
+    const id = order.id;
+    const now = new Date().toISOString();
+    const method = action.method === 'HOOK' ? 'POST' : action.method;
+    const resolvedPath = action.path.replace('{id}', id);
+    if (method === 'GET') { showToast('GET actions are read-only — no change triggered'); return; }
+    if (resolvedPath.includes('/returns') && method === 'POST') {
+      showToast('Use the Returns form to create a return', 'error'); return;
+    }
+
+    let body = null;
+    if (resolvedPath.includes('/webhooks/wms/booking-confirmed'))
+      body = { orderId: id, wmsBookingRef: `WMS-${Date.now()}`, confirmedAt: now };
+    else if (resolvedPath.includes('/webhooks/wms/pick-started'))
+      body = { orderId: id, pickerId: 'PICKER-001', startedAt: now };
+    else if (resolvedPath.includes('/webhooks/wms/pick-confirmed'))
+      body = { orderId: id, lines: order.lines.map(l => ({ orderLineId: l.id, sku: l.sku, pickedQty: l.requestedAmount, substituted: false })), pickedAt: now };
+    else if (resolvedPath.includes('/webhooks/wms/packed')) {
+      const trackingId = `TRK-${id}-${Date.now()}`;
+      body = { orderId: id, packages: [{ trackingId, vehicleType: 'Truck', weight: 5.0, lineIds: order.lines.map(l => l.id) }], packedAt: now };
+    } else if (resolvedPath.includes('/webhooks/tms/package-dispatched')) {
+      const tid = order.packages?.[0]?.trackingId;
+      if (!tid) { showToast('No tracking ID — pack the order first (WMS Packed step)', 'error'); return; }
+      body = { trackingId: tid, dispatchedAt: now };
+    } else if (resolvedPath.includes('/webhooks/tms/package-delivered')) {
+      const tid = order.packages?.[0]?.trackingId;
+      if (!tid) { showToast('No tracking ID — dispatch the order first', 'error'); return; }
+      body = { trackingId: tid, deliveredAt: now, recipientName: order.customer };
+    } else if (resolvedPath.includes('/webhooks/tms/package-damage-reported')) {
+      const tid = order.packages?.[0]?.trackingId;
+      if (!tid) { showToast('No tracking ID — dispatch the order first', 'error'); return; }
+      body = { trackingId: tid, reason: 'PhysicalDamage', driverNote: 'Damage reported via dashboard', reportedAt: now };
+    } else if (resolvedPath.includes('/webhooks/pos/pos-collection-ready'))
+      body = { orderId: id, storeId: order.storeId, notifiedAt: now };
+    else if (resolvedPath.includes('/webhooks/pos/collected'))
+      body = { orderId: id, collectedAt: now, collectedBy: order.customer };
+    else if (resolvedPath.includes('/webhooks/pos/invoiced'))
+      body = { orderId: id, invoiceNumber: `INV-${id}-${Date.now()}`, totalAmount: order.amount, currency: 'THB', invoicedAt: now };
+    else if (resolvedPath.includes('/webhooks/pos/payment-confirmed'))
+      body = { orderId: id, invoiceNumber: `INV-${id}`, paymentMethod: order.paymentMethod || 'Cash', paidAmount: order.amount, currency: 'THB', paidAt: now };
+    else if (resolvedPath.includes('/hold') && !resolvedPath.includes('release'))
+      body = { holdReason: 'Manual hold via dashboard', heldBy: 'dashboard-user' };
+    else if (resolvedPath.includes('/release-hold'))
+      body = { releasedBy: 'dashboard-user' };
+    else if (resolvedPath.includes('/cancel'))
+      body = { reason: 'Cancelled via dashboard', cancelledBy: 'dashboard-user' };
+
+    try {
+      const res = await fetch(`${apiBase}${resolvedPath}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || `Error ${res.status}: ${res.statusText}`, 'error');
+        return;
+      }
+      showToast(`${action.label} — done`);
+      const updatedRes = await fetch(`${apiBase}/orders/${id}`);
+      if (updatedRes.ok) {
+        const updated = await updatedRes.json();
+        setOrder(updated);
+        if (onOrderUpdated) onOrderUpdated(updated);
+      }
+    } catch (e) {
+      showToast(`Network error: ${e.message}`, 'error');
+    }
+  }
 
   function formatDate(iso) {
     if (!iso) return '—';
@@ -779,6 +923,14 @@ function OrderDetailView({ order, onBack, onViewTimeline }) {
 
   return (
     <div className="max-w-4xl mx-auto p-4 pb-16">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-pulse
+          ${toast.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'}`}
+          style={{ animation: 'none' }}>
+          <span className="shrink-0 font-bold">{toast.type === 'error' ? '✗' : '✓'}</span>
+          <span>{toast.msg}</span>
+        </div>
+      )}
       <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-4 flex items-center gap-1">
         ← Back to Board
       </button>
@@ -791,6 +943,9 @@ function OrderDetailView({ order, onBack, onViewTimeline }) {
               <h1 className="text-xl font-bold text-gray-900">{order.orderNumber || order.id}</h1>
               <Badge text={order.status} cls={STATUS_COLOR[order.status] || 'bg-gray-100 text-gray-700'} />
               <Badge text={order.type} cls={TYPE_BADGE[order.type] || 'bg-gray-100 text-gray-700'} />
+              {order.orderNumber && (
+                <span className="text-xs font-mono text-gray-400">#{order.id}</span>
+              )}
             </div>
             <p className="text-sm text-gray-600 mt-0.5">{order.customer} · {order.store}</p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
@@ -911,7 +1066,8 @@ function OrderDetailView({ order, onBack, onViewTimeline }) {
         {actions.length > 0 ? (
           <div className="space-y-2">
             {actions.map((action, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer">
+              <button key={i} onClick={() => executeAction(action)}
+                className="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm transition-all">
                 <span className="font-medium text-sm text-gray-800 flex-1">{action.label}</span>
                 <Badge text={action.uc} cls="bg-blue-50 text-blue-600 border border-blue-100 font-mono shrink-0" />
                 <span className={`shrink-0 text-xs font-bold font-mono px-2 py-0.5 rounded ${METHOD_BADGE[action.method] || 'bg-gray-100 text-gray-700'}`}>
@@ -920,7 +1076,7 @@ function OrderDetailView({ order, onBack, onViewTimeline }) {
                 <code className="text-xs text-gray-400 font-mono hidden lg:block max-w-xs truncate">
                   {action.path.replace('{id}', order.id)}
                 </code>
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -1117,7 +1273,7 @@ function OrderCard({ order, onClick }) {
       onClick={() => onClick(order)}
       className={`w-full text-left border rounded-xl p-3 mb-2 hover:shadow-md transition-all cursor-pointer ${borderCls}`}>
       <div className="flex items-center justify-between mb-1 gap-1">
-        <span className="font-mono text-xs font-bold text-gray-700 truncate">{order.id}</span>
+        <span className="font-mono text-xs font-bold text-gray-700 truncate">{order.orderNumber || order.id}</span>
         <Badge text={order.type} cls={`${TYPE_BADGE[order.type] || 'bg-gray-100 text-gray-700'} shrink-0`} />
       </div>
       <div className="text-sm font-medium text-gray-800 truncate">{order.customer}</div>
@@ -1626,8 +1782,7 @@ function StockMiniBar({ label, events, total, colorCls }) {
 }
 
 function TransferFlowCase() {
-  const { stockFlow } = React.useContext(DataContext);
-  const { sku, centralLedger, storeALedger } = stockFlow.case2;
+  const { sku, centralLedger, storeALedger } = STOCK_FLOW_DATA.case2;
   return (
     <div className="space-y-5">
 
@@ -1861,8 +2016,7 @@ function TransferFlowCase() {
 }
 
 function StockFlowCase1() {
-  const { stockFlow } = React.useContext(DataContext);
-  const { sku, skuName, unitPrice, total, po, orders, ledger } = stockFlow.case1;
+  const { sku, skuName, unitPrice, total, po, orders, ledger } = STOCK_FLOW_DATA.case1;
   const ordersWithColors = orders.map(o => ({ ...o, ...(SF_ORDER_COLORS[o.id] || {}) }));
   const remaining = total - ordersWithColors.reduce((s, o) => s + o.qty, 0);
 
@@ -2012,8 +2166,7 @@ function StockFlowCase1() {
 }
 
 function StockFlowCase3() {
-  const { stockFlow } = React.useContext(DataContext);
-  const { sku, skuName, unitPrice, total, po, orders, substitutions, ledger } = stockFlow.case3;
+  const { sku, skuName, unitPrice, total, po, orders, substitutions, ledger } = STOCK_FLOW_DATA.case3;
 
   function orderColors(o) {
     if (o.status === 'Cancelled')  return { dot: 'bg-red-300',   bar: 'bg-red-200',   label: 'text-red-400',   statusCls: 'bg-red-100 text-red-600'    };
@@ -2327,8 +2480,7 @@ const CONDITION_STYLE = {
 };
 
 function StockFlowCase4() {
-  const { stockFlow } = React.useContext(DataContext);
-  const { sku, skuName, unitPrice, total, originalOrder, return: ret, returnItems, refund } = stockFlow.case4;
+  const { sku, skuName, unitPrice, total, originalOrder, return: ret, returnItems, refund } = STOCK_FLOW_DATA.case4;
 
   const resellableQty = returnItems.filter(i => i.condition === 'Resellable').reduce((s, i) => s + i.qty, 0);
   const disposeQty    = returnItems.filter(i => i.condition === 'Dispose').reduce((s, i) => s + i.qty, 0);
@@ -2622,7 +2774,7 @@ function StockFlowCase4() {
               </tr>
             </thead>
             <tbody>
-              {stockFlow.case4.ledger.map(row => (
+              {STOCK_FLOW_DATA.case4.ledger.map(row => (
                 <tr key={row.id} className={`border-b border-gray-100 transition-colors
                   ${row.resellable ? 'bg-emerald-50 hover:bg-emerald-100'
                   : row.disposed   ? 'bg-gray-50 hover:bg-gray-100'
@@ -2716,11 +2868,10 @@ function PrepaidStepRow({ step, stepNum }) {
 }
 
 function PrepaidFlowView() {
-  const { prepaidTimeline } = React.useContext(DataContext);
   let n = 0;
 
-  const bookingEvents  = (prepaidTimeline || []).filter(e => e.phase === 'booking');
-  const outboundEvents = (prepaidTimeline || []).filter(e => e.phase === 'outbound');
+  const bookingEvents  = PREPAID_TIMELINE_DATA.filter(e => e.phase === 'booking');
+  const outboundEvents = PREPAID_TIMELINE_DATA.filter(e => e.phase === 'outbound');
 
   return (
     <div className="max-w-4xl mx-auto p-4 pb-16">
@@ -2819,9 +2970,61 @@ function PrepaidFlowView() {
   );
 }
 
+function LiveStockLedgerView({ ledger }) {
+  if (!ledger) return (
+    <div className="text-center py-12 text-gray-400 text-sm">
+      Live stock data unavailable — start the API at <code className="bg-gray-100 px-1 rounded">http://localhost:5050</code> and reload.
+    </div>
+  );
+
+  const allTotal = Math.max(
+    1,
+    ...ledger.locations.flatMap(loc => loc.events.map(e => e.balance))
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3 flex-wrap mb-1">
+          <span className="font-mono font-bold text-lg text-gray-900">{ledger.sku}</span>
+          <span className="text-gray-400">—</span>
+          <span className="text-gray-700">{ledger.skuName}</span>
+          <span className="text-xs bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded font-mono">฿{ledger.unitPrice}/unit</span>
+          <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded font-medium">Live from API</span>
+        </div>
+        <p className="text-sm text-gray-500">Real-time stock movements computed from OMS order and inbound data.</p>
+      </div>
+
+      {ledger.locations.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">
+          No stock movements recorded yet for {ledger.sku}.
+        </div>
+      ) : ledger.locations.map(loc => (
+        <div key={loc.storeId} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <span className="font-semibold text-gray-800">{loc.storeName}</span>
+            <span className="font-mono text-xs text-gray-400">{loc.storeId}</span>
+            <span className={`text-xs px-2 py-0.5 rounded font-mono font-bold border
+              ${loc.balance > 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-red-100 text-red-600 border-red-200'}`}>
+              Balance: {loc.balance}
+            </span>
+          </div>
+          {loc.events.length === 0 ? (
+            <div className="text-xs text-gray-300 py-4 text-center">No events</div>
+          ) : (
+            <LedgerTable ledger={loc.events} total={allTotal} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StockFlowView() {
-  const [activeCase, setActiveCase] = React.useState('case1');
+  const { stockLedger } = React.useContext(DataContext);
+  const [activeCase, setActiveCase] = React.useState(stockLedger ? 'live' : 'case1');
   const cases = [
+    ...(stockLedger ? [{ key: 'live', label: 'Live — API Stock Ledger' }] : []),
     { key: 'case1', label: 'Case 1 — PO → Orders' },
     { key: 'case2', label: 'Case 2 — PO → Transfer → Orders' },
     { key: 'case3', label: 'Case 3 — Oversell + Cancellation + Substitution' },
@@ -2838,6 +3041,7 @@ function StockFlowView() {
           </button>
         ))}
       </div>
+      {activeCase === 'live'  && <LiveStockLedgerView ledger={stockLedger} />}
       {activeCase === 'case1' && <StockFlowCase1 />}
       {activeCase === 'case2' && <TransferFlowCase />}
       {activeCase === 'case3' && <StockFlowCase3 />}
@@ -2869,6 +3073,7 @@ function App() {
 
   const openOrderDetail = useCallback(order => setSelectedOrder(order), []);
   const closeOrderDetail = useCallback(() => setSelectedOrder(null), []);
+  const handleOrderUpdated = useCallback(updated => setSelectedOrder(updated), []);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -2878,6 +3083,9 @@ function App() {
             <span className="text-white font-bold text-sm">O</span>
           </div>
           <span className="font-bold text-gray-900 text-sm mr-4">Sprint Connect OMS</span>
+          <span className="text-xs px-2 py-0.5 rounded border font-medium mr-2 bg-green-100 text-green-700 border-green-200">
+            ● API
+          </span>
           <nav className="flex gap-0.5">
             {NAV_TABS.map(({ key, label }) => (
               <button key={key} onClick={() => handleNavClick(key)}
@@ -2903,6 +3111,7 @@ function App() {
             order={selectedOrder}
             onBack={closeOrderDetail}
             onViewTimeline={() => setView('timeline')}
+            onOrderUpdated={handleOrderUpdated}
           />
         )}
         {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); }} />}
