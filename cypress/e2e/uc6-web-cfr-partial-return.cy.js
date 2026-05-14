@@ -12,9 +12,9 @@
  *   - Each returned item references the original orderLineId
  *   - POST /returns triggers partial refund calculation
  *
- * POD sequence (request/sequence-diagram-pod.md):
+ * POD sequence (docs/oms-overview.md §2.3):
  *   Pending → PickStarted → POS Recalc → PickConfirmed → Packed →
- *   OutForDelivery → Delivered →
+ *   OutForDelivery → RecalcRequested → Delivered →
  *   STS ABB/Tax Invoice (→ TMS + GW) →
  *   [customer rejects beef at door]
  *   POST /returns (returnType=PartialItem, items=[beef line only]) → ReturnRequested
@@ -142,6 +142,26 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     }).then((res) => {
       expect(res.status).to.eq(202);
       expect(res.body.newOrderStatus).to.eq('OutForDelivery');
+    });
+  });
+
+  // POD-specific: TMS notifies OMS that delivery is imminent; OMS calls POS for a final
+  // recalculation and records RecalcRequested in the timeline before Delivered.
+  it('Step 6a — TMS pre-delivery recalculation for POD; OMS fires RecalcRequested event in timeline', () => {
+    cy.omsApi('POST', '/webhooks/tms/recalculation-requested', {
+      trackingId,
+      reason:      'PickQuantityDiffers',
+      requestedAt: now(),
+    }).then((res) => {
+      expect(res.status).to.eq(202);
+      expect(res.body.accepted).to.be.true;
+      expect(res.body.adjustedAmount).to.be.a('number');
+    });
+
+    cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
+      const events = res.body.events ?? res.body;
+      const names  = events.map((e) => e.event);
+      expect(names).to.include('PosRecalcCalled');
     });
   });
 

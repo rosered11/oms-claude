@@ -120,6 +120,7 @@ In the POD flow the customer pays at the point of delivery — cash or card. No 
 | *(external)* | GW → external | GW receives `Delivered` status, handles COD/payment collection outside OMS |
 | Dispatched | TMS → SC | `PackageDispatched` webhook: `/webhooks/tms/package-dispatched`; order → `OutForDelivery` |
 | Outbox to GW | SC → GW | `OutForDeliverySentToGW` outbox event |
+| Pre-delivery recalc | TMS → SC | `RecalculationRequested` webhook: `/webhooks/tms/recalculation-requested`; OMS calls POS for final recalc; records `RecalcRequested` event in timeline |
 | Delivered | TMS → SC | `PackageDelivered` webhook: `/webhooks/tms/package-delivered`; order → `Delivered` |
 | Outbox to GW | SC → GW | `DeliveredSentToGW` outbox event |
 | *(external)* | GW → external → STS | GW receives `Delivered` status, processes externally; STS then sends invoice/credit note to OMS |

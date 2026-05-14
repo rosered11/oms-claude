@@ -88,6 +88,21 @@ POD flow does not include a WaveStarted step. GatewayA's WaveStarted opt-in rout
 ### TMS Recalculation Loop (POD)
 After PickConfirmed, TMS may trigger additional POS recalculations (e.g. delivery fee adjustments) before dispatching. This loop ends when TMS sends `PackageDispatched`.
 
+### Pre-Delivery Recalculation (POD — OutForDelivery → Delivered)
+After `OutForDelivery`, TMS sends `POST /webhooks/tms/recalculation-requested` to notify OMS that the driver is at the door and final weights/quantities are confirmed. OMS calls POS outbound for a final price recalculation and records `PosRecalcCalled` in the order timeline (`RecalcRequested` event). This step happens **before** `PackageDelivered` and is POD-specific. Prepaid orders do not have this step.
+
+- Webhook payload: `{ trackingId, reason, actualWeight?, requestedAt }`
+- OMS response: `{ accepted: true, adjustedAmount: <number> }`
+- Timeline event recorded: `PosRecalcCalled`
+- For weight-based products: `actualWeight` carries the combined actual weight of all lines
+
+### UC5: Weight-Based Dual-Product POD (CFR/Web)
+Two weight-based fresh products in a single POD order:
+- **Pork** (หมู): 127 THB/kg = 12700 satang/kg; customer buys 841.23 g (0.84123 kg) → 10684 satang (POS-rounded)
+- **Duck** (เป็ด): sold in 2.5 kg packs at 99 THB/pack = 3960 satang/kg; customer buys 1.23 kg → 4871 satang (POS-rounded)
+- Combined total: 15555 satang
+- Both lines picked and packed together; `actualWeight` in pre-delivery recalc is the sum of both quantities
+
 ---
 
 ## Known Use Cases
