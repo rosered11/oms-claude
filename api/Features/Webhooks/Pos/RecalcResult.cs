@@ -14,8 +14,8 @@ public class RecalcResultHandler(InMemoryStore store)
         o.Amount = req.AdjustedAmount;
         o.PosRecalcPending = false;
         o.UpdatedAt = DateTime.UtcNow;
-        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("POS", "RecalcResult", o.Status,
-            $"Amount adjusted {req.OriginalAmount} → {req.AdjustedAmount} {req.Currency}."));
+        store.AppendEvent(req.OrderId, ApiResult.DomainEvent("RecalcResult", o.Status,
+            $"POS response received. Amount adjusted {req.OriginalAmount} → {req.AdjustedAmount} {req.Currency}."));
         return Results.Ok(o);
     }
 }

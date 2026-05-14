@@ -4,3 +4,4 @@ api/obj
 api/.vs
 api/OmsApi.csproj.user
 node_modules
+package-lock.json

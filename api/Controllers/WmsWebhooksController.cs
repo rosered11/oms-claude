@@ -17,7 +17,8 @@ public class WmsWebhooksController(
     TransferReceivedHandler transferReceived,
     DamagedGoodsReceivedHandler damagedGoodsReceived,
     DamagedGoodsPutAwayHandler damagedGoodsPutAway,
-    WaveStartedHandler waveStarted) : ControllerBase
+    WaveStartedHandler waveStarted,
+    RecalcRequestedHandler recalcRequested) : ControllerBase
 {
     [HttpPost("booking-confirmed")]
     public IResult BookingConfirmed([FromBody] BookingConfirmedRequest req) => bookingConfirmed.Handle(req);
@@ -57,4 +58,7 @@ public class WmsWebhooksController(
 
     [HttpPost("wave-started")]
     public IResult WaveStarted([FromBody] WaveStartedRequest req) => waveStarted.Handle(req);
+
+    [HttpPost("recalculation-requested")]
+    public IResult RecalcRequested([FromBody] RecalcRequestedRequest req) => recalcRequested.Handle(req);
 }

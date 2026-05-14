@@ -34,15 +34,30 @@ public class CreditNoteReceivedHandler(InMemoryStore store)
             IssuedAt = req.IssuedAt
         });
 
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "STS",
+            EventType = "CreditNoteReceived",
+            Detail = $"Credit Note {req.CreditNoteNumber} · {req.CreditAmount} {req.Currency} received from STS.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("STS", "CreditNoteReceived", order.Status,
+            $"Credit Note {req.CreditNoteNumber} · {req.CreditAmount} {req.Currency} received from STS."));
+
         if (order.IsPrepaid)
         {
             store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("WMS", "CreditNoteSentToWMS",
                 $"Credit Note {req.CreditNoteNumber} dispatched to WMS (prepaid)."));
+            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "CreditNoteSentToGW",
+                $"Credit Note {req.CreditNoteNumber} dispatched to Gateway (prepaid)."));
         }
         else
         {
             store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("TMS", "CreditNoteSentToTMS",
                 $"Credit Note {req.CreditNoteNumber} dispatched to TMS (POD)."));
+            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "CreditNoteSentToGW",
+                $"Credit Note {req.CreditNoteNumber} dispatched to Gateway (POD)."));
         }
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId });

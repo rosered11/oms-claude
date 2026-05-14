@@ -35,10 +35,23 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store)
             GeneratedAt = DateTime.UtcNow
         });
 
+        store.AddWebhookLog(req.OrderId, new WebhookLogDto
+        {
+            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
+            SourceSystem = "STS",
+            EventType = "ABBTaxInvoiceReceived",
+            Detail = $"Invoice {req.InvoiceNumber} · {req.InvoiceAmount} {req.Currency} received from STS.",
+            ReceivedAt = DateTime.UtcNow
+        });
+        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("STS", "ABBTaxInvoiceReceived", order.Status,
+            $"Invoice {req.InvoiceNumber} · {req.InvoiceAmount} {req.Currency} received from STS."));
+
         if (order.IsPrepaid)
         {
             store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("WMS", "ABBInvoiceSentToWMS",
                 $"Invoice {req.InvoiceNumber} dispatched to WMS (prepaid)."));
+            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "ABBInvoiceSentToGW",
+                $"Invoice {req.InvoiceNumber} dispatched to Gateway (prepaid)."));
         }
         else
         {
