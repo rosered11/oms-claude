@@ -5,17 +5,21 @@
  * Scenario (Thai): สั่งเนื้อกับไก่ แต่เอาแค่ไก่ เนื้อไม่สด ลูกค้าเลยไม่เอา สามารถคืนเงินได้
  *   Customer orders beef (เนื้อ) and chicken (ไก่).
  *   At delivery, beef is rejected as not fresh.
- *   Customer keeps chicken; returns beef with refund.
+ *   Customer keeps chicken; returns beef; refund issued via Returns flow.
  *
  * Use case refs: UC-PARTRETURN — Partial Item Return with Refund
- *   - Only allowed after Delivered status
+ *   - Only allowed after Delivered status (API allows return from Delivered, Invoiced, or Paid)
  *   - Each returned item references the original orderLineId
- *   - POST /returns triggers partial refund calculation via POS
+ *   - POST /returns triggers partial refund calculation
  *
- * Sequence:
- *   Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered
+ * POD sequence (request/sequence-diagram-pod.md):
+ *   Pending → PickStarted → POS Recalc → PickConfirmed → Packed →
+ *   OutForDelivery → Delivered →
+ *   STS ABB/Tax Invoice (→ TMS + GW) →
  *   [customer rejects beef at door]
  *   POST /returns (returnType=PartialItem, items=[beef line only]) → ReturnRequested
+ *
+ * No POS invoiced/payment-confirmed steps — POD terminal order state is Delivered.
  */
 
 describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → partial return', () => {
@@ -24,7 +28,6 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
   let chickenLineId; // LINE-002 (chicken)
   let returnId;
   const trackingId = `TRK-UC6-${Date.now()}`;
-  const invoiceNum  = `INV-UC6-${Date.now()}`;
   // Prices in satang: beef 35000 satang/kg × 0.5 kg = 17500; chicken 15000 satang/kg × 0.5 kg = 7500
   const BEEF_PRICE_SATANG    = 17500;
   const CHICKEN_PRICE_SATANG = 7500;
@@ -88,29 +91,19 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 4 — WMS requests POS recalculation; POS returns result', () => {
+  it('Step 3a — WMS requests POS recalculation; OMS calls POS outbound and returns adjusted amount', () => {
     cy.omsApi('POST', '/webhooks/wms/recalculation-requested', {
       orderId,
-      reason:      'MidPickPriceCheck',
+      reason:      'PickQuantityDiffers',
       requestedAt: now(),
     }).then((res) => {
       expect(res.status).to.eq(202);
       expect(res.body.accepted).to.be.true;
-      expect(res.body.posRecalcPending).to.be.true;
-    });
-
-    cy.omsApi('POST', '/webhooks/pos/pos-recalc-completed', {
-      orderId,
-      finalAmount: TOTAL_SATANG,
-      currency:    'THB',
-      completedAt: now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.posRecalcPending).to.be.false;
+      expect(res.body.adjustedAmount).to.be.a('number');
     });
   });
 
-  it('Step 5 — WMS pick-confirmed with both beef and chicken lines', () => {
+  it('Step 4 — WMS pick-confirmed with both beef and chicken lines; OMS calls POS internally', () => {
     cy.omsApi('POST', '/webhooks/wms/pick-confirmed', {
       orderId,
       lines: [
@@ -124,7 +117,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 6 — WMS packed transitions order to Packed', () => {
+  it('Step 5 — WMS packed transitions order to Packed', () => {
     cy.omsApi('POST', '/webhooks/wms/packed', {
       orderId,
       packages: [
@@ -142,7 +135,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 7 — TMS package-dispatched transitions order to OutForDelivery', () => {
+  it('Step 6 — TMS package-dispatched transitions order to OutForDelivery', () => {
     cy.omsApi('POST', '/webhooks/tms/package-dispatched', {
       trackingId,
       dispatchedAt: now(),
@@ -152,7 +145,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 8 — TMS package-delivered transitions order to Delivered', () => {
+  it('Step 7 — TMS package-delivered transitions order to Delivered', () => {
     cy.omsApi('POST', '/webhooks/tms/package-delivered', {
       trackingId,
       deliveredAt:   now(),
@@ -164,7 +157,9 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 9 — STS ABB/Tax Invoice received after Delivered (POD → TMS + GW)', () => {
+  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + GW
+  // No POS invoiced/payment-confirmed steps — POD terminal order state is Delivered.
+  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGW', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC6-${Date.now()}`,
@@ -176,40 +171,26 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
       expect(res.status).to.eq(202);
       expect(res.body.accepted).to.be.true;
     });
-  });
 
-  it('Step 10 — POS invoiced transitions order to Invoiced', () => {
-    cy.omsApi('POST', '/webhooks/pos/invoiced', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      totalAmount:   TOTAL_SATANG,
-      currency:      'THB',
-      invoiceType:   'Standard',
-      invoicedAt:    now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Invoiced');
+    cy.omsApi('GET', `/orders/${orderId}`).then((res) => {
+      expect(res.body.status).to.eq('Delivered');
+    });
+
+    // POD routing: ABB/Tax Invoice forwarded to TMS + GW (not WMS + GW as in Prepaid)
+    cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
+      const events = res.body.events ?? res.body;
+      const names  = events.map((e) => e.event);
+      expect(names).to.include('ABBTaxInvoiceSentToTMS');
+      expect(names).to.include('ABBTaxInvoiceSentToGW');
     });
   });
 
-  it('Step 11 — POS payment-confirmed transitions order to Paid (customer pays for both items)', () => {
-    cy.omsApi('POST', '/webhooks/pos/payment-confirmed', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      paymentMethod: 'Cash',
-      paidAmount:    TOTAL_SATANG,
-      currency:      'THB',
-      paidAt:        now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Paid');
-    });
-  });
-
-  // Customer rejects beef at the door (not fresh) — partial return for beef only
-  it('Step 12 — Customer initiates partial return: beef not fresh (chicken kept)', () => {
+  // Customer rejects beef at the door (not fresh) — partial return for beef only.
+  // Return is initiated from Delivered status (allowed per UC-PARTRETURN).
+  it('Step 9 — Customer initiates partial return from Delivered: beef not fresh (chicken kept)', () => {
     cy.omsApi('POST', '/returns', {
       orderId,
+      returnType:   'PartialItem',
       returnReason: 'ItemNotFresh',
       items: [
         {
@@ -230,7 +211,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 13 — Partial return is recorded and references only the beef line', () => {
+  it('Step 10 — Partial return is recorded and references only the beef line', () => {
     cy.omsApi('GET', `/returns/${returnId}`).then((res) => {
       expect(res.status).to.eq(200);
       expect(res.body.orderId).to.eq(orderId);
@@ -239,7 +220,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 14 — Return items contain only beef; chicken line is not returned', () => {
+  it('Step 11 — Return items contain only beef; chicken line is not returned', () => {
     cy.omsApi('GET', `/returns/${returnId}/items`).then((res) => {
       expect(res.status).to.eq(200);
       const items = res.body.items ?? res.body;

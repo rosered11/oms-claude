@@ -10,14 +10,15 @@
  * Prepaid sequence:
  *   Pending → PickStarted → POS Recalc → PickConfirmed →
  *   STS ABB/Tax Invoice (→ WMS + GW) → Packed → OutForDelivery
- *   [TikTok fetches AWB] → Delivered → Invoiced → Paid
+ *   [TikTok fetches AWB] → Delivered
+ *
+ * POS recalculation is an outbound OMS → POS call; POS does not webhook OMS.
  */
 
 describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after OutForDelivery', () => {
   let orderId;
   let lineId;
   const trackingId = `TRK-UC3-${Date.now()}`;
-  const invoiceNum  = `INV-UC3-${Date.now()}`;
   const now = () => new Date().toISOString();
 
   it('Step 1 — Creates a Prepaid order via TikTok Marketplace for CMG', () => {
@@ -57,29 +58,19 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 4 — WMS requests POS recalculation; POS returns result', () => {
+  it('Step 3a — WMS requests POS recalculation; OMS calls POS outbound and returns adjusted amount', () => {
     cy.omsApi('POST', '/webhooks/wms/recalculation-requested', {
       orderId,
-      reason:      'MidPickPriceCheck',
+      reason:      'PickQuantityDiffers',
       requestedAt: now(),
     }).then((res) => {
       expect(res.status).to.eq(202);
       expect(res.body.accepted).to.be.true;
-      expect(res.body.posRecalcPending).to.be.true;
-    });
-
-    cy.omsApi('POST', '/webhooks/pos/pos-recalc-completed', {
-      orderId,
-      finalAmount: 19800,
-      currency:    'THB',
-      completedAt: now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.posRecalcPending).to.be.false;
+      expect(res.body.adjustedAmount).to.be.a('number');
     });
   });
 
-  it('Step 5 — WMS pick-confirmed transitions order to PickConfirmed', () => {
+  it('Step 4 — WMS pick-confirmed transitions order to PickConfirmed; OMS calls POS internally', () => {
     cy.omsApi('POST', '/webhooks/wms/pick-confirmed', {
       orderId,
       lines:    [{ orderLineId: lineId, sku: 'APPLE-1KG', pickedQty: 2, substituted: false }],
@@ -90,7 +81,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 6 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGW', () => {
+  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGW', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC3-${Date.now()}`,
@@ -111,7 +102,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 7 — WMS packed transitions order to Packed (package carries AWB tracking ID)', () => {
+  it('Step 6 — WMS packed transitions order to Packed (package carries AWB tracking ID)', () => {
     cy.omsApi('POST', '/webhooks/wms/packed', {
       orderId,
       packages: [{ trackingId, vehicleType: 'Motorcycle', weight: 1.5, lineIds: [lineId] }],
@@ -122,7 +113,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 8 — TMS package-dispatched transitions order to OutForDelivery', () => {
+  it('Step 7 — TMS package-dispatched transitions order to OutForDelivery', () => {
     cy.omsApi('POST', '/webhooks/tms/package-dispatched', {
       trackingId,
       dispatchedAt: now(),
@@ -134,7 +125,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
 
   // TikTok-specific step: after OutForDelivery, TikTok platform calls OMS to
   // retrieve the AWB (Air Waybill / tracking number) for parcel tracking.
-  it('Step 8a — TikTok retrieves AWB from OMS after OutForDelivery', () => {
+  it('Step 7a — TikTok retrieves AWB from OMS after OutForDelivery', () => {
     cy.omsApi('GET', `/orders/${orderId}/packages`).then((res) => {
       expect(res.status).to.eq(200);
       const packages = res.body;
@@ -145,7 +136,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 9 — TMS package-delivered transitions order to Delivered', () => {
+  it('Step 8 — TMS package-delivered transitions order to Delivered', () => {
     cy.omsApi('POST', '/webhooks/tms/package-delivered', {
       trackingId,
       deliveredAt:   now(),
@@ -156,31 +147,12 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 10 — POS invoiced transitions order to Invoiced', () => {
-    cy.omsApi('POST', '/webhooks/pos/invoiced', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      totalAmount:   19800,
-      currency:      'THB',
-      invoiceType:   'ABB',
-      invoicedAt:    now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Invoiced');
-    });
-  });
-
-  it('Step 11 — POS payment-confirmed transitions order to Paid', () => {
-    cy.omsApi('POST', '/webhooks/pos/payment-confirmed', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      paymentMethod: 'Prepaid',
-      paidAmount:    19800,
-      currency:      'THB',
-      paidAt:        now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Paid');
+  it('Step 9 — Final state: order is Delivered with correct channel and BU', () => {
+    cy.omsApi('GET', `/orders/${orderId}`).then((res) => {
+      expect(res.status).to.eq(200);
+      expect(res.body.status).to.eq('Delivered');
+      expect(res.body.channelType).to.eq('Marketplace');
+      expect(res.body.businessUnit).to.eq('CMG');
     });
   });
 });

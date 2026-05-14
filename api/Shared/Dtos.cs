@@ -20,7 +20,6 @@ public class OrderDto
     public string? PreHoldStatus { get; set; }
     public string? HoldReason { get; set; }
     public bool SubstitutionFlag { get; set; }
-    public bool PosRecalcPending { get; set; }
     public bool IsPrepaid { get; set; }
     public string Type { get; set; } = "";
     public int Items { get; set; }

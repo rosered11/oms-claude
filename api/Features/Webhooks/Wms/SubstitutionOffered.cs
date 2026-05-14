@@ -31,7 +31,6 @@ public class SubstitutionOfferedHandler(InMemoryStore store)
         });
 
         o.SubstitutionFlag = true;
-        o.PosRecalcPending = true;
         o.UpdatedAt = DateTime.UtcNow;
 
         store.AddWebhookLog(req.OrderId, new WebhookLogDto
@@ -48,8 +47,7 @@ public class SubstitutionOfferedHandler(InMemoryStore store)
             accepted = true,
             substitutionId = subId,
             orderId = req.OrderId,
-            customerNotified = true,
-            posRecalcPending = true
+            customerNotified = true
         });
     }
 }

@@ -10,9 +10,6 @@ public class PackedHandler(InMemoryStore store)
         var o = store.FindOrder(req.OrderId);
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
         if (o.Status != OrderStatus.PickConfirmed) return ApiResult.InvalidTransition(o.Status, OrderStatus.Packed);
-        if (o.PosRecalcPending)
-            return Results.BadRequest(new { error_code = "POS_RECALC_PENDING",
-                message = "POS recalculation must be confirmed before packing.", trace_id = Guid.NewGuid() });
 
         var now = DateTime.UtcNow;
         o.Packages = req.Packages.Select((p, i) => new OrderPackageDto

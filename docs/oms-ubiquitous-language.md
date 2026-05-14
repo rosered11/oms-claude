@@ -276,13 +276,10 @@ The warehouse activity of locating and collecting products from shelves to fulfi
 An order where payment is collected after delivery. The standard flow: Pending → Booking Confirmed → Pick Started → … → Delivered → Invoiced → Paid.
 
 **POS (Point of Sale)**
-The external system responsible for price calculation, promotion application, and invoice issuance. OMS sends `PickConfirmedEvent` to POS via the **Outbox** to trigger recalculation. POS responds with the adjusted total via the `recalculation-result` webhook.
+The external system responsible for price calculation and promotion application. OMS calls POS outbound synchronously — POS exposes an API that OMS invokes directly. POS never calls OMS.
 
 **POS Recalculation**
-The process where POS recalculates the order total based on actual picked quantities and applies promotions. Triggered automatically after **Pick Confirmed** if quantities changed or a **Substitution** was made. For **Prepaid Orders**, WMS can trigger this multiple times mid-pick. Blocked by `pos_recalc_pending = true` flag — packing cannot proceed until POS confirms the final price.
-
-**pos_recalc_pending**
-A flag on the **Order** (`true`/`false`). Set to `true` when a recalculation is requested. Set back to `false` when POS confirms the result. The order cannot transition to **Packed** while this is `true`.
+The process where OMS calls the POS API to recalculate the order total based on actual picked quantities and applies promotions. WMS triggers this via `POST /webhooks/wms/recalculation-requested` before sending `PickConfirmed`. Can repeat multiple times mid-pick. The call is synchronous — OMS receives the `adjustedAmount` in the same response.
 
 **pre_hold_status**
 The order status saved immediately before transitioning to **On Hold**. Restored exactly when the hold is released. Allows the order to resume at the correct point in the lifecycle.
@@ -365,7 +362,7 @@ The append-only log of every status transition an order has gone through. Used t
 A read-only view of stock movement events OMS has recorded for a SKU across locations. Sourced from Purchase Order put-away, Transfer Order movements, and order pick confirmations. OMS does not own inventory counts — this reflects events, not live WMS stock levels.
 
 **Substitution**
-When a warehouse picker cannot find the original SKU and proposes an alternative product. WMS sends a `substitution-offered` webhook. The customer must approve or reject the substitution. Sets `substitution_flag = true` and `pos_recalc_pending = true` on the order.
+When a warehouse picker cannot find the original SKU and proposes an alternative product. WMS sends a `substitution-offered` webhook. The customer must approve or reject the substitution. Sets `substitution_flag = true` on the order.
 
 **Substitution Flag**
 A boolean on the **Order** (`substitution_flag`). Set to `true` when any substitution record is created. Never reset. Signals to downstream systems that at least one line was substituted.

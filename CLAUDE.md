@@ -73,7 +73,6 @@ OutForDelivery → Delivered → Invoiced → Paid
 ```
 
 Key invariants:
-- `pos_recalc_pending = true` blocks packing (POS must confirm final price first)
 - `pre_hold_status` is saved before transitioning to `OnHold` and restored on resume
 - Substitutions (`substitution_flag`) require customer consent before picking alternate SKUs
 

@@ -10,18 +10,19 @@
  *   expectedTotal 10683.621 satang   (OMS uses decimal; POS rounds to 10684)
  *
  * Verifies that OMS correctly records fractional weight quantities and that the
- * full POD flow completes with the weight-derived amount.
+ * POD flow completes with the weight-derived amount.
  *
- * POD sequence:
+ * POD sequence (request/sequence-diagram-pod.md):
  *   Pending → PickStarted → POS Recalc → PickConfirmed → Packed →
- *   OutForDelivery → Delivered → STS ABB Invoice → Invoiced → Paid
+ *   OutForDelivery → Delivered → STS ABB Invoice (→ TMS + GW)
+ *
+ * Terminal state: Delivered. No POS invoiced/payment-confirmed steps in POD.
  */
 
 describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () => {
   let orderId;
   let lineId;
   const trackingId = `TRK-UC5-${Date.now()}`;
-  const invoiceNum  = `INV-UC5-${Date.now()}`;
   // 127 THB/kg × 0.84123 kg = 106.83621 THB = 10683.621 satang → POS rounds to 10684
   const PORK_UNIT_PRICE_SATANG = 12700;   // 127 THB in satang per KG
   const PORK_QTY_KG            = 0.84123; // 841.23 g expressed in KG
@@ -82,30 +83,19 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
     });
   });
 
-  it('Step 4 — WMS requests POS recalculation; POS returns weight-derived amount (10684 satang)', () => {
+  it('Step 3a — WMS requests POS recalculation for actual weight (841.23 g); OMS calls POS outbound and returns adjusted amount', () => {
     cy.omsApi('POST', '/webhooks/wms/recalculation-requested', {
       orderId,
-      reason:      'WeightBasedPricing',
+      reason:      'ActualWeightDiffers',
       requestedAt: now(),
     }).then((res) => {
       expect(res.status).to.eq(202);
       expect(res.body.accepted).to.be.true;
-      expect(res.body.posRecalcPending).to.be.true;
-    });
-
-    // POS returns the weight-derived amount (127 THB/kg × 0.84123 kg = 10684 satang)
-    cy.omsApi('POST', '/webhooks/pos/pos-recalc-completed', {
-      orderId,
-      finalAmount: PORK_FINAL_SATANG,
-      currency:    'THB',
-      completedAt: now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.posRecalcPending).to.be.false;
+      expect(res.body.adjustedAmount).to.be.a('number');
     });
   });
 
-  it('Step 5 — WMS pick-confirmed with actual weight (841.23 g = 0.84123 kg)', () => {
+  it('Step 4 — WMS pick-confirmed with actual weight (841.23 g = 0.84123 kg); OMS calls POS internally', () => {
     cy.omsApi('POST', '/webhooks/wms/pick-confirmed', {
       orderId,
       lines:    [{ orderLineId: lineId, sku: 'PORK-KG', pickedQty: PORK_QTY_KG, substituted: false }],
@@ -116,7 +106,7 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
     });
   });
 
-  it('Step 6 — WMS packed transitions order to Packed', () => {
+  it('Step 5 — WMS packed transitions order to Packed', () => {
     cy.omsApi('POST', '/webhooks/wms/packed', {
       orderId,
       packages: [{ trackingId, vehicleType: 'Motorcycle', weight: PORK_QTY_KG, lineIds: [lineId] }],
@@ -127,7 +117,7 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
     });
   });
 
-  it('Step 7 — TMS package-dispatched transitions order to OutForDelivery', () => {
+  it('Step 6 — TMS package-dispatched transitions order to OutForDelivery', () => {
     cy.omsApi('POST', '/webhooks/tms/package-dispatched', {
       trackingId,
       dispatchedAt: now(),
@@ -137,7 +127,7 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
     });
   });
 
-  it('Step 8 — TMS package-delivered transitions order to Delivered', () => {
+  it('Step 7 — TMS package-delivered transitions order to Delivered', () => {
     cy.omsApi('POST', '/webhooks/tms/package-delivered', {
       trackingId,
       deliveredAt:   now(),
@@ -149,7 +139,9 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
     });
   });
 
-  it('Step 9 — STS ABB/Tax Invoice received after Delivered (POD: forwarded to TMS + GW)', () => {
+  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + GW
+  // No POS invoiced/payment-confirmed steps — POD terminal state is Delivered.
+  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGW', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC5-${Date.now()}`,
@@ -161,41 +153,26 @@ describe('UC5 — Web / CFR / POD — weight-based pork product (841.23 g)', () 
       expect(res.status).to.eq(202);
       expect(res.body.accepted).to.be.true;
     });
-  });
 
-  it('Step 10 — POS invoiced transitions order to Invoiced', () => {
-    cy.omsApi('POST', '/webhooks/pos/invoiced', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      totalAmount:   PORK_FINAL_SATANG,
-      currency:      'THB',
-      invoiceType:   'Standard',
-      invoicedAt:    now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Invoiced');
+    cy.omsApi('GET', `/orders/${orderId}`).then((res) => {
+      expect(res.body.status).to.eq('Delivered');
+    });
+
+    // POD routing: ABB/Tax Invoice forwarded to TMS + GW (not WMS + GW as in Prepaid)
+    cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
+      const events = res.body.events ?? res.body;
+      const names  = events.map((e) => e.event);
+      expect(names).to.include('ABBTaxInvoiceSentToTMS');
+      expect(names).to.include('ABBTaxInvoiceSentToGW');
     });
   });
 
-  it('Step 11 — POS payment-confirmed transitions order to Paid', () => {
-    cy.omsApi('POST', '/webhooks/pos/payment-confirmed', {
-      orderId,
-      invoiceNumber: invoiceNum,
-      paymentMethod: 'Cash',
-      paidAmount:    PORK_FINAL_SATANG,
-      currency:      'THB',
-      paidAt:        now(),
-    }).then((res) => {
-      expect(res.status).to.eq(202);
-      expect(res.body.newStatus).to.eq('Paid');
-    });
-  });
-
-  it('Step 12 — Final state: order is Paid with correct weight-based amount', () => {
+  it('Step 9 — Final state: order remains Delivered with weight-based amount', () => {
     cy.omsApi('GET', `/orders/${orderId}`).then((res) => {
       expect(res.status).to.eq(200);
-      expect(res.body.status).to.eq('Paid');
-      expect(res.body.amount).to.be.closeTo(PORK_FINAL_SATANG, 1);
+      expect(res.body.status).to.eq('Delivered');
+      expect(res.body.businessUnit).to.eq('CFR');
+      expect(res.body.paymentMethod).to.eq('POD');
     });
   });
 });

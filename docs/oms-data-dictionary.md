@@ -29,7 +29,6 @@ One row per customer order. This is the central aggregate that all other tables 
 | `pre_hold_status` | varchar | The status the order was in before it was put on hold. Saved so it can be restored when the hold is released. `null` when not on hold. |
 | `hold_reason` | varchar | Why the order was placed on hold — e.g. `ManualReview`, `PackageDamaged`. `null` when not on hold. |
 | `substitution_flag` | bool | `true` if WMS has proposed at least one substitution on this order. Never reset to `false`. |
-| `pos_recalc_pending` | bool | `true` if the order is waiting for POS to confirm the final price after a quantity change or substitution. The order cannot proceed to `Packed` while this is `true`. |
 | `is_prepaid` | bool | `true` for orders where payment is collected before delivery — e.g. `CreditCard`, `QRCode`, `Wallet`. `false` for COD and other post-pay methods. When `true`, the Settlement & Tax System (STS) sends the ABB/Tax Invoice link after `PickConfirmed`, before the package is handed to TMS. When `false`, the invoice is triggered by the `PackageDelivered` event and follows the POS invoicing flow. |
 | `created_at` / `updated_at` | timestamptz | Standard audit timestamps. |
 | `created_by` / `updated_by` | varchar | User or system that created or last changed the record. |

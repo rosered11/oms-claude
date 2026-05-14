@@ -26,7 +26,6 @@ erDiagram
         varchar pre_hold_status
         varchar hold_reason
         bool    substitution_flag
-        bool    pos_recalc_pending
         bool    is_prepaid
         timestamptz created_at
         timestamptz updated_at

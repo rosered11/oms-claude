@@ -56,7 +56,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → Packed → Ou
 | `PickStarted` | WMS webhook: `/webhooks/wms/pick-started` | |
 | `WaveStarted` | WMS webhook: `/webhooks/wms/wave-started` | Internal event only — not a persisted status column. Valid only when order is in `PickStarted`. Triggers `WaveStartedSentToGW` outbox event. Duplicate wave events are idempotent. |
 | `PickConfirmed` | WMS webhook: `/webhooks/wms/pick-confirmed` | |
-| `Packed` | WMS webhook: `/webhooks/wms/packed` | Blocked while `pos_recalc_pending = true` |
+| `Packed` | WMS webhook: `/webhooks/wms/packed` | |
 | `OutForDelivery` | TMS webhook: `/webhooks/tms/package-dispatched` | |
 | `Delivered` | TMS webhook: `/webhooks/tms/package-delivered` | |
 | `Invoiced` | POS webhook: `/webhooks/pos/invoiced` | |
@@ -81,17 +81,16 @@ SC → TMS                      SaleOrderSentToTMS (outbox)
 WMS → SC                      PickStarted (webhook: /webhooks/wms/pick-started)
 WMS → SC                      WaveStarted (webhook)
 SC → GW                       WaveStartedSentToGW (outbox)
-[WMS → SC → POS → SC → WMS]  POS Recalculation loop (repeats as needed; pos_recalc_pending=true blocks packing)
+[WMS → SC → POS]              POS Recalculation loop — OMS calls POS API (outbound); repeats as needed
 WMS → SC                      PickConfirmed (webhook: /webhooks/wms/pick-confirmed)
 SC → TMS                      PickConfirmedSentToTMS (outbox)
 SC → GW                       PickConfirmedSentToGW (outbox)
-STS → SC                      ABBTaxInvoiceReceived (webhook)
+                               ↑ GW receives PickConfirmed → GW processes payment externally → STS notifies OMS
+STS → SC                      ABBTaxInvoiceReceived (webhook) or CreditNoteReceived (webhook)
 SC → WMS                      ABBInvoiceSentToWMS (outbox)
 SC → GW                       ABBInvoiceSentToGW (outbox)
-[Optional] STS → SC           CreditNoteReceived (webhook) — only if credit note exists
 [Optional] SC → WMS           CreditNoteSentToWMS (outbox)
 [Optional] SC → GW            CreditNoteSentToGW (outbox)
-[TMS → SC → POS → SC → TMS]  POS Recalculation (post-PickConfirm; e.g. delivery fee adjustments)
 TMS → SC                      PackageDispatched (webhook: /webhooks/tms/package-dispatched) → OutForDelivery
 SC → GW                       OutForDeliverySentToGW (outbox)
 TMS → SC                      PackageDelivered (webhook: /webhooks/tms/package-delivered) → Delivered
@@ -114,19 +113,20 @@ In the POD flow the customer pays at the point of delivery — cash or card. No 
 | Pick started | WMS → SC | `PickStarted` webhook: `/webhooks/wms/pick-started`; order → `PickStarted` |
 | Wave started | WMS → SC | `WaveStarted` webhook |
 | Outbox to GW | SC → GW | `WaveStartedSentToGW` outbox event |
-| POS recalc loop | WMS → SC → POS → SC → WMS | Repeats as needed during picking; `pos_recalc_pending = true` blocks packing |
+| POS recalc loop | WMS → SC → POS | OMS calls POS API (outbound) synchronously; repeats as needed before `PickConfirmed` |
 | Pick confirmed | WMS → SC | `PickConfirmed` webhook: `/webhooks/wms/pick-confirmed`; records basket qty; partial pick supported |
 | Outbox to TMS | SC → TMS | `PickConfirmedSentToTMS` outbox event (basket qty) |
 | Outbox to GW | SC → GW | `PickConfirmedSentToGW` outbox event |
-| TMS POS recalc loop | TMS → SC → POS → SC → TMS | Repeats as needed (e.g. delivery fee adjustments) |
+| *(external)* | GW → external | GW receives `Delivered` status, handles COD/payment collection outside OMS |
 | Dispatched | TMS → SC | `PackageDispatched` webhook: `/webhooks/tms/package-dispatched`; order → `OutForDelivery` |
 | Outbox to GW | SC → GW | `OutForDeliverySentToGW` outbox event |
 | Delivered | TMS → SC | `PackageDelivered` webhook: `/webhooks/tms/package-delivered`; order → `Delivered` |
 | Outbox to GW | SC → GW | `DeliveredSentToGW` outbox event |
+| *(external)* | GW → external → STS | GW receives `Delivered` status, processes externally; STS then sends invoice/credit note to OMS |
 | ABB/Tax Invoice | STS → SC | `ABBTaxInvoiceReceived` webhook — issued after `Delivered` in POD |
 | Outbox to TMS | SC → TMS | `ABBTaxInvoiceSentToTMS` outbox event (link to ABB/Tax Invoice) |
 | Outbox to GW | SC → GW | `ABBTaxInvoiceSentToGW` outbox event (link to ABB/Tax Invoice) |
-| Credit Note (optional) | STS → SC | `CreditNoteReceived` webhook |
+| Credit Note (optional) | STS → SC | `CreditNoteReceived` webhook — only if credit note exists |
 | Outbox to TMS (optional) | SC → TMS | `CreditNoteSentToTMS` outbox event |
 | Outbox to GW (optional) | SC → GW | `CreditNoteSentToGW` outbox event |
 
@@ -178,7 +178,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | UC12 | Invoiced | POS webhook | POS issues fiscal invoice; status → `Invoiced` |
 | UC13 | Payment Confirmed | POS webhook | Payment received; status → `Paid` |
 | UC14 | Return | `POST /returns` + WMS webhooks | ReturnRequested → PickupScheduled → PickedUp → Received → Inspected → PutAway → Refunded |
-| UC15 | POS Recalculation | WMS/POS webhooks or `POST /orders/{id}/recalculate` | Sets `pos_recalc_pending = true`; POS returns adjusted amounts; flag cleared on completion |
+| UC15 | POS Recalculation | `POST /webhooks/wms/recalculation-requested` or `POST /orders/{id}/recalculate` | OMS calls POS API outbound synchronously; returns `adjustedAmount` immediately |
 | UC16 | Order Detail & Timeline | `GET /orders/{id}`, `/timeline` | Full order detail with event history across domain/webhook/outbox |
 | UC17 | List Orders | `GET /orders` | Paginated list; filter by status, store, type |
 | UC18 | List Packages | `GET /orders/{id}/packages` | Package and tracking info |
@@ -212,7 +212,6 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 - **Idempotency** — all inbound webhook handlers require `X-Idempotency-Key`. Duplicate keys are ignored and not reprocessed.
 - **Outbox atomicity** — every domain event is written in the same DB transaction as the aggregate mutation. No event can be lost even if the background dispatcher crashes.
 - **`pre_hold_status`** — must be saved before any `OnHold` transition and restored exactly on release. The `order_holds` log is append-only.
-- **`pos_recalc_pending`** — must be `false` before the order can transition to `Packed`. The packing workflow is blocked while this flag is `true`.
 - **`substitution_flag`** — set to `true` when any substitution record is created; never reset.
 - **Cancellation guard** — only allowed from `Pending`, `BookingConfirmed`, or `OnHold`. Returns `409 invalid_transition` otherwise.
 - **Delivery slot update guard** — slot cannot be changed once the order is `OutForDelivery` or later.

@@ -12,7 +12,6 @@ public class RecalcResultHandler(InMemoryStore store)
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
 
         o.Amount = req.AdjustedAmount;
-        o.PosRecalcPending = false;
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(req.OrderId, ApiResult.DomainEvent("RecalcResult", o.Status,
             $"POS response received. Amount adjusted {req.OriginalAmount} → {req.AdjustedAmount} {req.Currency}."));

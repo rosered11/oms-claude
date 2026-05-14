@@ -166,7 +166,6 @@ Get full order detail. (UC16)
   "status": "PickStarted",
   "fulfillmentType": "Delivery",
   "paymentMethod": "Prepaid",
-  "posRecalcPending": false,
   "substitutionFlag": false,
   "store": "Central DC",
   "storeId": "store-central-dc",
@@ -406,18 +405,18 @@ Cancel order. Allowed from `Pending`, `BookingConfirmed`, `OnHold` only. (UC9)
 
 ### POST /orders/{id}/recalculate
 
-Manually trigger a POS recalculation. Sets `posRecalcPending = true`. (UC15)
+Manually trigger a POS recalculation. OMS calls POS API outbound synchronously and returns the adjusted amount. (UC15)
 
 **Response 202:**
 ```json
-{ "orderId": "ORD-009", "posRecalcPending": true, "recalcTriggeredAt": "2024-01-15T15:30:00Z" }
+{ "orderId": "ORD-009", "adjustedAmount": 19800, "recalcTriggeredAt": "2024-01-15T15:30:00Z" }
 ```
 
 ---
 
 ### PATCH /orders/{id}/partial-pick
 
-Record a partial pick: one or more order lines were picked in lesser quantity than ordered. Triggers POS recalculation (sets `pos_recalc_pending = true`). (UC-PARTPICK)
+Record a partial pick: one or more order lines were picked in lesser quantity than ordered. OMS calls POS outbound synchronously to recalculate. (UC-PARTPICK)
 
 Not allowed after `PickConfirmed`.
 
@@ -441,7 +440,6 @@ Not allowed after `PickConfirmed`.
 {
   "orderId": "ORD-001",
   "status": "PickStarted",
-  "pos_recalc_pending": true,
   "partialLines": [
     {
       "orderLineId": "LINE-001",
@@ -946,7 +944,7 @@ WMS confirms order packed into packages. → `Packed`. (UC4)
 
 ### POST /webhooks/wms/substitution-offered
 
-WMS offers alternative SKU for unfulfillable line. Sets `substitution_flag = true`, `pos_recalc_pending = true`. (UC5)
+WMS offers alternative SKU for unfulfillable line. Sets `substitution_flag = true`. (UC5)
 
 **Request:**
 ```json
@@ -961,7 +959,7 @@ WMS offers alternative SKU for unfulfillable line. Sets `substitution_flag = tru
 }
 ```
 
-**Response 202:** `{ "accepted": true, "substitutionId": "sub-001", "orderId": "ORD-003", "customerNotified": true, "posRecalcPending": true }`
+**Response 202:** `{ "accepted": true, "substitutionId": "sub-001", "orderId": "ORD-003", "customerNotified": true }`
 
 ---
 
@@ -1135,99 +1133,24 @@ TMS driver reports damage before/during delivery. Order → `OnHold`. Driver ins
 
 ---
 
-### POST /webhooks/pos/pos-collection-ready
+### POST /webhooks/tms/recalculation-requested
 
-POS confirms Click & Collect order packed and ready at store. → `ReadyForCollection`. (UC10)
-
-**Request:** `{ "orderId": "ORD-002", "storeId": "store-a", "notifiedAt": "..." }`
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-002", "newStatus": "ReadyForCollection" }`
-
----
-
-### POST /webhooks/pos/collected
-
-POS confirms customer collected order. Triggers invoice generation. → `Collected`. (UC11)
-
-**Request:** `{ "orderId": "ORD-002", "collectedAt": "2024-01-15T15:00:00Z", "collectedBy": "Alice Johnson" }`
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-002", "newStatus": "Collected", "invoiceTriggered": true }`
-
----
-
-### POST /webhooks/pos/invoiced
-
-POS confirms fiscal invoice issued. → `Invoiced`. (UC12)
+TMS driver requests a POS recalculation at the customer's door (POD only). Used when the actual delivered weight differs from the ordered quantity (e.g. weight-based items). OMS calls POS outbound and returns the adjusted amount so the driver knows the correct amount to collect. Only valid when order is `OutForDelivery`.
 
 **Request:**
 ```json
 {
-  "orderId": "ORD-001",
-  "invoiceNumber": "INV-2024-001",
-  "invoiceType": "Standard",
-  "totalAmount": 2380,
-  "currency": "THB",
-  "invoicedAt": "2024-01-15T19:25:00Z"
+  "trackingId": "TRK-2024-005",
+  "reason": "ActualWeightDiffers",
+  "actualWeight": 0.84123,
+  "requestedAt": "2024-01-15T14:30:00Z"
 }
 ```
 
-**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Invoiced", "invoiceId": "inv-001" }`
+**Response 202:** `{ "accepted": true, "orderId": "ORD-005", "adjustedAmount": 10684 }`
 
----
-
-### POST /webhooks/pos/payment-confirmed
-
-POS confirms payment received. → `Paid`. (UC13)
-
-**Request:**
-```json
-{
-  "orderId": "ORD-001",
-  "invoiceNumber": "INV-2024-001",
-  "paymentMethod": "CreditCard",
-  "paidAmount": 2380,
-  "currency": "THB",
-  "paidAt": "2024-01-15T19:31:00Z",
-  "gatewayRef": "GW-TXN-20240115-001"
-}
-```
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Paid" }`
-
----
-
-### POST /webhooks/pos/recalculation-result
-
-POS returns adjusted total after promotions applied to picked quantities. Clears `posRecalcPending`. (UC15)
-
-**Request:**
-```json
-{
-  "orderId": "ORD-001",
-  "originalAmount": 2450,
-  "adjustedAmount": 2380,
-  "currency": "THB",
-  "promotionsApplied": [
-    { "promoCode": "FRESH10", "discountAmount": 70, "description": "10% fresh produce discount" }
-  ],
-  "recalculatedAt": "2024-01-15T15:36:00Z"
-}
-```
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "finalAmount": 2380, "posRecalcPendingCleared": true }`
-
----
-
-### POST /webhooks/pos/pos-recalc-completed
-
-POS confirms full recalculation cycle closed. All amounts finalised. Unblocks packing workflow. (UC15)
-
-**Request:**
-```json
-{ "orderId": "ORD-001", "finalAmount": 2380, "currency": "THB", "completedAt": "2024-01-15T15:37:00Z" }
-```
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-001" }`
+**Error 404:** `tracking_not_found`
+**Error 422:** Invalid transition — order is not `OutForDelivery`
 
 ---
 
@@ -1235,7 +1158,16 @@ POS confirms full recalculation cycle closed. All amounts finalised. Unblocks pa
 
 Inbound callbacks from the Settlement & Tax System (STS). STS generates official ABB/Tax Invoice and Credit Note documents and notifies OMS with download links.
 
-OMS routes these links to downstream systems based on `orders.is_prepaid`:
+**How STS is triggered (external to OMS):**
+
+OMS dispatches outbox events to GW at key status transitions. GW handles payment and tax processing outside OMS. Once GW's processing is complete, STS sends the ABB/Tax Invoice (and optionally a Credit Note) back to OMS.
+
+| Flow | OMS outbox event that triggers GW | GW processing | STS sends to OMS |
+|---|---|---|---|
+| **Prepaid** | `PickConfirmedSentToGW` (after `PickConfirmed`) | GW handles payment settlement externally | ABB/Tax Invoice or Credit Note |
+| **POD** | `DeliveredSentToGW` (after `Delivered`) | GW handles COD/payment collection externally | ABB/Tax Invoice or Credit Note |
+
+OMS routes the received STS documents to downstream systems based on `orders.is_prepaid`:
 
 | Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
 |---|---|---|---|

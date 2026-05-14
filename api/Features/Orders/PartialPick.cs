@@ -20,13 +20,6 @@ public class PartialPickHandler(InMemoryStore store)
                 detail = $"Order {id} is in status {order.Status}. Partial pick is not allowed from this state."
             });
 
-        if (order.PosRecalcPending)
-            return Results.Conflict(new
-            {
-                error = "pos_recalc_already_pending",
-                detail = "POS recalculation already in progress."
-            });
-
         if (req.Lines.All(l => l.PickedQuantity == 0))
             return Results.UnprocessableEntity(new
             {
@@ -56,18 +49,13 @@ public class PartialPickHandler(InMemoryStore store)
             });
         }
 
-        order.PosRecalcPending = true;
         order.UpdatedAt = now;
 
         store.AppendEvent(id, ApiResult.DomainEvent("PartialPickRecorded", order.Status,
-            $"{req.Lines.Count} line(s) partially picked. POS recalc triggered."));
+            $"{req.Lines.Count} line(s) partially picked."));
+        store.AppendEvent(id, ApiResult.DomainEvent("PosRecalcCalled", order.Status,
+            $"SC → POS [outbound]: recalculation for partial pick. {req.Lines.Count} line(s) adjusted."));
 
-        return Results.Ok(new
-        {
-            orderId = id,
-            status = order.Status,
-            pos_recalc_pending = true,
-            partialLines
-        });
+        return Results.Ok(new { orderId = id, status = order.Status, partialLines });
     }
 }

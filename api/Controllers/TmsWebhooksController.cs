@@ -7,7 +7,8 @@ namespace OmsApi;
 public class TmsWebhooksController(
     PackageDispatchedHandler packageDispatched,
     PackageDeliveredHandler packageDelivered,
-    PackageDamageReportedHandler packageDamageReported) : ControllerBase
+    PackageDamageReportedHandler packageDamageReported,
+    TmsRecalcRequestedHandler tmsRecalcRequested) : ControllerBase
 {
     [HttpPost("package-dispatched")]
     public IResult PackageDispatched([FromBody] PackageDispatchedRequest req) => packageDispatched.Handle(req);
@@ -17,4 +18,7 @@ public class TmsWebhooksController(
 
     [HttpPost("package-damage-reported")]
     public IResult PackageDamageReported([FromBody] PackageDamageReportedRequest req) => packageDamageReported.Handle(req);
+
+    [HttpPost("recalculation-requested")]
+    public IResult RecalcRequested([FromBody] TmsRecalcRequestedRequest req) => tmsRecalcRequested.Handle(req);
 }

@@ -9,11 +9,6 @@ public class RecalcRequestedHandler(InMemoryStore store)
         var o = store.FindOrder(req.OrderId);
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
 
-        if (o.PosRecalcPending)
-            return Results.Conflict(new { error = "pos_recalc_already_pending",
-                detail = $"Order {req.OrderId} already has a POS recalculation in progress." });
-
-        o.PosRecalcPending = true;
         o.UpdatedAt = DateTime.UtcNow;
 
         store.AddWebhookLog(req.OrderId, new WebhookLogDto
@@ -26,9 +21,9 @@ public class RecalcRequestedHandler(InMemoryStore store)
         });
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "RecalcRequested", o.Status,
             $"WMS requested POS recalculation. Reason: {req.Reason}."));
-        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("POS", "RecalculationForwarded",
-            $"SC → POS: Recalculation forwarded. Current basket: {o.Amount} THB."));
+        store.AppendEvent(req.OrderId, ApiResult.DomainEvent("PosRecalcCalled", o.Status,
+            $"SC → POS [outbound]: recalculation completed synchronously. Adjusted basket: {o.Amount} THB."));
 
-        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, posRecalcPending = true });
+        return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, adjustedAmount = o.Amount });
     }
 }

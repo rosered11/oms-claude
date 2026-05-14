@@ -101,7 +101,6 @@ Maps every API request and response field to its source or target database table
 | `status` | string | `orders.orders` | `status` | |
 | `fulfillmentType` | string | `orders.orders` | `fulfillment_type` | |
 | `paymentMethod` | string | `orders.orders` | `payment_method` | |
-| `posRecalcPending` | boolean | `orders.orders` | `pos_recalc_pending` | |
 | `substitutionFlag` | boolean | `orders.orders` | `substitution_flag` | |
 | `store` | string | `config.store_locations` | `store_name` | JOIN on `orders.store_id` |
 | `storeId` | string | `orders.orders` | `store_id` | |
@@ -349,7 +348,7 @@ All writes in a single DB transaction.
 |---|---|---|---|
 | *(derived — subId)* | `orders.order_line_substitutions` | `customer_approved = true`, `approved_at` | UPDATE |
 | *(derived)* | `orders.orders` | `updated_at` | UPDATE |
-| *(derived — if posRecalcPending)* | `orders.order_outbox` | `event_type = 'SubstitutionApprovedEvent'` | INSERT |
+| *(derived)* | `orders.order_outbox` | `event_type = 'SubstitutionApprovedEvent'` | INSERT |
 
 ---
 
@@ -368,7 +367,6 @@ All writes in a single DB transaction.
 
 | Field | Table Written | Column | Action |
 |---|---|---|---|
-| *(derived)* | `orders.orders` | `pos_recalc_pending = true`, `updated_at` | UPDATE |
 | *(derived)* | `orders.order_outbox` | `event_type = 'RecalcRequestedEvent'` | INSERT |
 
 ---
@@ -716,7 +714,7 @@ Root fields identical to list above. Additional `lines[]`:
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
-| `orderId` | `orders.orders` | `substitution_flag = true`, `pos_recalc_pending = true`, `updated_at` | UPDATE |
+| `orderId` | `orders.orders` | `substitution_flag = true`, `updated_at` | UPDATE |
 | `orderLineId` | `orders.order_line_substitutions` | `order_line_id` | INSERT |
 | `substituteSku` | `orders.order_line_substitutions` | `substitute_sku` | INSERT |
 | `substituteProductName` | `orders.order_line_substitutions` | `substitute_product_name` | INSERT |
@@ -906,7 +904,6 @@ Root fields identical to list above. Additional `lines[]`:
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
-| `orderId` | `orders.orders` | `pos_recalc_pending → false`, `updated_at` | UPDATE |
 | `adjustedAmount` | `payment.order_line_amounts` | Per recalc round per line | INSERT per line |
 | `promotionsApplied[].promoCode` | `payment.order_promotions` | `promo_code` | INSERT per promo |
 | `promotionsApplied[].discountAmount` | `payment.order_promotions` | `discount_amount` | |
@@ -921,10 +918,9 @@ Root fields identical to list above. Additional `lines[]`:
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
-| `orderId` | `orders.orders` | `pos_recalc_pending → false`, `updated_at` | UPDATE |
 | `completedAt` | `orders.order_webhook_logs` | `received_at`; `event_type = 'PosRecalcCompleted'` | INSERT |
 | `finalAmount` | `orders.order_webhook_logs` | `detail` | Audit record only |
-| *(derived)* | `orders.order_outbox` | `event_type = 'RecalcCompletedEvent'` | INSERT — unblocks packing workflow |
+| *(derived)* | `orders.order_outbox` | `event_type = 'RecalcCompletedEvent'` | INSERT |
 
 ---
 
