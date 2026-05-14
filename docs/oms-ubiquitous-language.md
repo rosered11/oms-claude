@@ -11,6 +11,9 @@ This glossary defines terms that carry a precise, agreed meaning across business
 **ABB Invoice**
 A pre-delivery invoice issued by OMS to WMS for a **Prepaid Order** after **Pick Confirmed** and before **Dispatch**. Short for "Advance Billing Before delivery." The ABB Invoice locks in the final basket amount before the driver leaves the warehouse.
 
+**ABBInvoiceSentToWMS**
+An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. See **Prepaid Flow** and **STS**.
+
 **Aggregate**
 A cluster of domain objects treated as a single unit for data changes. The **Order** is the primary aggregate in OMS. All changes to an order's state must go through the Order aggregate — no direct column updates.
 
@@ -40,7 +43,7 @@ An order status. For **Post-Paid Orders**, WMS sends a webhook confirming it has
 A module with a clear boundary that owns its own schema and vocabulary. OMS has five: **Order**, **Payment**, **Returns**, **Config**, and **Inbound**. Terms may mean different things in different bounded contexts — context always clarifies meaning.
 
 **Business Unit (BU)**
-The brand or subsidiary company that operates a store (e.g. `TOPS` for Tops Supermarket, `CFH` for Central Food Hall). Every order and store belongs to exactly one business unit.
+An organizational unit (e.g. `CMG`, `CFR`) that owns a set of orders and stores. OMS enforces strict data isolation between BUs — a CMG operator cannot access CFR data. Every order and store belongs to exactly one business unit. The JWT claim `business_unit` is required on all API requests; the application layer filters all queries by this value. Cross-BU mutations return `403 forbidden_business_unit`.
 
 ---
 
@@ -65,7 +68,10 @@ An order status. The customer has physically collected the order at the store. A
 The physical state of a product assessed by warehouse staff during inspection. Three values: `Resellable` (can go directly back on the shelf), `Repairable` (needs fixing before it can be sold), `Dispose` (written off as a loss).
 
 **Credit Note**
-A financial document that partially or fully reverses an **Invoice**. Issued when a **Return** is completed and put away. The credit note records the amount being refunded to the customer.
+A document issued by STS reducing the amount owed by the customer — for example, for rejected items or price corrections. In OMS the credit note is stored in `payment.credit_notes` keyed by `credit_note_number` from STS. Distinct from an internal financial reversal: STS issues it, OMS records and forwards it. Also see **CreditNoteSentToWMS**.
+
+**CreditNoteSentToWMS**
+An outbox event dispatched to WMS when OMS receives a credit note from STS. For prepaid orders, OMS forwards the credit note link to WMS; for post-paid (delivery) orders, OMS forwards it to TMS.
 
 ---
 
@@ -76,6 +82,9 @@ A warehouse record created when a TMS driver returns a damaged package to the wa
 
 **Delivered**
 An order status. TMS has confirmed the package was physically handed to the customer. Triggers **Invoice** generation via outbox → POS.
+
+**DeliveredSentToGW**
+An outbox event dispatched to GW when TMS confirms package delivery. Notifies the customer-facing gateway so the customer can receive their delivery confirmation.
 
 **Delivery**
 A **Fulfillment Type** where a driver delivers the order to the customer's address during a scheduled **Delivery Slot**.
@@ -162,6 +171,9 @@ See **Order Line**.
 
 ## M
 
+**MarketplaceAdapter**
+The ACL (Anti-Corruption Layer) adapter used by the outbox worker to call marketplace-specific APIs — e.g. TikTok, Lazada — at specific order lifecycle events. The `MarketplaceAdapter` resolves `endpoint_key` values from `config.outbox_routing_rules` to real API URLs and handles marketplace authentication and payload transformation. Different marketplace BUs receive different events; routing is driven by the `outbox_routing_rules` table.
+
 **Modular Monolith**
 The architectural style of OMS. All bounded contexts (Order, Payment, Returns, Config, Inbound) are deployed as a single application unit but each owns a separate database schema with no cross-schema JOINs. This enables clear domain boundaries while avoiding distributed systems complexity.
 
@@ -196,6 +208,9 @@ A staging table (`orders.order_outbox`) where domain events are written atomical
 **Out for Delivery**
 An order status. The TMS driver has collected the package and is travelling to the customer's address.
 
+**OutForDeliverySentToGW**
+An outbox event dispatched to GW when the package is dispatched by TMS (Out for Delivery transition). Notifies the customer-facing gateway so the customer receives an in-transit update.
+
 ---
 
 ## P
@@ -212,8 +227,20 @@ An order status. POS has confirmed payment was received from the customer. Termi
 **Payment Method**
 How the customer pays for an order: `Prepaid` (paid before delivery), `PostPaid` (paid after delivery), `CreditCard`.
 
+**Partial Item Return**
+A post-delivery return scenario where the customer rejects a subset of order line items — for example, the customer keeps the beef but rejects the chicken because it was not fresh. Only the rejected items are returned. Triggers a partial refund for those items and a POS Recalculation to remove their value from the order total. See also **Credit Note**.
+
+**Partial Pick**
+A fulfillment scenario where WMS picks fewer units than ordered for one or more lines, due to stock unavailability or quality issues. The actual quantity is recorded as `picked_quantity` on `orders.order_pick_lines`, and a `shortfall_reason` is captured. After partial pick, a **POS Recalculation** is triggered to adjust the order total.
+
 **Pick Confirmed**
 An order status. WMS has reported the actual quantities picked for each order line. If any quantity differs from what was ordered, or if a **Substitution** was proposed, a **POS Recalculation** is triggered.
+
+**PickConfirmedSentToGW**
+An outbox event dispatched to GW after **Pick Confirmed**. Notifies the Gateway so downstream customer-facing systems can reflect the picking result.
+
+**PickConfirmedSentToTMS**
+An outbox event dispatched to TMS after **Pick Confirmed**. Used in the prepaid flow so TMS can prepare the driver dispatch and create the shipment.
 
 **Pick Started**
 An order status. WMS has confirmed that a warehouse picker has begun collecting items from the shelves.
@@ -276,6 +303,9 @@ The financial record of money being returned to a customer after a **Return** is
 **Rejected Substitution**
 A **Substitution** that the customer has declined. The original **Order Line** is voided. A **POS Recalculation** is triggered to remove the line from the total.
 
+**Rescheduler**
+The capability for a customer or operator to change a **Delivery Slot** after the order is created but before it reaches **Out for Delivery**. A reschedule call updates `delivery_slots.scheduled_start` and `scheduled_end` and notifies TMS via outbox.
+
 **Return**
 A customer request to send purchased items back to the warehouse. Initiated after **Delivered**, **Invoiced**, or **Paid**. Return lifecycle: `Requested → Pickup Scheduled → Picked Up → Received → Inspected → Put Away → Refunded`.
 
@@ -291,6 +321,9 @@ A configuration record controlling whether OMS is live at a given store (`Full`)
 
 **Sale Order**
 The outbound message sent from OMS to CBE and WMS after an **Order** is created. Registers the order for payment processing (CBE) and warehouse picking (WMS).
+
+**SaleOrderSentToTMS**
+An outbox event dispatched to TMS at order creation, used in the prepaid flow. Notifies TMS early so a driver booking can be prepared in parallel with warehouse picking.
 
 **SC (Sprint Connect)**
 See **OMS**.
@@ -353,6 +386,12 @@ An **Order Line** whose status has been set to `Voided` because the customer rej
 
 ## W
 
+**WaveStarted**
+A domain event raised when WMS initiates an internal picking wave for an order. A wave groups one or more orders for a single picking run. OMS records this event in `orders.order_wave_events` and stages a **WaveStartedSentToGW** outbox event for opted-in Gateways.
+
+**WaveStartedSentToGW**
+An outbox event dispatched to Gateway when WMS starts a picking wave. Only dispatched for Gateways that have a matching row in `config.outbox_routing_rules` (i.e. opted-in to this event). Gateways without a routing rule receive no notification.
+
 **Webhook**
 An inbound HTTP callback from an external system (WMS, TMS, or POS) notifying OMS of an event. All webhook endpoints return `202 Accepted` immediately. Each webhook is logged in `order_webhook_logs` with an **Idempotency Key** to prevent duplicate processing.
 
@@ -375,3 +414,5 @@ Some terms appear in multiple bounded contexts with related but distinct meaning
 | **Invoice** | Referenced by `invoice_id` FK | The authoritative invoice record | The invoice being reversed by a credit note |
 | **Line** | An order line (one SKU) | A line amount record per recalc round | A return item (one returned SKU) |
 | **Condition** | Not used | Not used | Physical state of a returned item (Resellable / Repairable / Dispose) |
+| **Credit Note** | Not used | STS-issued document reducing customer's balance; stored in `payment.credit_notes` | Triggers a partial refund when a return is put away |
+| **Wave** | Not used | Not used | Not used (picking wave is an Order context concept) |

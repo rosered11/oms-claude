@@ -136,6 +136,13 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
 }
 ```
 
+**Outbox events dispatched on order creation:**
+
+| Event | Target | Condition |
+|---|---|---|
+| `SaleOrderSentToWMS` | WMS | All orders |
+| `SaleOrderSentToTMS` | TMS | Prepaid orders only — slot pre-booking required before WMS pick begins |
+
 **Response 409** (duplicate `sourceOrderId`):
 ```json
 { "error": "conflict", "detail": "Order with sourceOrderId EXT-001 already exists as ORD-001." }
@@ -404,6 +411,53 @@ Manually trigger a POS recalculation. Sets `posRecalcPending = true`. (UC15)
 
 ---
 
+### PATCH /orders/{id}/partial-pick
+
+Record a partial pick: one or more order lines were picked in lesser quantity than ordered. Triggers POS recalculation (sets `pos_recalc_pending = true`). (UC-PARTPICK)
+
+Not allowed after `PickConfirmed`.
+
+**Request:**
+```json
+{
+  "lines": [
+    {
+      "orderLineId": "LINE-001",
+      "pickedQuantity": 1,
+      "orderedQuantity": 2,
+      "reason": "OutOfStock"
+    }
+  ],
+  "idempotencyKey": "uuid-here"
+}
+```
+
+**Response 200:**
+```json
+{
+  "orderId": "ORD-001",
+  "status": "PickStarted",
+  "pos_recalc_pending": true,
+  "partialLines": [
+    {
+      "orderLineId": "LINE-001",
+      "pickedQuantity": 1,
+      "orderedQuantity": 2,
+      "shortfallQuantity": 1,
+      "reason": "OutOfStock"
+    }
+  ]
+}
+```
+
+**Error 409:** `pos_recalc_already_pending` — POS recalculation already in progress
+
+**Error 409:** `invalid_transition` — Order not in a state that allows partial pick
+
+**Error 422:** `zero_pick_not_allowed` — All lines reduced to zero; use Cancel Order instead
+
+---
+
 ### GET /orders/{id}/delivery-slot
 
 Get current delivery slot. (UC19)
@@ -423,15 +477,35 @@ Get current delivery slot. (UC19)
 
 ### PATCH /orders/{id}/delivery-slot
 
-Reschedule delivery window. Not allowed once order is `OutForDelivery` or later. (UC19)
+Reschedule delivery window. Not allowed once order is `OutForDelivery`, `Delivered`, or later. (UC19, UC-RESCHEDULE)
 
-**Request:** `{ "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T22:00:00Z", "bookedVia": "TMS", "bookingRef": "CBE-BK-002" }`
+**Request:**
+```json
+{
+  "scheduledStart": "2024-01-15T20:00:00Z",
+  "scheduledEnd": "2024-01-15T22:00:00Z",
+  "bookedVia": "TMS",
+  "bookingRef": "CBE-BK-002",
+  "reason": "CustomerRequest"
+}
+```
 
-**Response 200:** Updated slot object.
+**Response 200:**
+```json
+{
+  "orderId": "ORD-001",
+  "deliverySlot": {
+    "scheduledStart": "2024-01-15T20:00:00Z",
+    "scheduledEnd": "2024-01-15T22:00:00Z"
+  }
+}
+```
+
+**Outbox event dispatched:** `DeliverySlotRescheduledEvent` → TMS
 
 **Response 409:**
 ```json
-{ "error": "invalid_transition", "detail": "Order ORD-001 is already OutForDelivery. Slot cannot be changed." }
+{ "error": "slot_change_not_allowed", "detail": "Order ORD-001 is already OutForDelivery. Slot cannot be changed." }
 ```
 
 ---
@@ -479,6 +553,28 @@ Initiate a return for a delivered or paid order. (UC14)
 **Response 422:**
 ```json
 { "error": "unprocessable", "detail": "Order ORD-005 is in status Cancelled. Returns are only allowed from Delivered, Invoiced, or Paid." }
+```
+
+#### Partial Item Return
+
+When a customer rejects specific items at delivery (e.g. ordered beef and chicken, but chicken was not fresh):
+
+- Call `POST /returns` with `returnType: "PartialItem"` and list only the rejected line items in `items[]`
+- OMS triggers partial refund calculation via POS
+- Only allowed after `Delivered` status
+- Each `returnLineItem` must reference the original `orderLineId`
+
+**Example request for partial return:**
+```json
+{
+  "orderId": "ORD-001",
+  "returnType": "PartialItem",
+  "returnReason": "ItemNotFresh",
+  "items": [
+    { "orderLineId": "line-002", "sku": "CHICKEN-1KG", "quantity": 1, "itemReason": "ItemNotFresh" }
+  ],
+  "requestedBy": "alice@example.com"
+}
 ```
 
 ---
@@ -784,6 +880,29 @@ WMS picker begins collecting items. → `PickStarted`. (UC3)
 
 ---
 
+### POST /webhooks/wms/wave-started
+
+WMS notifies OMS that wave picking has started. (UC-WAVE)
+
+Valid only when order is in `PickStarted` status.
+
+**Headers:** `X-Idempotency-Key: <uuid>`
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "waveId": "WAVE-001",
+  "startedAt": "2024-01-15T15:35:00Z"
+}
+```
+
+**Response 202 Accepted**
+
+**Outbox event dispatched:** `WaveStartedSentToGW` → Gateway
+
+---
+
 ### POST /webhooks/wms/pick-confirmed
 
 WMS reports actual picked quantities per line. Triggers POS recalculation if any quantity differs or substitution exists. → `PickConfirmed`. (UC4)
@@ -960,11 +1079,13 @@ WMS confirms damaged items inspected, condition assigned, shelved/disposed. (UC2
 
 ### POST /webhooks/tms/package-dispatched
 
-TMS driver collected the package. → `OutForDelivery`. (UC7)
+TMS driver collected the package. Transitions order to `OutForDelivery`. (UC7)
 
 **Request:** `{ "trackingId": "TRK-2024-001", "dispatchedAt": "2024-01-15T17:47:00Z" }`
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newOrderStatus": "OutForDelivery", "newPackageStatus": "OutForDelivery" }`
+
+**Outbox event dispatched:** `OutForDeliverySentToGW` → Gateway
 
 ---
 
@@ -1179,6 +1300,53 @@ STS sends a Credit Note document link as a separate webhook when a credit note e
 ```
 
 **Response 409:** `{ "error": "conflict", "detail": "Credit Note CN-2024-001 already received for ORD-001." }`
+
+---
+
+### POST /webhooks/sts/abb-tax-invoice-received
+
+STS sends the official ABB/Tax Invoice to OMS after `PickConfirmed` (prepaid flow). Carries the invoice amount and number directly; OMS records the invoice and dispatches it to WMS.
+
+**Headers:** `X-Idempotency-Key: <uuid>`
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "invoiceNumber": "INV-STS-001",
+  "invoiceAmount": 238000,
+  "currency": "THB",
+  "issuedAt": "2024-01-15T16:00:00Z"
+}
+```
+
+**Response 202 Accepted**
+
+**Outbox event dispatched:** `ABBInvoiceSentToWMS` → WMS
+
+---
+
+### POST /webhooks/sts/credit-note-received
+
+STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after partial pick).
+
+**Headers:** `X-Idempotency-Key: <uuid>`
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-001",
+  "creditAmount": 15000,
+  "currency": "THB",
+  "reason": "PriceAdjustment",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+```
+
+**Response 202 Accepted**
+
+**Outbox event dispatched:** `CreditNoteSentToWMS` → WMS
 
 ---
 

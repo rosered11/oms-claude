@@ -86,6 +86,19 @@ Key invariants:
 - **Bearer JWT** — required on all endpoints except public auth
 - **`source_order_id`** — the external system's reference; used for idempotent order creation
 
+## Memory
+
+All persistent memory for this project lives in `memory/` at the root of this repository and is tracked in Git. **Never write memory to `~/.claude/` or any other location.** Always read from and write to `memory/` only.
+
+| File | Contents |
+|---|---|
+| `memory/MEMORY.md` | Index — list every memory file here when you add one |
+| `memory/project_architecture.md` | Tech stack, scale, deployment, key architectural decisions |
+| `memory/project_channels_routing.md` | Channel types, dynamic outbox routing, multi-BU workflow |
+| `memory/feedback_pk_type.md` | PK/FK type convention (bigint, never uuid) |
+
+When you learn something worth remembering (a decision, a constraint, a correction), write it to an appropriately named file under `memory/` and add it to the index in `memory/MEMORY.md`.
+
 ## Key Reference Files
 
 - `docs/oms-api-blueprint.md` — REST endpoints (canonical API spec, v2.0)

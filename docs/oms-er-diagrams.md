@@ -41,6 +41,9 @@ erDiagram
         varchar unit_of_measure
         decimal requested_amount
         decimal picked_amount
+        int     picked_quantity
+        int     shortfall_quantity
+        enum    shortfall_reason
         decimal original_unit_price
         varchar status
         timestamptz created_at
@@ -153,6 +156,15 @@ erDiagram
         timestamptz received_at
     }
 
+    order_wave_events {
+        bigint  id PK
+        bigint  order_id FK
+        varchar wave_id
+        datetime started_at
+        varchar idempotency_key UK
+        datetime created_at
+    }
+
     orders       ||--o{ order_lines             : "has"
     orders       ||--o{ order_packages          : "has"
     orders       ||--o{ order_addresses         : "has"
@@ -162,6 +174,7 @@ erDiagram
     orders       ||--o{ order_outbox            : "stages"
     orders       ||--o{ order_status_history    : "logs"
     orders       ||--o{ order_webhook_logs      : "logs"
+    orders       ||--o{ order_wave_events       : "records"
     order_lines  ||--o{ order_line_substitutions: "has"
     order_packages ||--o{ order_package_lines   : "contains"
     order_lines    ||--o{ order_package_lines   : "in"
@@ -211,16 +224,21 @@ erDiagram
     }
 
     credit_notes {
-        bigint  credit_note_id PK
+        bigint  id PK
+        bigint  order_id
         bigint  invoice_id FK
         varchar credit_note_number UK
+        bigint  credit_amount
         decimal amount
         varchar currency
         varchar reason
         varchar status
         varchar credit_note_link
         varchar source_sts_ref
-        timestamptz issued_at
+        datetime issued_at
+        datetime received_at
+        varchar idempotency_key UK
+        datetime created_at
     }
 
     order_line_amounts {
@@ -548,6 +566,8 @@ erDiagram
 | `payment.invoices` | `order_id` | `orders` | `orders.order_id` |
 | `payment.order_line_amounts` | `order_line_id` | `orders` | `order_lines.order_line_id` |
 | `inbound.damaged_goods_receipts` | `order_id` | `orders` | `orders.order_id` |
+| `orders.order_wave_events` | `order_id` | `orders` | `orders.order_id` |
+| `payment.credit_notes` | `order_id` | `orders` | `orders.order_id` |
 
 > Cross-module references are enforced at the application layer (not as foreign key constraints across schemas) to preserve bounded context isolation.
 

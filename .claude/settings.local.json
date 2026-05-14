@@ -9,7 +9,12 @@
       "PowerShell(Start-Sleep -Seconds 4; Invoke-RestMethod -Uri \"http://localhost:5050/health\" | ConvertTo-Json)",
       "PowerShell($r = Invoke-RestMethod -Uri \"http://localhost:5050/api/orders\"; \"Total orders: $\\($r.total\\)\"; $r.data | Select-Object -First 2 | ForEach-Object { \"$\\($_.id\\) - $\\($_.status\\) - $\\($_.customer\\)\" })",
       "Bash(Remove-Item *)",
-      "Bash(Test-Path *)"
+      "Bash(Test-Path *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell([System.IO.Directory]::GetFiles\\(\"D:\\\\workspace\\\\oms-claude\\\\memory\"\\))"
     ]
   }
 }

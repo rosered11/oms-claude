@@ -50,6 +50,9 @@ One row per product requested. An order with 5 different SKUs has 5 rows here.
 | `unit_of_measure` | varchar | How the product is counted or weighed: `Each`, `Kg`, `Litre`. |
 | `requested_amount` | decimal | How many units the customer ordered. |
 | `picked_amount` | decimal | How many units were actually picked by the warehouse. Set when WMS confirms pick. May be less than `requested_amount` if stock ran out. |
+| `picked_quantity` | int | Actual quantity picked by WMS (integer mirror of `picked_amount` for partial pick tracking). |
+| `shortfall_quantity` | int GENERATED | Computed as `ordered_quantity - picked_quantity`. Non-zero when a **Partial Pick** occurred. Virtual/generated column — not stored. |
+| `shortfall_reason` | enum | Why fewer units were picked: `OutOfStock` (SKU depleted), `QualityIssue` (units failed inspection before pick), `CustomerRejection` (customer declined the item). `NULL` when quantity was fully fulfilled. |
 | `original_unit_price` | decimal | The price per unit at the time the order was placed. |
 | `status` | varchar | `Active` (normal) or `Voided` (line removed because customer rejected a substitution). |
 
@@ -198,6 +201,21 @@ An append-only record of every time the order's status changed. Used to build th
 
 ---
 
+### `order_wave_events` — WMS picking wave start records
+
+Records `WaveStarted` events received from WMS. Each row represents one wave start notification. Used to trigger the `WaveStartedSentToGW` outbox event for opted-in Gateways and to provide a wave audit trail on the order timeline.
+
+| Column | Type | Plain meaning |
+|---|---|---|
+| `id` | bigint PK | Unique ID for this wave event. |
+| `order_id` | bigint FK | The order whose picking wave has started. References `orders.orders.id`. |
+| `wave_id` | varchar(100) | The WMS-assigned wave identifier — groups one or more orders into a single picking run. |
+| `started_at` | datetime UTC | When WMS started the wave. |
+| `idempotency_key` | varchar(255) UNIQUE | Prevents duplicate processing if WMS retries the webhook. Matched against incoming `X-Idempotency-Key` headers. |
+| `created_at` | datetime UTC | When OMS persisted this record. |
+
+---
+
 ### `order_webhook_logs` — log of every inbound webhook received
 
 Every webhook callback received from WMS, TMS, or POS is logged here, even if it results in no state change. Used for debugging, the order timeline, and the idempotency check.
@@ -271,22 +289,27 @@ One invoice per order. For **pre-paid** orders, created by the Settlement & Tax 
 
 ---
 
-### `credit_notes` — invoices partially or fully reversed
+### `credit_notes` — credit documents from STS and internal reversals
 
-Issued when a return reduces the amount the customer owes. One credit note per return.
+Stores credit notes received from STS (reducing the amount owed by the customer — e.g. for rejected items or price corrections) as well as internal credit notes issued when a return is put away. One row per credit note event.
 
 | Column | Type | Plain meaning |
 |---|---|---|
-| `credit_note_id` | bigint PK | Unique ID. |
-| `invoice_id` | bigint FK | The invoice being partially reversed. |
-| `credit_note_number` | varchar UK | The fiscal credit note number — e.g. `CN-RET-001`. |
-| `amount` | decimal | Amount being credited back to the customer. |
-| `currency` | varchar | `THB`. |
-| `reason` | varchar | Why the credit note was issued: `Return`, `PriceAdjustment`, `DamagedGoods`. |
+| `id` | bigint PK | Unique ID. (Also exposed as `credit_note_id` in legacy contexts.) |
+| `order_id` | bigint FK | The order this credit note applies to. References `orders.orders.id`. Cross-context reference enforced at application layer. |
+| `invoice_id` | bigint FK | The invoice being partially reversed. `null` for STS credit notes not tied to a specific internal invoice. |
+| `credit_note_number` | varchar(100) UNIQUE | The fiscal credit note number assigned by STS — e.g. `CN-RET-001`. Unique across the table. |
+| `credit_amount` | bigint | Amount credited back to the customer in satang (smallest currency unit). Stored as integer to avoid floating-point errors. |
+| `amount` | decimal | Decimal representation of the credit amount for display. (Legacy column — prefer `credit_amount` for calculations.) |
+| `currency` | varchar(3) | Currency code. Default `THB`. |
+| `reason` | varchar(255) | Why the credit note was issued — e.g. `CustomerRejection`, `QualityIssue`, `PriceAdjustment`, `DamagedGoods`. |
 | `status` | varchar | `Issued` (created), `Applied` (applied to the payment), `Cancelled`. |
-| `credit_note_link` | varchar | URL to the Credit Note PDF provided by STS. Set when OMS receives `POST /webhooks/sts/credit-note`. For pre-paid orders OMS forwards to WMS; for POD orders OMS forwards to TMS. `null` for non-STS credit notes. |
-| `source_sts_ref` | varchar | Reference ID assigned by STS for this credit note document. Used for idempotency on the STS credit note webhook. `null` for credit notes from returns or manual adjustments. |
-| `issued_at` | timestamptz | When the credit note was issued. |
+| `credit_note_link` | varchar | URL to the Credit Note PDF provided by STS. Set when OMS receives `POST /webhooks/sts/credit-note`. For prepaid orders OMS forwards to WMS; for POD orders OMS forwards to TMS. `null` for non-STS credit notes. |
+| `source_sts_ref` | varchar | Reference ID assigned by STS for this credit note. Used for idempotency on the STS credit note webhook. `null` for credit notes from internal returns or manual adjustments. |
+| `issued_at` | datetime UTC | When STS issued the credit note. |
+| `received_at` | datetime UTC | When OMS received the credit note from STS. `null` for internally generated credit notes. |
+| `idempotency_key` | varchar(255) UNIQUE | Prevents duplicate processing of the same STS webhook. Matched against `X-Idempotency-Key` on `POST /webhooks/sts/credit-note`. |
+| `created_at` | datetime UTC | When OMS persisted this record. |
 
 ---
 
@@ -563,6 +586,16 @@ The `oms-outbox-worker` looks up matching rows for `(channel_type, business_unit
 | `execution_order` | int | When multiple rules match, rules fire in ascending order. Allows API A before API B. |
 | `is_active` | bool | Whether this rule is currently enforced. `false` disables the route without deleting it. |
 | `created_at` | timestamptz | When the rule was added. |
+
+**Routing examples:**
+
+| channel_type | business_unit | trigger_event | target_system | endpoint_key | Notes |
+|---|---|---|---|---|---|
+| `Marketplace` | `TikTok` | `PickConfirmedSentToTMS` | `Marketplace` | `tiktok.pick-confirm` | TikTok receives pick confirmed notification |
+| `Marketplace` | `Lazada` | `PackConfirmedSentToLazada` | `Marketplace` | `lazada.pack-confirm` | Lazada receives packed confirmation |
+| `Gateway` | `GatewayA` | `WaveStartedSentToGW` | `Gateway` | `gateway-a.wave-start` | GatewayA has opted in to wave start events |
+
+> Note: GatewayB has no row for `WaveStartedSentToGW` — the outbox worker finds no matching rule and skips dispatch. Adding or removing rows here is the only change required to opt a Gateway in or out of an event.
 
 ---
 
