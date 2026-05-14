@@ -21,7 +21,8 @@ public class OrdersController(
     TriggerRecalculateHandler triggerRecalculate,
     GetDeliverySlotHandler getDeliverySlot,
     UpdateDeliverySlotHandler updateDeliverySlot,
-    PrepaidInvoiceHandler prepaidInvoice) : ControllerBase
+    PrepaidInvoiceHandler prepaidInvoice,
+    PartialPickHandler partialPick) : ControllerBase
 {
     [HttpGet]
     public IResult GetAll(
@@ -77,4 +78,7 @@ public class OrdersController(
 
     [HttpPost("{id}/invoice/prepaid")]
     public IResult PrepaidInvoice(string id) => prepaidInvoice.Handle(id);
+
+    [HttpPatch("{id}/partial-pick")]
+    public IResult PartialPick(string id, [FromBody] PartialPickRequest req) => partialPick.Handle(id, req);
 }

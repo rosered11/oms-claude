@@ -66,6 +66,30 @@ OMS enforces strict data isolation between Business Units. This is an applicatio
 
 ---
 
+## POD (Pay on Delivery) Routing
+
+POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing for STS events:
+
+| Event | Prepaid Target | POD Target |
+|---|---|---|
+| ABB/Tax Invoice from STS | WMS (`ABBInvoiceSentToWMS`) | TMS + GW (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGW`) |
+| Credit Note from STS | WMS (`CreditNoteSentToWMS`) | TMS (`CreditNoteSentToTMS`) |
+| Invoice trigger | At PickConfirmed (pre-dispatch) | At Delivered (`DeliveredSentToPOS`) |
+| PickStarted outbox | (no TMS event) | `PickStartedSentToTMS` → TMS |
+
+### STS Invoice Forwarding (POD)
+- Invoice link (URL to PDF) is forwarded — not just amount
+- `ABBTaxInvoiceSentToTMS` carries `invoiceLink`
+- `ABBTaxInvoiceSentToGW` carries `invoiceLink`
+
+### No WaveStarted in POD
+POD flow does not include a WaveStarted step. GatewayA's WaveStarted opt-in routing rule does not apply to POD orders.
+
+### TMS Recalculation Loop (POD)
+After PickConfirmed, TMS may trigger additional POS recalculations (e.g. delivery fee adjustments) before dispatching. This loop ends when TMS sends `PackageDispatched`.
+
+---
+
 ## Known Use Cases
 
 | Use case | Notes |
@@ -78,3 +102,4 @@ OMS enforces strict data isolation between Business Units. This is an applicatio
 | Reschedule | Change delivery slot before OutForDelivery via Rescheduler capability |
 | Customer keeps only part of order (e.g. chicken yes, beef no because not fresh) | Partial Item Return — customer rejects specific lines, OMS voids them, POS recalculates |
 | Wave Start forwarding | WMS sends WaveStarted; OMS records in order_wave_events; dispatches WaveStartedSentToGW for opted-in Gateways |
+| POD Order flow | payment_method='POD'; invoice triggered at Delivered not PickConfirmed; STS invoice/credit note routed to TMS+GW instead of WMS |

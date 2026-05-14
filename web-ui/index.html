@@ -119,27 +119,60 @@ const STOCK_FLOW_DATA = {
 };
 
 const PREPAID_TIMELINE_DATA = [
-  { id:  1, time: "09:00", phase: "booking",  type: "domain",  system: "CBE", event: "TimeSlotRequested",         detail: "Customer → GW → PS → TMS → CBE. Available delivery windows queried. Slot 14:00–16:00 selected." },
-  { id:  2, time: "09:05", phase: "booking",  type: "domain",  system: "CBE", event: "BookingCreated",            detail: "Customer → GW → PS → TMS → CBE. Delivery booking confirmed. Slot locked in TMS and CHG Backend." },
+  { id:  1, time: "09:00", phase: "booking",  type: "domain",  system: "TMS", event: "TimeSlotRequested",         detail: "Customer → GW → PS → TMS. Available delivery windows queried. TMS queries CHG Backend internally for available slots. Slot 14:00–16:00 selected." },
+  { id:  2, time: "09:05", phase: "booking",  type: "domain",  system: "TMS", event: "BookingCreated",            detail: "Customer → GW → PS → TMS. Delivery booking confirmed. Slot locked in TMS." },
   { id:  3, time: "09:10", phase: "outbound", type: "domain",  system: "OMS", event: "OrderCreated",              detail: "PRE-001 — PrePaid · Delivery · 4 items · ฿1,200. Status → Pending" },
-  { id:  4, time: "09:10", phase: "outbound", type: "outbox",  system: "CBE", event: "SaleOrderSentToCBE",        detail: "SC → CBE: Sale Order dispatched. Payment amount registered in CHG Backend.", outStatus: "Published" },
-  { id:  5, time: "09:10", phase: "outbound", type: "outbox",  system: "WMS", event: "SaleOrderSentToWMS",        detail: "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", outStatus: "Published" },
-  { id:  6, time: "09:15", phase: "outbound", type: "webhook", system: "WMS", event: "PickStarted",               detail: "POST /webhooks/wms/pick-started. No BookingConfirmed step — booking pre-confirmed via TMS/CBE. Status → PickStarted" },
-  { id:  7, time: "09:15", phase: "outbound", type: "outbox",  system: "TMS", event: "PickStartedEvent",          detail: "SC → TMS: PickStartedEvent dispatched. TMS notified for driver slot scheduling.", outStatus: "Published" },
-  { id:  8, time: "09:20", phase: "outbound", type: "webhook", system: "WMS", event: "POSRecalculationRequested", detail: "WMS → SC: POS Recalculation request (mid-pick). Current basket: ฿1,200. Can repeat multiple times." },
-  { id:  9, time: "09:20", phase: "outbound", type: "outbox",  system: "POS", event: "RecalculationForwarded",    detail: "SC → POS: Recalculation forwarded. Promo engine and tax calculation applied.", outStatus: "Published" },
-  { id: 10, time: "09:21", phase: "outbound", type: "webhook", system: "POS", event: "AmountRecalculated",        detail: "POS → SC: Amount Recalculation. Final total: ฿1,150 (promo −฿50 applied)." },
-  { id: 11, time: "09:21", phase: "outbound", type: "outbox",  system: "WMS", event: "AmountSentToWMS",           detail: "SC → WMS: Updated amount ฿1,150 confirmed back to warehouse.", outStatus: "Published" },
-  { id: 12, time: "09:45", phase: "outbound", type: "webhook", system: "WMS", event: "PickConfirmed",             detail: "POST /webhooks/wms/pick-confirmed (basket qty). 4/4 lines fully picked. Status → PickConfirmed" },
-  { id: 13, time: "09:45", phase: "outbound", type: "outbox",  system: "POS", event: "PickConfirmedEvent",        detail: "SC → POS: PickConfirmedEvent dispatched. Partial pick notification to POS.", outStatus: "Published" },
-  { id: 14, time: "09:46", phase: "outbound", type: "outbox",  system: "WMS", event: "ABBInvoiceSentToWMS",       detail: "SC → WMS: ABB/Tax Invoice PRE-paid #INV-PRE-001 · ฿1,150. Invoice issued BEFORE TMS dispatches.", outStatus: "Published" },
-  { id: 15, time: "09:46", phase: "outbound", type: "outbox",  system: "TMS", event: "PickConfirmedSentToTMS",    detail: "SC → TMS: Pick Confirmed (basket qty). Order ready for driver pickup.", outStatus: "Published" },
-  { id: 16, time: "13:50", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDispatched",         detail: "POST /webhooks/tms/package-dispatched. TRK-PRE-001 — driver picks up package. Status → OutForDelivery" },
-  { id: 17, time: "13:50", phase: "outbound", type: "outbox",  system: "GW",  event: "OutForDeliveryNotified",    detail: "SC → GW: Out for Delivery. Customer notified via app push notification.", outStatus: "Published" },
-  { id: 18, time: "15:22", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDelivered",          detail: "POST /webhooks/tms/package-delivered. TRK-PRE-001 delivered to customer. Status → Delivered" },
-  { id: 19, time: "15:22", phase: "outbound", type: "outbox",  system: "GW",  event: "DeliveredNotified",         detail: "SC → GW: Delivered. Customer delivery confirmation sent.", outStatus: "Published" },
-  { id: 20, time: "15:30", phase: "outbound", type: "webhook", system: "STS", event: "ABBTaxInvoiceReceived",     detail: "STS → SC: Official ABB/Tax Invoice #ABB-2024-PRE-001 · ฿1,150 issued by Settlement Tax System." },
-  { id: 21, time: "15:30", phase: "outbound", type: "outbox",  system: "GW",  event: "TaxInvoiceForwarded",       detail: "SC → GW: ABB/Tax Invoice forwarded to customer. Prepaid transaction complete.", outStatus: "Published" },
+  { id:  4, time: "09:10", phase: "outbound", type: "outbox",  system: "WMS", event: "SaleOrderSentToWMS",        detail: "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", outStatus: "Published" },
+  { id:  5, time: "09:10", phase: "outbound", type: "outbox",  system: "TMS", event: "SaleOrderSentToTMS",        detail: "SC → TMS: Sale Order dispatched. TMS registers order against the pre-booked delivery slot.", outStatus: "Published" },
+  { id:  6, time: "09:15", phase: "outbound", type: "webhook", system: "WMS", event: "PickStarted",               detail: "POST /webhooks/wms/pick-started. No BookingConfirmed step — slot pre-booked via TMS. Status → PickStarted" },
+  { id:  7, time: "09:16", phase: "outbound", type: "webhook", system: "WMS", event: "WaveStarted",               detail: "POST /webhooks/wms/wave-started. WMS starts wave picking while order is in PickStarted. Duplicate wave events are idempotent." },
+  { id:  8, time: "09:16", phase: "outbound", type: "outbox",  system: "GW",  event: "WaveStartedSentToGW",       detail: "SC → GW: WaveStartedSentToGW dispatched to opted-in Gateways. Gateways not opted-in (per outbox_routing_rules) receive no event.", outStatus: "Published" },
+  { id:  9, time: "09:20", phase: "outbound", type: "webhook", system: "WMS", event: "POSRecalculationRequested", detail: "WMS → SC: POS Recalculation request (mid-pick). Current basket: ฿1,200. Can repeat multiple times. pos_recalc_pending = true." },
+  { id: 10, time: "09:20", phase: "outbound", type: "outbox",  system: "POS", event: "RecalculationForwarded",    detail: "SC → POS: Recalculation forwarded. Promo engine and tax calculation applied.", outStatus: "Published" },
+  { id: 11, time: "09:21", phase: "outbound", type: "webhook", system: "POS", event: "AmountRecalculated",        detail: "POS → SC: Amount Recalculation. Final total: ฿1,150 (promo −฿50 applied). pos_recalc_pending cleared." },
+  { id: 12, time: "09:21", phase: "outbound", type: "outbox",  system: "WMS", event: "AmountSentToWMS",           detail: "SC → WMS: Updated amount ฿1,150 confirmed back to warehouse.", outStatus: "Published" },
+  { id: 13, time: "09:45", phase: "outbound", type: "webhook", system: "WMS", event: "PickConfirmed",             detail: "POST /webhooks/wms/pick-confirmed (basket qty). 4/4 lines fully picked. Status → PickConfirmed" },
+  { id: 14, time: "09:45", phase: "outbound", type: "outbox",  system: "POS", event: "PickConfirmedSentToPOS",    detail: "SC → POS: PickConfirmedSentToPOS dispatched. Partial pick notification to POS.", outStatus: "Published" },
+  { id: 15, time: "09:45", phase: "outbound", type: "outbox",  system: "TMS", event: "PickConfirmedSentToTMS",    detail: "SC → TMS: PickConfirmedSentToTMS dispatched. Basket qty forwarded. Order ready for driver pickup.", outStatus: "Published" },
+  { id: 16, time: "09:45", phase: "outbound", type: "outbox",  system: "GW",  event: "PickConfirmedSentToGW",     detail: "SC → GW: PickConfirmedSentToGW dispatched. Customer notified of pick completion.", outStatus: "Published" },
+  { id: 17, time: "09:46", phase: "outbound", type: "webhook", system: "STS", event: "ABBTaxInvoiceReceived",     detail: "STS → SC: Official ABB/Tax Invoice #ABB-PRE-001 · ฿1,150 received from Settlement Tax System after PickConfirmed. Requires X-Idempotency-Key." },
+  { id: 18, time: "09:46", phase: "outbound", type: "outbox",  system: "WMS", event: "ABBInvoiceSentToWMS",       detail: "SC → WMS: ABB/Tax Invoice #INV-PRE-001 · ฿1,150 forwarded to WMS BEFORE TMS dispatches. Pre-delivery invoice.", outStatus: "Published" },
+  { id: 19, time: "13:50", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDispatched",         detail: "POST /webhooks/tms/package-dispatched. TRK-PRE-001 — driver picks up package (invoice already at WMS). Status → OutForDelivery" },
+  { id: 20, time: "13:50", phase: "outbound", type: "outbox",  system: "GW",  event: "OutForDeliverySentToGW",    detail: "SC → GW: Out for Delivery. Customer notified via app push notification.", outStatus: "Published" },
+  { id: 21, time: "15:22", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDelivered",          detail: "POST /webhooks/tms/package-delivered. TRK-PRE-001 delivered to customer. Status → Delivered" },
+  { id: 22, time: "15:22", phase: "outbound", type: "outbox",  system: "GW",  event: "DeliveredSentToGW",         detail: "SC → GW: Delivered. Customer delivery confirmation sent. Prepaid flow complete — no post-delivery STS step.", outStatus: "Published" },
+];
+
+const POD_TIMELINE_DATA = [
+  { id:  1, time: "08:30", phase: "booking",  type: "domain",  system: "GW",  event: "BranchNearMe",               detail: "Customer → GW: Customer queries nearby delivery branches via CFW Gateway. GW returns branch list from its own data source. No OMS involvement." },
+  { id:  2, time: "08:35", phase: "booking",  type: "domain",  system: "TMS", event: "TimeSlotRequested",          detail: "Customer → GW → PS → TMS: Available POD delivery windows queried for selected branch." },
+  { id:  3, time: "08:38", phase: "booking",  type: "domain",  system: "TMS", event: "BookingCreated",             detail: "Customer → GW → PS → TMS: Delivery booking confirmed. Slot locked in TMS. POD slot secured before sale order." },
+  { id:  4, time: "08:45", phase: "outbound", type: "domain",  system: "OMS", event: "OrderCreated",               detail: "POD-001 — PayOnDelivery · Delivery · 3 items · ฿1,150. Status → Pending" },
+  { id:  5, time: "08:45", phase: "outbound", type: "outbox",  system: "WMS", event: "SaleOrderSentToWMS",         detail: "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", outStatus: "Published" },
+  { id:  6, time: "08:45", phase: "outbound", type: "outbox",  system: "TMS", event: "SaleOrderSentToTMS",         detail: "SC → TMS: Sale Order dispatched. TMS registers order against locked booking slot.", outStatus: "Published" },
+  { id:  7, time: "09:00", phase: "outbound", type: "webhook", system: "WMS", event: "PickStarted",                detail: "WMS → SC: POST /webhooks/wms/pick-started. Picker begins collecting items. Status → PickStarted" },
+  { id:  8, time: "09:00", phase: "outbound", type: "outbox",  system: "TMS", event: "PickStartedSentToTMS",       detail: "SC → TMS: PickStartedSentToTMS outbox event — POD-specific. TMS notified that picking has begun.", outStatus: "Published" },
+  { id:  8.5, time: "09:02", phase: "outbound", type: "webhook", system: "WMS", event: "WaveStarted",              detail: "WMS → SC: POST /webhooks/wms/wave-started. Wave picking begins. Valid only while order is in PickStarted. Duplicate events are idempotent." },
+  { id:  8.6, time: "09:02", phase: "outbound", type: "outbox",  system: "GW",  event: "WaveStartedSentToGW",      detail: "SC → GW: WaveStartedSentToGW outbox event dispatched to opted-in Gateways (per outbox_routing_rules).", outStatus: "Published" },
+  { id:  9, time: "09:10", phase: "outbound", type: "webhook", system: "WMS", event: "POSRecalculationRequested",  detail: "WMS → SC: POS Recalculation request during pick. pos_recalc_pending = true. Can repeat multiple times." },
+  { id: 10, time: "09:10", phase: "outbound", type: "outbox",  system: "POS", event: "RecalculationForwarded",     detail: "SC → POS: Recalculation forwarded via outbox.", outStatus: "Published" },
+  { id: 11, time: "09:11", phase: "outbound", type: "webhook", system: "POS", event: "AmountRecalculated",         detail: "POS → SC: Updated basket total ฿1,100 (promo −฿50 applied). pos_recalc_pending cleared." },
+  { id: 12, time: "09:11", phase: "outbound", type: "outbox",  system: "WMS", event: "AmountSentToWMS",            detail: "SC → WMS: Updated amount ฿1,100 confirmed to WMS.", outStatus: "Published" },
+  { id: 13, time: "09:30", phase: "outbound", type: "webhook", system: "WMS", event: "PickConfirmed",              detail: "WMS → SC: POST /webhooks/wms/pick-confirmed (basket qty). 3/3 lines picked. Status → PickConfirmed" },
+  { id: 14, time: "09:30", phase: "outbound", type: "outbox",  system: "POS", event: "PickConfirmedSentToPOS",     detail: "SC → POS: PickConfirmedSentToPOS outbox event. Partial pick notification.", outStatus: "Published" },
+  { id: 15, time: "09:30", phase: "outbound", type: "outbox",  system: "TMS", event: "PickConfirmedSentToTMS",     detail: "SC → TMS: PickConfirmedSentToTMS outbox event (basket qty). Order ready for dispatch.", outStatus: "Published" },
+  { id: 16, time: "09:30", phase: "outbound", type: "outbox",  system: "GW",  event: "PickConfirmedSentToGW",      detail: "SC → GW: PickConfirmedSentToGW outbox event. Customer notified of pick completion.", outStatus: "Published" },
+  { id: 17, time: "14:00", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDispatched",          detail: "TMS → SC: POST /webhooks/tms/package-dispatched. Driver picks up package. Status → OutForDelivery" },
+  { id: 18, time: "14:00", phase: "outbound", type: "outbox",  system: "GW",  event: "OutForDeliverySentToGW",     detail: "SC → GW: OutForDeliverySentToGW outbox event. Customer notified of dispatch.", outStatus: "Published" },
+  { id: 19, time: "15:45", phase: "outbound", type: "webhook", system: "TMS", event: "PackageDelivered",           detail: "TMS → SC: POST /webhooks/tms/package-delivered. Customer receives package and pays. Status → Delivered" },
+  { id: 20, time: "15:45", phase: "outbound", type: "outbox",  system: "GW",  event: "DeliveredSentToGW",          detail: "SC → GW: DeliveredSentToGW outbox event. Customer receives delivery confirmation.", outStatus: "Published" },
+  { id: 21, time: "15:45", phase: "outbound", type: "outbox",  system: "POS", event: "DeliveredSentToPOS",         detail: "SC → POS: DeliveredSentToPOS outbox event — POD-specific. Triggers invoice generation AFTER delivery. POS must not invoice before this event.", outStatus: "Published" },
+  { id: 22, time: "15:55", phase: "outbound", type: "webhook", system: "STS", event: "ABBTaxInvoiceReceived",      detail: "STS → SC: Official ABB/Tax Invoice #ABB-2024-POD-001 · ฿1,100 issued after Delivered. Requires X-Idempotency-Key." },
+  { id: 23, time: "15:55", phase: "outbound", type: "outbox",  system: "TMS", event: "ABBTaxInvoiceSentToTMS",     detail: "SC → TMS: ABBTaxInvoiceSentToTMS outbox event. Invoice link forwarded to TMS (not WMS — POD routing).", outStatus: "Published" },
+  { id: 24, time: "15:55", phase: "outbound", type: "outbox",  system: "GW",  event: "ABBTaxInvoiceSentToGW",      detail: "SC → GW: ABBTaxInvoiceSentToGW outbox event. Customer receives official tax invoice.", outStatus: "Published" },
+  { id: 25, time: "16:02", phase: "outbound", type: "webhook", system: "STS", event: "CreditNoteReceived",         detail: "STS → SC: Credit Note CN-POD-001 (optional). Only issued if price adjustment is required. Requires X-Idempotency-Key; duplicates ignored." },
+  { id: 26, time: "16:02", phase: "outbound", type: "outbox",  system: "TMS", event: "CreditNoteSentToTMS",        detail: "SC → TMS: CreditNoteSentToTMS outbox event. POD routing: credit note goes to TMS (Prepaid routes to WMS).", outStatus: "Published" },
+  { id: 26.5, time: "16:02", phase: "outbound", type: "outbox", system: "GW", event: "CreditNoteSentToGW",         detail: "SC → GW: CreditNoteSentToGW outbox event. Credit note also forwarded to GW in POD flow.", outStatus: "Published" },
 ];
 
 function DataProvider({ children }) {
@@ -308,9 +341,11 @@ const ORDER_ACTIONS = {
     { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
   ],
   PickStarted: [
-    { method: 'POST',  path: '/webhooks/wms/pick-confirmed',       label: 'Confirm Pick (WMS)',       uc: 'UC4'  },
-    { method: 'POST',  path: '/webhooks/wms/substitution-offered', label: 'Offer Substitution (WMS)', uc: 'UC5'  },
-    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
+    { method: 'POST',  path: '/webhooks/wms/wave-started',         label: 'Wave Started (WMS)',       uc: 'UC-WAVE'     },
+    { method: 'POST',  path: '/webhooks/wms/pick-confirmed',       label: 'Confirm Pick (WMS)',       uc: 'UC4'         },
+    { method: 'PATCH', path: '/orders/{id}/partial-pick',          label: 'Partial Pick',             uc: 'UC-PARTPICK' },
+    { method: 'POST',  path: '/webhooks/wms/substitution-offered', label: 'Offer Substitution (WMS)', uc: 'UC5'         },
+    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'         },
   ],
   PickConfirmed: [
     { method: 'POST',  path: '/webhooks/wms/packed',            label: 'Pack Order (WMS)',                    uc: 'UC4'  },
@@ -481,6 +516,43 @@ const ALL_USE_CASES = [
     trigger: 'Post-delivery: Settlement Tax System issues official tax document to OMS',
     actors: ['STS', 'Sprint Connect', 'CFW Gateway', 'Customer'],
     steps: ['TMS delivers order → SC: PackageDelivered webhook → Status: Delivered', 'STS → SC: ABB/Tax Invoice (webhook) — official tax document issued by STS', 'SC → GW: ABB/Tax Invoice forwarded to customer', 'Prepaid transaction complete — no separate POS payment step required'] },
+  // ── Extended use cases ──────────────────────────────────────
+  { id: 'UC-WAVE', section: 'outbound', title: 'WaveStarted',
+    trigger: 'WMS starts wave picking while order is in PickStarted',
+    actors: ['WMS', 'Sprint Connect', 'CFW Gateway'],
+    steps: ['WMS sends WaveStarted webhook: POST /webhooks/wms/wave-started (requires X-Idempotency-Key)', 'Webhook is valid only when order status is PickStarted', 'SC dispatches WaveStartedSentToGW outbox event to opted-in Gateways', 'Duplicate wave events are idempotent — no re-trigger'] },
+  { id: 'UC-PARTPICK', section: 'outbound', title: 'Partial Pick',
+    trigger: 'WMS picks fewer items than ordered (item out of stock or not fresh)',
+    actors: ['WMS', 'Sprint Connect', 'POS'],
+    steps: ['WMS picks partial quantities and sends PickConfirmed with reduced line amounts', 'OMS records partial quantities on order lines; remaining items are cancelled', 'POS recalculation triggered (pos_recalc_pending = true)', 'Partial pick cannot reduce ALL line quantities to zero — use Cancel Order instead', 'Available via PATCH /orders/{id}/partial-pick during PickStarted'] },
+  { id: 'UC-RESCHEDULE', section: 'outbound', title: 'Delivery Slot Reschedule',
+    trigger: 'Customer or operator reschedules delivery slot before dispatch',
+    actors: ['Customer', 'OMS', 'TMS'],
+    steps: ['PATCH /orders/{id}/delivery-slot with new scheduledStart/scheduledEnd', 'Not allowed after OutForDelivery — returns 409 invalid_transition', 'TMS is updated with new slot via outbox'] },
+  { id: 'UC-PARTRETURN', section: 'outbound', title: 'Partial Item Return with Refund',
+    trigger: 'Customer rejects items at delivery (e.g. item not fresh)',
+    actors: ['Customer', 'OMS', 'TMS', 'WMS', 'POS'],
+    steps: ['Only allowed after Delivered status', 'POST /returns with partial line references (each must reference original order line ID)', 'Return items picked up; OMS triggers partial refund via POS/STS', 'Refunded items restore stock (Resellable) or are written off (Dispose)'] },
+  { id: 'UC-CREDITNOTE', section: 'outbound', title: 'Credit Note from STS (Prepaid)',
+    trigger: 'STS issues credit note after PickConfirmed (e.g. price adjustment)',
+    actors: ['STS', 'Sprint Connect', 'WMS', 'CFW Gateway'],
+    steps: ['STS → SC: CreditNoteReceived webhook (requires X-Idempotency-Key)', 'OMS stores credit note; duplicate events are ignored', 'SC dispatches CreditNoteSentToWMS outbox → WMS', 'SC dispatches CreditNoteSentToGW outbox → GW'] },
+  { id: 'UC-POD-BRANCH', section: 'outbound', title: 'BranchNearMe (POD)',
+    trigger: 'Customer queries nearby delivery branches before booking a slot',
+    actors: ['Customer', 'CFW Gateway'],
+    steps: ['Customer → GW: GET /branches/nearby?lat=&lng=', 'GW returns branch list from its own data source', 'No OMS involvement in this step', 'Customer selects branch then requests a delivery time slot'] },
+  { id: 'UC-POD-PICKSTART', section: 'outbound', title: 'PickStarted + PickStartedSentToTMS (POD)',
+    trigger: 'WMS notifies OMS that picking has begun — POD adds TMS outbox',
+    actors: ['WMS', 'Sprint Connect', 'TMS'],
+    steps: ['WMS → SC: POST /webhooks/wms/pick-started; order → PickStarted', 'SC dispatches PickStartedSentToTMS outbox event (POD-specific; Prepaid does not send this)', 'SC dispatches WaveStartedSentToGW after subsequent WaveStarted webhook'] },
+  { id: 'UC-POD-INVOICE', section: 'outbound', title: 'Post-Delivery Invoice (POD)',
+    trigger: 'After Delivered — STS issues ABB/Tax Invoice routed to TMS + GW',
+    actors: ['TMS', 'STS', 'Sprint Connect', 'CFW Gateway'],
+    steps: ['TMS → SC: PackageDelivered webhook; order → Delivered', 'SC dispatches DeliveredSentToPOS outbox (POD gate — POS must not invoice before this)', 'STS → SC: ABBTaxInvoiceReceived webhook (requires X-Idempotency-Key)', 'SC dispatches ABBTaxInvoiceSentToTMS → TMS', 'SC dispatches ABBTaxInvoiceSentToGW → GW', 'POD routing: invoice goes to TMS+GW, NOT WMS (opposite of Prepaid)'] },
+  { id: 'UC-POD-CREDITNOTE', section: 'outbound', title: 'Credit Note (POD)',
+    trigger: 'STS issues optional credit note after delivery',
+    actors: ['STS', 'Sprint Connect', 'TMS', 'CFW Gateway'],
+    steps: ['STS → SC: CreditNoteReceived webhook — optional, only if price adjustment required', 'Requires X-Idempotency-Key; duplicate events are ignored', 'SC dispatches CreditNoteSentToTMS → TMS', 'SC dispatches CreditNoteSentToGW → GW', 'POD routing: credit note goes to TMS+GW, NOT WMS (same routing dimension as invoice)'] },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -505,8 +577,9 @@ const API_REFERENCE = [
       { method: 'POST',  path: '/orders/{id}/substitutions/{subId}/approve',    uc: 'UC5',  desc: 'Customer approves substitution' },
       { method: 'POST',  path: '/orders/{id}/substitutions/{subId}/reject',     uc: 'UC5',  desc: 'Customer rejects substitution' },
       { method: 'POST',  path: '/orders/{id}/recalculate',                      uc: 'UC15', desc: 'Trigger POS recalculation' },
-      { method: 'GET',   path: '/orders/{id}/delivery-slot',                    uc: 'UC19', desc: 'Get delivery slot details' },
-      { method: 'PATCH', path: '/orders/{id}/delivery-slot',                    uc: 'UC19', desc: 'Update delivery slot' },
+      { method: 'GET',   path: '/orders/{id}/delivery-slot',                    uc: 'UC19',         desc: 'Get delivery slot details' },
+      { method: 'PATCH', path: '/orders/{id}/delivery-slot',                    uc: 'UC-RESCHEDULE', desc: 'Reschedule delivery slot (not allowed after OutForDelivery)' },
+      { method: 'PATCH', path: '/orders/{id}/partial-pick',                     uc: 'UC-PARTPICK',   desc: 'Record partial pick — sets pos_recalc_pending; all-zero pick not allowed' },
       { method: 'GET',   path: '/purchase-orders',                              uc: 'UC21', desc: 'List purchase orders' },
       { method: 'POST',  path: '/purchase-orders',                              uc: 'UC21', desc: 'Create purchase order' },
       { method: 'GET',   path: '/purchase-orders/{id}',                         uc: 'UC21', desc: 'Get purchase order' },
@@ -540,9 +613,10 @@ const API_REFERENCE = [
     controller: 'Webhooks',
     badge: 'bg-purple-100 text-purple-800',
     endpoints: [
-      { method: 'HOOK',  path: '/webhooks/wms/booking-confirmed',               uc: 'UC2',  desc: 'WMS confirms order booking' },
-      { method: 'HOOK',  path: '/webhooks/wms/pick-started',                    uc: 'UC3',  desc: 'WMS begins picking' },
-      { method: 'HOOK',  path: '/webhooks/wms/pick-confirmed',                  uc: 'UC4',  desc: 'WMS finishes picking' },
+      { method: 'HOOK',  path: '/webhooks/wms/booking-confirmed',               uc: 'UC2',      desc: 'WMS confirms order booking' },
+      { method: 'HOOK',  path: '/webhooks/wms/pick-started',                    uc: 'UC3',      desc: 'WMS begins picking' },
+      { method: 'HOOK',  path: '/webhooks/wms/wave-started',                    uc: 'UC-WAVE',  desc: 'WMS starts wave picking (valid only in PickStarted; requires X-Idempotency-Key)' },
+      { method: 'HOOK',  path: '/webhooks/wms/pick-confirmed',                  uc: 'UC4',      desc: 'WMS finishes picking' },
       { method: 'HOOK',  path: '/webhooks/wms/packed',                          uc: 'UC4',  desc: 'WMS packs order into package' },
       { method: 'HOOK',  path: '/webhooks/wms/substitution-offered',            uc: 'UC5',  desc: 'WMS offers substitute SKU for short-pick' },
       { method: 'HOOK',  path: '/webhooks/wms/goods-receipt-confirmed',         uc: 'UC21', desc: 'PO goods received at dock' },
@@ -558,7 +632,24 @@ const API_REFERENCE = [
       { method: 'HOOK',  path: '/webhooks/pos/collected',                       uc: 'UC11', desc: 'Customer collected C&C order' },
       { method: 'HOOK',  path: '/webhooks/pos/invoiced',                        uc: 'UC12', desc: 'POS issues fiscal invoice' },
       { method: 'HOOK',  path: '/webhooks/pos/payment-confirmed',               uc: 'UC13', desc: 'Payment received and confirmed' },
-      { method: 'HOOK',  path: '/webhooks/pos/pos-recalc-completed',            uc: 'UC15', desc: 'POS recalculation done after substitution' },
+      { method: 'HOOK',  path: '/webhooks/pos/pos-recalc-completed',            uc: 'UC15',             desc: 'POS recalculation done after substitution' },
+    ],
+  },
+  {
+    controller: 'STS Webhooks',
+    badge: 'bg-rose-100 text-rose-800',
+    endpoints: [
+      { method: 'HOOK',  path: '/webhooks/sts/abb-tax-invoice',                 uc: 'UC28,UC29',        desc: 'STS sends ABB/Tax Invoice link. Prepaid: forwards to WMS+GW; POD: forwards to TMS+GW' },
+      { method: 'HOOK',  path: '/webhooks/sts/credit-note',                     uc: 'UC-CREDITNOTE',    desc: 'STS sends Credit Note link. Prepaid: WMS+GW; POD: TMS+GW (requires X-Idempotency-Key)' },
+      { method: 'HOOK',  path: '/webhooks/sts/abb-tax-invoice-received',        uc: 'UC28,UC-POD-INVOICE', desc: 'STS official ABB/Tax Invoice (Prepaid: after PickConfirmed; POD: after Delivered; requires X-Idempotency-Key)' },
+      { method: 'HOOK',  path: '/webhooks/sts/credit-note-received',            uc: 'UC-CREDITNOTE,UC-POD-CREDITNOTE', desc: 'STS optional Credit Note (Prepaid: WMS+GW; POD: TMS+GW; requires X-Idempotency-Key)' },
+    ],
+  },
+  {
+    controller: 'Branches',
+    badge: 'bg-teal-100 text-teal-800',
+    endpoints: [
+      { method: 'GET',   path: '/branches/nearby',                              uc: 'UC-POD-BRANCH',    desc: 'Nearby branches by lat/lng (used as first step in POD customer journey)' },
     ],
   },
 ];
@@ -593,70 +684,152 @@ const PREPAID_PHASES = [
     key: 'slot-booking',
     label: 'Phase 1 — Slot & Booking',
     bg: 'bg-green-50', border: 'border-green-200',
-    note: 'Customer queries available delivery slots and creates a booking via TMS and CHG Backend — before the sale order is placed.',
+    note: 'Customer queries available delivery windows and locks a slot via TMS (TMS calls CHG Backend internally) — before the sale order is placed.',
     steps: [
-      { id: 1, from: ['C'],   to: ['GW','PS','TMS','CBE'], type: 'request',  label: 'Request Time Slot' },
-      { id: 2, from: ['CBE'], to: ['C'],                   type: 'response', label: 'Nearby Branches / Available Slots' },
-      { id: 3, from: ['C'],   to: ['GW','PS','TMS','CBE'], type: 'request',  label: 'Create Booking', note: 'Slot locked in TMS and CHG Backend. Delivery window confirmed.' },
+      { id: 1, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Request Time Slot', note: 'TMS queries CHG Backend (CBE) internally for available windows.' },
+      { id: 2, from: ['TMS'], to: ['C'],              type: 'response', label: 'Available Slots' },
+      { id: 3, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Create Booking', note: 'Slot locked in TMS. Delivery window confirmed before the sale order exists.' },
     ],
   },
   {
     key: 'order-creation',
     label: 'Phase 2 — Sale Order',
     bg: 'bg-blue-50', border: 'border-blue-200',
-    note: 'Customer submits the sale order. OMS creates it (Pending) and fans out to both CBE and WMS via outbox.',
+    note: 'Customer submits the sale order. OMS creates it (Pending) and fans out to WMS and TMS via outbox.',
     steps: [
-      { id: 4, from: ['C'],  to: ['GW','PS','SC'], type: 'request', label: 'Sale Order', note: 'OMS: Order created → Pending' },
-      { id: 5, from: ['SC'], to: ['CBE'],          type: 'outbox',  label: 'Sale Order (outbox)' },
-      { id: 6, from: ['SC'], to: ['WMS'],          type: 'outbox',  label: 'Sale Order (outbox)' },
+      { id: 4, from: ['C'],  to: ['GW','PS','SC'], type: 'request', label: 'Sale Order', note: 'OMS: Order created → Pending. No BookingConfirmed step — slot pre-booked via TMS.' },
+      { id: 5, from: ['SC'], to: ['WMS'],          type: 'outbox',  label: 'SaleOrderSentToWMS (outbox)' },
+      { id: 6, from: ['SC'], to: ['TMS'],          type: 'outbox',  label: 'SaleOrderSentToTMS (outbox)' },
     ],
   },
   {
     key: 'picking',
-    label: 'Phase 3 — Picking & POS Recalculation',
+    label: 'Phase 3 — Picking, Wave & POS Recalculation',
     bg: 'bg-sky-50', border: 'border-sky-200',
-    note: 'WMS starts picking immediately (no BookingConfirmed step — booking was pre-confirmed via TMS/CBE). WMS can request POS recalculation multiple times.',
+    note: 'WMS starts picking immediately. WMS sends WaveStarted while the order is in PickStarted; OMS forwards it to opted-in Gateways via outbox_routing_rules. WMS can request POS recalculation multiple times.',
     steps: [
-      { id: 7,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'Pick Started',               note: 'Status → PickStarted. PickStartedEvent → outbox → TMS' },
-      { id: 8,  from: ['SC'],  to: ['TMS'], type: 'outbox',   label: 'Pick Started (outbox)' },
-      { id: 9,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'POS Recalculation',          note: 'WMS triggers recalc — can repeat multiple times during picking' },
-      { id: 10, from: ['SC'],  to: ['POS'], type: 'outbox',   label: 'POS Recalculation (outbox)' },
-      { id: 11, from: ['POS'], to: ['SC'],  type: 'response', label: 'Amount Recalculation' },
-      { id: 12, from: ['SC'],  to: ['WMS'], type: 'outbox',   label: 'Amount Recalculation (outbox)' },
-      { id: 13, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'Pick Confirmed (basket qty)', note: 'Partial pick? PickConfirmedEvent → outbox → POS. Status → PickConfirmed' },
+      { id: 7,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'PickStarted',                  note: 'POST /webhooks/wms/pick-started. Status → PickStarted.' },
+      { id: 8,  from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'WaveStarted',                  note: 'POST /webhooks/wms/wave-started. Only valid while order is in PickStarted. Duplicate events are idempotent.' },
+      { id: 9,  from: ['SC'],  to: ['GW'],  type: 'outbox',   label: 'WaveStartedSentToGW (outbox)', note: 'Dispatched to opted-in Gateways only (controlled by outbox_routing_rules row per gateway BU).' },
+      { id: 10, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'POS Recalculation',            note: 'WMS triggers recalc — can repeat multiple times. pos_recalc_pending = true blocks packing.' },
+      { id: 11, from: ['SC'],  to: ['POS'], type: 'outbox',   label: 'POS Recalculation (outbox)' },
+      { id: 12, from: ['POS'], to: ['SC'],  type: 'response', label: 'Amount Recalculation' },
+      { id: 13, from: ['SC'],  to: ['WMS'], type: 'outbox',   label: 'Amount (outbox)' },
+      { id: 14, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'PickConfirmed (basket qty)',   note: 'POST /webhooks/wms/pick-confirmed. Status → PickConfirmed.' },
     ],
   },
   {
-    key: 'prepaid-invoice',
-    label: 'Phase 4 — Pre-Delivery Invoice',
+    key: 'post-pick-invoice',
+    label: 'Phase 4 — Post-Pick Fan-out & Pre-Delivery Invoice',
     bg: 'bg-amber-50', border: 'border-amber-200',
-    note: 'Key prepaid distinction: OMS issues the ABB/Tax Invoice to WMS AFTER PickConfirmed, BEFORE TMS dispatches the order.',
+    note: 'After PickConfirmed, OMS fans out to POS, TMS, and GW. Then STS sends the official ABB/Tax Invoice — OMS immediately forwards it to WMS BEFORE TMS dispatches. This pre-delivery invoice is the key Prepaid distinction.',
     steps: [
-      { id: 14, from: ['SC'], to: ['WMS'], type: 'outbox', label: 'ABB/Tax Invoice (Pre-paid)',     note: 'Invoice issued before dispatch' },
-      { id: 15, from: ['SC'], to: ['WMS'], type: 'outbox', label: 'Credit Note (Pre-paid)',         note: 'Optional — only if price adjustment required', optional: true },
-      { id: 16, from: ['SC'], to: ['TMS'], type: 'outbox', label: 'Pick Confirmed (basket qty) (outbox)' },
+      { id: 15, from: ['SC'],  to: ['POS'], type: 'outbox',  label: 'PickConfirmedSentToPOS (outbox)' },
+      { id: 16, from: ['SC'],  to: ['TMS'], type: 'outbox',  label: 'PickConfirmedSentToTMS (outbox)' },
+      { id: 17, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'PickConfirmedSentToGW (outbox)' },
+      { id: 18, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'ABBTaxInvoiceReceived',          note: 'STS sends official ABB/Tax Invoice after PickConfirmed. Requires X-Idempotency-Key.' },
+      { id: 19, from: ['SC'],  to: ['WMS'], type: 'outbox',  label: 'ABBInvoiceSentToWMS (outbox)',   note: 'Invoice forwarded to WMS BEFORE TMS dispatches. Pre-delivery.' },
+      { id: 19.5, from: ['SC'], to: ['GW'], type: 'outbox', label: 'ABBInvoiceSentToGW (outbox)',    note: 'Invoice also forwarded to GW. Completes pre-delivery invoice fan-out.' },
+      { id: 20, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'CreditNoteReceived',             note: 'Optional. STS issues credit note if price adjustment required. Requires X-Idempotency-Key; duplicates ignored.', optional: true },
+      { id: 21, from: ['SC'],  to: ['WMS'], type: 'outbox',  label: 'CreditNoteSentToWMS (outbox)',   optional: true },
+      { id: 21.5, from: ['SC'], to: ['GW'], type: 'outbox',  label: 'CreditNoteSentToGW (outbox)',   note: 'Prepaid: credit note also forwarded to GW.', optional: true },
     ],
   },
   {
     key: 'delivery',
     label: 'Phase 5 — Delivery',
     bg: 'bg-purple-50', border: 'border-purple-200',
-    note: 'TMS dispatches and delivers the order. SC notifies the Gateway at each status change.',
+    note: 'TMS may trigger additional POS recalculations post-PickConfirm (e.g. delivery fee adjustments) before dispatching. TMS then dispatches and delivers. SC notifies the Gateway at each step.',
     steps: [
-      { id: 17, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'Out for Delivery', note: 'Status → OutForDelivery' },
-      { id: 18, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'Out for Delivery (outbox)' },
-      { id: 19, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'Delivered',        note: 'Status → Delivered' },
-      { id: 20, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'Delivered (outbox)' },
+      { id: 22, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'PackageDispatched', note: 'POST /webhooks/tms/package-dispatched. Driver picks up (invoice already at WMS). Status → OutForDelivery.' },
+      { id: 23, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'OutForDeliverySentToGW (outbox)' },
+      { id: 24, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'PackageDelivered',  note: 'POST /webhooks/tms/package-delivered. Status → Delivered.' },
+      { id: 25, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'DeliveredSentToGW (outbox)' },
+    ],
+  },
+];
+
+// ─────────────────────────────────────────────────────────────
+// POD FLOW — DATA
+// ─────────────────────────────────────────────────────────────
+
+const POD_PHASES = [
+  {
+    key: 'branch-slot',
+    label: 'Phase 1 — Branch Lookup & Slot Booking',
+    bg: 'bg-green-50', border: 'border-green-200',
+    note: 'Customer queries nearby branches (GW handles this — no OMS involvement), then locks a delivery slot via TMS before placing the sale order. No CHG Backend (CBE) involved in POD.',
+    steps: [
+      { id:  1, from: ['C'],   to: ['GW'],           type: 'request',  label: 'Branch Near Me', note: 'GW returns branch list from its own data source. OMS not involved in this step.' },
+      { id:  2, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Request Time Slot' },
+      { id:  3, from: ['TMS'], to: ['C'],             type: 'response', label: 'Available Slots' },
+      { id:  4, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Create Booking', note: 'Delivery slot locked in TMS. TMS-only — no CBE/CHG Backend as in Prepaid.' },
     ],
   },
   {
-    key: 'sts-invoice',
-    label: 'Phase 6 — Settlement Tax Invoice (STS)',
-    bg: 'bg-rose-50', border: 'border-rose-200',
-    note: 'The Settlement Tax System (STS) issues the official ABB/Tax Invoice post-delivery. OMS forwards it to the customer via Gateway.',
+    key: 'order-creation',
+    label: 'Phase 2 — Sale Order',
+    bg: 'bg-blue-50', border: 'border-blue-200',
+    note: 'Customer submits the sale order. OMS creates it (Pending) and fans out to WMS and TMS via outbox.',
     steps: [
-      { id: 21, from: ['STS'], to: ['SC'], type: 'webhook', label: 'ABB/Tax Invoice' },
-      { id: 22, from: ['SC'],  to: ['GW'], type: 'outbox',  label: 'ABB/Tax Invoice (outbox)' },
+      { id:  5, from: ['C'],  to: ['GW','PS','SC'], type: 'request', label: 'Sale Order', note: 'OMS: Order created → Pending. paymentMethod = POD.' },
+      { id:  6, from: ['SC'], to: ['WMS'],          type: 'outbox',  label: 'SaleOrderSentToWMS (outbox)' },
+      { id:  7, from: ['SC'], to: ['TMS'],          type: 'outbox',  label: 'SaleOrderSentToTMS (outbox)' },
+    ],
+  },
+  {
+    key: 'picking',
+    label: 'Phase 3 — Picking, Wave & POS Recalculation',
+    bg: 'bg-sky-50', border: 'border-sky-200',
+    note: 'WMS starts picking. OMS dispatches PickStartedSentToTMS (POD-specific). WMS then sends WaveStarted; OMS forwards it to opted-in Gateways. WMS may request POS recalculation multiple times.',
+    steps: [
+      { id:  8, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'PickStarted',                   note: 'POST /webhooks/wms/pick-started. Status → PickStarted.' },
+      { id:  9, from: ['SC'],  to: ['TMS'], type: 'outbox',   label: 'PickStartedSentToTMS (outbox)', note: 'POD-specific outbox event. Prepaid does not send PickStarted to TMS.' },
+      { id:  9.1, from: ['WMS'], to: ['SC'], type: 'webhook', label: 'WaveStarted',                   note: 'POST /webhooks/wms/wave-started. Valid only while order is in PickStarted. Duplicate events are idempotent.' },
+      { id:  9.2, from: ['SC'],  to: ['GW'], type: 'outbox',  label: 'WaveStartedSentToGW (outbox)', note: 'Dispatched to opted-in Gateways only (controlled by outbox_routing_rules).' },
+      { id: 10, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'POS Recalculation',             note: 'Can repeat multiple times during pick; pos_recalc_pending = true blocks packing.' },
+      { id: 11, from: ['SC'],  to: ['POS'], type: 'outbox',   label: 'POS Recalculation (outbox)' },
+      { id: 12, from: ['POS'], to: ['SC'],  type: 'response', label: 'Amount Recalculation' },
+      { id: 13, from: ['SC'],  to: ['WMS'], type: 'outbox',   label: 'Amount (outbox)' },
+      { id: 14, from: ['WMS'], to: ['SC'],  type: 'webhook',  label: 'PickConfirmed (basket qty)',    note: 'POST /webhooks/wms/pick-confirmed. Status → PickConfirmed.' },
+    ],
+  },
+  {
+    key: 'post-pick-outbox',
+    label: 'Phase 4 — Post-Pick Outbox Fan-out',
+    bg: 'bg-amber-50', border: 'border-amber-200',
+    note: 'After PickConfirmed, OMS fans out to POS, TMS, and GW. No ABB/Tax Invoice is issued here — POD invoicing happens AFTER delivery, not before dispatch.',
+    steps: [
+      { id: 15, from: ['SC'], to: ['POS'], type: 'outbox', label: 'PickConfirmedSentToPOS (outbox)' },
+      { id: 16, from: ['SC'], to: ['TMS'], type: 'outbox', label: 'PickConfirmedSentToTMS (outbox)', note: 'Basket qty forwarded. TMS may trigger its own POS recalc (e.g. delivery fee adjustments).' },
+      { id: 17, from: ['SC'], to: ['GW'],  type: 'outbox', label: 'PickConfirmedSentToGW (outbox)' },
+    ],
+  },
+  {
+    key: 'delivery',
+    label: 'Phase 5 — Delivery',
+    bg: 'bg-purple-50', border: 'border-purple-200',
+    note: 'TMS dispatches and delivers. Customer pays at the door (cash or card). SC notifies the Gateway at each status change.',
+    steps: [
+      { id: 18, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'PackageDispatched', note: 'POST /webhooks/tms/package-dispatched. Status → OutForDelivery.' },
+      { id: 19, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'OutForDeliverySentToGW (outbox)' },
+      { id: 20, from: ['TMS'], to: ['SC'],  type: 'webhook', label: 'PackageDelivered', note: 'POST /webhooks/tms/package-delivered. Customer pays at door. Status → Delivered.' },
+      { id: 21, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'DeliveredSentToGW (outbox)' },
+    ],
+  },
+  {
+    key: 'pod-invoice',
+    label: 'Phase 6 — Post-Delivery Invoice (POD-specific)',
+    bg: 'bg-rose-50', border: 'border-rose-200',
+    note: 'KEY POD DISTINCTION: Invoice generation is triggered AFTER delivery — not before dispatch like Prepaid. STS issues ABB/Tax Invoice post-Delivered and routes it to TMS + GW (not WMS).',
+    steps: [
+      { id: 22, from: ['SC'],  to: ['POS'], type: 'outbox',  label: 'DeliveredSentToPOS (outbox)',     note: 'POD gate: POS must not generate an invoice until Delivered is confirmed. Issuing before this event is a hard violation.' },
+      { id: 23, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'ABBTaxInvoiceReceived',           note: 'STS issues official ABB/Tax Invoice after Delivered. Requires X-Idempotency-Key.' },
+      { id: 24, from: ['SC'],  to: ['TMS'], type: 'outbox',  label: 'ABBTaxInvoiceSentToTMS (outbox)', note: 'POD routing: invoice goes to TMS. In Prepaid it goes to WMS.' },
+      { id: 25, from: ['SC'],  to: ['GW'],  type: 'outbox',  label: 'ABBTaxInvoiceSentToGW (outbox)' },
+      { id: 26, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'CreditNoteReceived',              note: 'Optional. Requires X-Idempotency-Key; duplicate events ignored.', optional: true },
+      { id: 27, from: ['SC'],  to: ['TMS'], type: 'outbox',  label: 'CreditNoteSentToTMS (outbox)',    note: 'POD routing: credit note goes to TMS (Prepaid routes to WMS).', optional: true },
+      { id: 27.5, from: ['SC'], to: ['GW'], type: 'outbox',  label: 'CreditNoteSentToGW (outbox)',    note: 'Credit note also forwarded to GW in POD flow.', optional: true },
     ],
   },
 ];
@@ -904,9 +1077,15 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
       showToast('Use the Returns form to create a return', 'error'); return;
     }
 
+    let extraHeaders = {};
     let body = null;
     if (resolvedPath.includes('/webhooks/wms/booking-confirmed'))
       body = { orderId: id, wmsBookingRef: `WMS-${Date.now()}`, confirmedAt: now };
+    else if (resolvedPath.includes('/webhooks/wms/wave-started')) {
+      const idemKey = `wave-${id}-${Date.now()}`;
+      extraHeaders = { 'X-Idempotency-Key': idemKey };
+      body = { orderId: id, waveId: `WAVE-${Date.now()}`, startedAt: now };
+    }
     else if (resolvedPath.includes('/webhooks/wms/pick-started'))
       body = { orderId: id, pickerId: 'PICKER-001', startedAt: now };
     else if (resolvedPath.includes('/webhooks/wms/pick-confirmed'))
@@ -940,12 +1119,20 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
       body = { releasedBy: 'dashboard-user' };
     else if (resolvedPath.includes('/cancel'))
       body = { reason: 'Cancelled via dashboard', cancelledBy: 'dashboard-user' };
+    else if (resolvedPath.includes('/partial-pick')) {
+      const nonZeroLines = (order.lines || []).filter(l => l.requestedAmount > 1);
+      if (!nonZeroLines.length) { showToast('No lines with quantity > 1 for partial pick', 'error'); return; }
+      body = {
+        lines: nonZeroLines.slice(0, 1).map(l => ({ orderLineId: l.id, pickedQuantity: l.requestedAmount - 1, orderedQuantity: l.requestedAmount, reason: 'OutOfStock' })),
+        idempotencyKey: `pp-${Date.now()}`,
+      };
+    }
 
     const authHeader = _token ? { 'Authorization': `Bearer ${_token}` } : {};
     try {
       const res = await fetch(`${apiBase}${resolvedPath}`, {
         method,
-        headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader },
+        headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader, ...extraHeaders },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
@@ -2942,19 +3129,19 @@ function PrepaidFlowView() {
     <div className="max-w-4xl mx-auto p-4 pb-16">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Prepaid Order Flow</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Customer creates a prepaid delivery order · from time slot booking to settlement tax invoice</p>
+        <p className="text-xs text-gray-400 mt-0.5">Customer creates a prepaid delivery order · from time slot booking to delivery confirmation</p>
       </div>
 
       {/* Key distinctions */}
       <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-        <div className="font-bold text-amber-800 text-sm mb-2">How Prepaid differs from Post-Paid</div>
+        <div className="font-bold text-amber-800 text-sm mb-2">How Prepaid differs from Post-Paid (POD)</div>
         <ul className="space-y-1.5">
           {[
-            ['Booking first',              'Customer locks a delivery slot via TMS/CBE before submitting the sale order'],
-            ['No BookingConfirmed step',   'WMS goes directly to PickStarted — booking is pre-confirmed via TMS/CBE'],
-            ['WMS triggers POS recalc',    'WMS can request price recalculation multiple times during picking (not just on substitution)'],
-            ['Pre-delivery invoice',       'SC sends ABB/Tax Invoice to WMS AFTER PickConfirmed, BEFORE TMS dispatches'],
-            ['STS settles the invoice',    'Post-delivery, STS (Settlement Tax System) issues the official tax invoice — not POS'],
+            ['Booking first',              'Customer locks a delivery slot via TMS before submitting the sale order. No WMS BookingConfirmed step.'],
+            ['WaveStarted forwarded to GW','WMS sends WaveStarted mid-pick; OMS forwards WaveStartedSentToGW to opted-in Gateways. Both Prepaid and POD have this step.'],
+            ['WMS triggers POS recalc',    'WMS can request price recalculation multiple times during picking (not just on substitution).'],
+            ['Pre-delivery invoice',       'After PickConfirmed: STS sends ABBTaxInvoiceReceived webhook; SC immediately forwards ABBInvoiceSentToWMS BEFORE TMS dispatches.'],
+            ['No post-delivery STS step',  'Prepaid flow ends at DeliveredSentToGW. Unlike POD, there is no post-delivery STS invoice step.'],
           ].map(([bold, text]) => (
             <li key={bold} className="text-xs text-amber-700 flex gap-2">
               <span className="shrink-0 mt-0.5">•</span>
@@ -3003,7 +3190,7 @@ function PrepaidFlowView() {
       {/* Prepaid event timeline */}
       <div className="mb-4">
         <h2 className="text-lg font-bold text-gray-900">Prepaid Event Timeline</h2>
-        <p className="text-xs text-gray-400 mt-0.5">Sample event log for prepaid delivery order PRE-001 · ฿1,150</p>
+        <p className="text-xs text-gray-400 mt-0.5">Sample event log for prepaid delivery order PRE-001 · ฿1,150 — 22 events from booking to delivery</p>
       </div>
 
       <div className="flex flex-wrap gap-4 mb-3 px-1">
@@ -3027,8 +3214,145 @@ function PrepaidFlowView() {
         <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
           <div className="text-amber-700 font-bold">Prepaid Order Complete</div>
           <div className="text-xs text-amber-600 mt-1">
-            Invoice issued at 09:46 (before dispatch) · Delivered at 15:22 · STS tax invoice received at 15:30
+            ABB/Tax Invoice received from STS at 09:46 and forwarded to WMS before dispatch · Delivered at 15:22 · No post-delivery STS step (that is POD behaviour)
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// POD FLOW VIEW
+// ─────────────────────────────────────────────────────────────
+
+function PODFlowView() {
+  let n = 0;
+
+  const bookingEvents  = POD_TIMELINE_DATA.filter(e => e.phase === 'booking');
+  const outboundEvents = POD_TIMELINE_DATA.filter(e => e.phase === 'outbound');
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 pb-16">
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900">POD Order Flow</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Pay on Delivery · from branch lookup &amp; slot booking to post-delivery ABB/Tax Invoice</p>
+      </div>
+
+      <div className="mb-5 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+        <div className="font-bold text-rose-800 text-sm mb-2">How POD differs from Prepaid</div>
+        <ul className="space-y-1.5">
+          {[
+            ['Branch lookup first',       'Customer queries "Branch Near Me" via GW before booking. GW returns list from its own data source — no OMS involvement.'],
+            ['TMS-only booking',          'No CHG Backend (CBE) involved. Slot is locked in TMS only.'],
+            ['WaveStarted present',        'POD flow includes WaveStarted (same as Prepaid): WMS → SC → GW via WaveStartedSentToGW outbox event.'],
+            ['PickStartedSentToTMS',      'POD-specific outbox event after PickStarted. Prepaid does not send this.'],
+            ['Invoice after delivery',    'DeliveredSentToPOS triggers invoice generation AFTER delivery — not before dispatch like Prepaid.'],
+            ['STS routes to TMS + GW',   'ABB/Tax Invoice and Credit Note from STS go to TMS and GW. Prepaid routes these to WMS.'],
+          ].map(([bold, text]) => (
+            <li key={bold} className="text-xs text-rose-700 flex gap-2">
+              <span className="shrink-0 mt-0.5">•</span>
+              <span><strong>{bold}:</strong> {text}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">System Actors</div>
+        <div className="flex flex-wrap gap-3">
+          {PREPAID_ACTORS.filter(a => a.key !== 'CBE').map(a => (
+            <div key={a.key} className="flex items-center gap-1.5">
+              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${a.cls}`}>{a.key}</span>
+              <span className="text-xs text-gray-400">{a.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-gray-100">
+          {Object.entries(PREPAID_MSG_STYLE).map(([k, s]) => (
+            <div key={k} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full ${s.dotCls}`} />
+              <span className="text-xs text-gray-500">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4 mb-8">
+        {POD_PHASES.map(phase => (
+          <div key={phase.key} className={`rounded-2xl border ${phase.border} shadow-sm overflow-hidden`}>
+            <div className={`px-5 py-3 ${phase.bg}`}>
+              <div className="font-bold text-gray-800 text-sm">{phase.label}</div>
+              {phase.note && <div className="text-xs text-gray-600 mt-0.5 leading-relaxed">{phase.note}</div>}
+            </div>
+            <div className="bg-white px-5">
+              {phase.steps.map(step => { n++; return <PrepaidStepRow key={step.id} step={step} stepNum={n} />; })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4">
+        <h2 className="text-lg font-bold text-gray-900">POD Event Timeline</h2>
+        <p className="text-xs text-gray-400 mt-0.5">Sample event log for POD delivery order POD-001 · ฿1,100</p>
+      </div>
+
+      <div className="flex flex-wrap gap-4 mb-3 px-1">
+        {Object.entries(EVT_STYLE).map(([k, s]) => (
+          <div key={k} className="flex items-center gap-1.5">
+            <div className={`w-3 h-3 rounded-full ${s.dot}`} />
+            <span className="text-xs text-gray-500">{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+        {bookingEvents.length > 0 && (
+          <>
+            <SectionDivider label="Branch Lookup &amp; Slot Booking — TMS" color="bg-green-200" />
+            {bookingEvents.map(e => <TimelineRow key={e.id} evt={e} />)}
+          </>
+        )}
+        <SectionDivider label="Order Fulfilment — OMS / WMS / TMS / POS / STS" color="bg-rose-200" />
+        {outboundEvents.map(e => <TimelineRow key={e.id} evt={e} />)}
+        <div className="mt-4 p-4 bg-rose-50 border border-rose-200 rounded-xl text-center">
+          <div className="text-rose-700 font-bold">POD Order Complete</div>
+          <div className="text-xs text-rose-600 mt-1">
+            Customer paid at delivery (15:45) · STS tax invoice received at 15:55 · Invoice routed to TMS and GW (not WMS)
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">POD vs Prepaid — Key Behavioral Differences</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="py-2 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Aspect</th>
+                <th className="py-2 px-3 text-left text-xs font-semibold text-amber-700 uppercase tracking-wide">Prepaid</th>
+                <th className="py-2 px-3 text-left text-xs font-semibold text-rose-700 uppercase tracking-wide">POD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Branch lookup',        'Not required',                                      'Customer queries "Branch Near Me" via GW first'],
+                ['Booking backend',      'TMS + CHG Backend (CBE)',                           'TMS only — no CBE'],
+                ['WaveStarted',          'Yes — WMS → SC → GW (WaveStartedSentToGW)',         'Yes — WMS → SC → GW (WaveStartedSentToGW)'],
+                ['PickStartedSentToTMS', 'Not sent',                                          'POD-specific outbox after PickStarted'],
+                ['Invoice timing',       'Before dispatch — ABB invoice sent to WMS after PickConfirmed', 'After delivery — DeliveredSentToPOS triggers it'],
+                ['STS → WMS',           'ABB/Tax Invoice forwarded to WMS',                  'Not forwarded to WMS'],
+                ['STS → TMS',           'Not routed to TMS',                                 'ABB/Tax Invoice routed to TMS'],
+                ['Credit note target',  'CreditNoteSentToWMS',                               'CreditNoteSentToTMS'],
+              ].map(([aspect, prepaid, pod]) => (
+                <tr key={aspect} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-2.5 px-3 text-xs font-semibold text-gray-700">{aspect}</td>
+                  <td className="py-2.5 px-3 text-xs text-amber-700">{prepaid}</td>
+                  <td className="py-2.5 px-3 text-xs text-rose-700 font-medium">{pod}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -3122,6 +3446,7 @@ function StockFlowView() {
 const NAV_TABS = [
   { key: 'kanban',    label: 'Orders'         },
   { key: 'prepaid',   label: 'Prepaid Flow'   },
+  { key: 'pod',       label: 'POD Flow'       },
   { key: 'usecases',  label: 'Use Cases'      },
   { key: 'stockflow', label: 'Stock Flow'     },
   { key: 'apiref',    label: 'API Reference'  },
@@ -3183,6 +3508,7 @@ function App() {
         )}
         {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); setTimelineOrderId(null); }} orderId={timelineOrderId} />}
         {view === 'prepaid'   && <PrepaidFlowView />}
+        {view === 'pod'       && <PODFlowView />}
         {view === 'usecases'  && <UseCaseExplorer />}
         {view === 'stockflow' && <StockFlowView />}
         {view === 'apiref'    && <ApiReferenceView />}

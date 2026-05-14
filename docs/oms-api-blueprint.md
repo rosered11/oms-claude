@@ -111,7 +111,7 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
     "scheduledStart": "2024-01-15T14:00:00Z",
     "scheduledEnd": "2024-01-15T16:00:00Z",
     "bookedVia": "TMS",
-    "bookingRef": "CBE-BK-001"
+    "bookingRef": "TMS-BK-001"
   },
   "lines": [
     {
@@ -136,12 +136,16 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
 }
 ```
 
+**`paymentMethod`** field values:
+- `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and GW
+- `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + GW
+
 **Outbox events dispatched on order creation:**
 
 | Event | Target | Condition |
 |---|---|---|
 | `SaleOrderSentToWMS` | WMS | All orders |
-| `SaleOrderSentToTMS` | TMS | Prepaid orders only — slot pre-booking required before WMS pick begins |
+| `SaleOrderSentToTMS` | TMS | All orders — dispatched at order creation for transport scheduling |
 
 **Response 409** (duplicate `sourceOrderId`):
 ```json
@@ -485,7 +489,7 @@ Reschedule delivery window. Not allowed once order is `OutForDelivery`, `Deliver
   "scheduledStart": "2024-01-15T20:00:00Z",
   "scheduledEnd": "2024-01-15T22:00:00Z",
   "bookedVia": "TMS",
-  "bookingRef": "CBE-BK-002",
+  "bookingRef": "TMS-BK-002",
   "reason": "CustomerRequest"
 }
 ```
@@ -878,6 +882,9 @@ WMS picker begins collecting items. → `PickStarted`. (UC3)
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "PickStarted" }`
 
+**Outbox events dispatched:**
+- `PickStartedSentToTMS` → TMS (all payment methods — allows TMS to prepare delivery logistics in advance)
+
 ---
 
 ### POST /webhooks/wms/wave-started
@@ -1105,6 +1112,9 @@ TMS confirms delivery to customer. Triggers invoice generation. → `Delivered`.
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Delivered", "invoiceTriggered": true }`
 
+**Outbox events dispatched:**
+- `DeliveredSentToGW` → Gateway (all payment methods)
+
 ---
 
 ### POST /webhooks/tms/package-damage-reported
@@ -1229,8 +1239,8 @@ OMS routes these links to downstream systems based on `orders.is_prepaid`:
 
 | Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
 |---|---|---|---|
-| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + CFW Gateway | WMS |
-| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + CFW Gateway | TMS |
+| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + GW | WMS + GW |
+| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + GW | TMS + GW |
 
 **Shared STS webhook headers:**
 
@@ -1275,7 +1285,7 @@ STS sends the ABB/Tax Invoice document link. Timing and forwarding targets diffe
 
 ### POST /webhooks/sts/credit-note
 
-STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS. POD: forwards to TMS.
+STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS and GW. POD: forwards to TMS and GW.
 
 **Request:**
 ```json
@@ -1305,7 +1315,7 @@ STS sends a Credit Note document link as a separate webhook when a credit note e
 
 ### POST /webhooks/sts/abb-tax-invoice-received
 
-STS sends the official ABB/Tax Invoice to OMS after `PickConfirmed` (prepaid flow). Carries the invoice amount and number directly; OMS records the invoice and dispatches it to WMS.
+STS sends the official ABB/Tax Invoice to OMS. Timing and forwarding targets differ by payment method: Prepaid invoices arrive after `PickConfirmed`; POD invoices arrive after `Delivered`.
 
 **Headers:** `X-Idempotency-Key: <uuid>`
 
@@ -1316,19 +1326,24 @@ STS sends the official ABB/Tax Invoice to OMS after `PickConfirmed` (prepaid flo
   "invoiceNumber": "INV-STS-001",
   "invoiceAmount": 238000,
   "currency": "THB",
+  "invoiceLink": "https://sts.example.com/invoices/INV-STS-001.pdf",
   "issuedAt": "2024-01-15T16:00:00Z"
 }
 ```
 
+Note: `invoiceLink` is required for POD (the link is forwarded to TMS and GW). For Prepaid, only `invoiceAmount` and `invoiceNumber` are forwarded to WMS.
+
 **Response 202 Accepted**
 
-**Outbox event dispatched:** `ABBInvoiceSentToWMS` → WMS
+**Routing by payment method:**
+- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBInvoiceSentToGW` → Gateway
+- `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGW` → Gateway
 
 ---
 
 ### POST /webhooks/sts/credit-note-received
 
-STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after partial pick).
+STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after partial pick). Forwarding target depends on payment method.
 
 **Headers:** `X-Idempotency-Key: <uuid>`
 
@@ -1339,6 +1354,7 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
   "creditNoteNumber": "CN-001",
   "creditAmount": 15000,
   "currency": "THB",
+  "creditNoteLink": "https://sts.example.com/credit-notes/CN-001.pdf",
   "reason": "PriceAdjustment",
   "issuedAt": "2024-01-15T16:05:00Z"
 }
@@ -1346,7 +1362,38 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
 
 **Response 202 Accepted**
 
-**Outbox event dispatched:** `CreditNoteSentToWMS` → WMS
+**Routing by payment method:**
+- `paymentMethod = 'Prepaid'`: dispatches `CreditNoteSentToWMS` → WMS and `CreditNoteSentToGW` → Gateway
+- `paymentMethod = 'POD'`: dispatches `CreditNoteSentToTMS` → TMS and `CreditNoteSentToGW` → Gateway
+
+---
+
+## Group: Branches
+
+### GET /branches/nearby
+
+Returns branches near a given location. Used as the first step in the POD customer journey — customer selects a branch before requesting a delivery time slot.
+
+**Query parameters:** `lat` (required), `lng` (required), `radius` (km, default 10), `limit` (default 20)
+
+**Response 200:**
+```json
+{
+  "branches": [
+    {
+      "branchId": "store-central-dc",
+      "name": "Central DC",
+      "address": "123 Main St, Bangkok",
+      "lat": 13.7563,
+      "lng": 100.5018,
+      "distanceKm": 2.3,
+      "availableSlots": true
+    }
+  ]
+}
+```
+
+**Error 400:** `missing_coordinates` — lat or lng not provided
 
 ---
 

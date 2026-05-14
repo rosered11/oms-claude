@@ -30,7 +30,7 @@ Sprint Connect OMS is an Order Management System that orchestrates outbound cust
 | Warehouse System | WMS | Picks, packs, and stores goods |
 | Transport System | TMS | Dispatches drivers and tracks deliveries |
 | Point of Sale | POS | Calculates prices, applies promotions, issues invoices |
-| Settlement Tax System | STS | Issues official ABB/Tax invoices post-PickConfirmed (Prepaid) |
+| Settlement Tax System | STS | Issues official ABB/Tax invoices post-PickConfirmed (Prepaid) or post-Delivered (POD) |
 
 ### 1.3 Integration Pattern
 
@@ -67,8 +67,8 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → Packed → Ou
 The prepaid flow differs from post-paid in three key ways:
 
 1. **No BookingConfirmed step** — the delivery slot is booked directly via TMS before the sale order is created. OMS transitions from `Pending` directly to `PickStarted`.
-2. **ABB/Tax Invoice issued after PickConfirmed** — STS sends the official ABB/Tax Invoice to SC after `PickConfirmed`, which SC forwards to WMS before TMS dispatches.
-3. **Optional Credit Note** — STS may issue a credit note after `PickConfirmed`. SC receives the webhook, stores the credit note, and forwards it to WMS via outbox.
+2. **ABB/Tax Invoice issued after PickConfirmed** — STS sends the official ABB/Tax Invoice to SC after `PickConfirmed`, which SC forwards to WMS and GW before TMS dispatches.
+3. **Optional Credit Note** — STS may issue a credit note after `PickConfirmed`. SC receives the webhook, stores the credit note, and forwards it to WMS and GW via outbox.
 
 **Prepaid sequence:**
 
@@ -83,13 +83,14 @@ WMS → SC                      WaveStarted (webhook)
 SC → GW                       WaveStartedSentToGW (outbox)
 [WMS → SC → POS → SC → WMS]  POS Recalculation loop (repeats as needed; pos_recalc_pending=true blocks packing)
 WMS → SC                      PickConfirmed (webhook: /webhooks/wms/pick-confirmed)
-SC → POS                      PickConfirmedSentToPOS (outbox)
 SC → TMS                      PickConfirmedSentToTMS (outbox)
 SC → GW                       PickConfirmedSentToGW (outbox)
 STS → SC                      ABBTaxInvoiceReceived (webhook)
 SC → WMS                      ABBInvoiceSentToWMS (outbox)
+SC → GW                       ABBInvoiceSentToGW (outbox)
 [Optional] STS → SC           CreditNoteReceived (webhook) — only if credit note exists
 [Optional] SC → WMS           CreditNoteSentToWMS (outbox)
+[Optional] SC → GW            CreditNoteSentToGW (outbox)
 [TMS → SC → POS → SC → TMS]  POS Recalculation (post-PickConfirm; e.g. delivery fee adjustments)
 TMS → SC                      PackageDispatched (webhook: /webhooks/tms/package-dispatched) → OutForDelivery
 SC → GW                       OutForDeliverySentToGW (outbox)
@@ -97,7 +98,48 @@ TMS → SC                      PackageDelivered (webhook: /webhooks/tms/package
 SC → GW                       DeliveredSentToGW (outbox)
 ```
 
-### 2.3 Click & Collect Flow
+### 2.3 POD Flow (Pay on Delivery)
+
+In the POD flow the customer pays at the point of delivery — cash or card. No advance invoice is issued before dispatch. STS issues the official ABB/Tax Invoice only after delivery is confirmed, and OMS forwards it to TMS and GW (not WMS, unlike Prepaid).
+
+**POD sequence:**
+
+| Step | Actor(s) | Event / Action |
+|---|---|---|
+| Slot query | Customer → GW → PS → TMS | TimeSlotRequested — available delivery windows queried |
+| Slot locked | Customer → GW → PS → TMS | BookingCreated — delivery slot locked in TMS |
+| Order created | Customer → GW → PS → SC | SaleOrder submitted; OMS creates order → `Pending` |
+| Outbox to WMS | SC → WMS | `SaleOrderSentToWMS` outbox event |
+| Outbox to TMS | SC → TMS | `SaleOrderSentToTMS` outbox event |
+| Pick started | WMS → SC | `PickStarted` webhook: `/webhooks/wms/pick-started`; order → `PickStarted` |
+| Wave started | WMS → SC | `WaveStarted` webhook |
+| Outbox to GW | SC → GW | `WaveStartedSentToGW` outbox event |
+| POS recalc loop | WMS → SC → POS → SC → WMS | Repeats as needed during picking; `pos_recalc_pending = true` blocks packing |
+| Pick confirmed | WMS → SC | `PickConfirmed` webhook: `/webhooks/wms/pick-confirmed`; records basket qty; partial pick supported |
+| Outbox to TMS | SC → TMS | `PickConfirmedSentToTMS` outbox event (basket qty) |
+| Outbox to GW | SC → GW | `PickConfirmedSentToGW` outbox event |
+| TMS POS recalc loop | TMS → SC → POS → SC → TMS | Repeats as needed (e.g. delivery fee adjustments) |
+| Dispatched | TMS → SC | `PackageDispatched` webhook: `/webhooks/tms/package-dispatched`; order → `OutForDelivery` |
+| Outbox to GW | SC → GW | `OutForDeliverySentToGW` outbox event |
+| Delivered | TMS → SC | `PackageDelivered` webhook: `/webhooks/tms/package-delivered`; order → `Delivered` |
+| Outbox to GW | SC → GW | `DeliveredSentToGW` outbox event |
+| ABB/Tax Invoice | STS → SC | `ABBTaxInvoiceReceived` webhook — issued after `Delivered` in POD |
+| Outbox to TMS | SC → TMS | `ABBTaxInvoiceSentToTMS` outbox event (link to ABB/Tax Invoice) |
+| Outbox to GW | SC → GW | `ABBTaxInvoiceSentToGW` outbox event (link to ABB/Tax Invoice) |
+| Credit Note (optional) | STS → SC | `CreditNoteReceived` webhook |
+| Outbox to TMS (optional) | SC → TMS | `CreditNoteSentToTMS` outbox event |
+| Outbox to GW (optional) | SC → GW | `CreditNoteSentToGW` outbox event |
+
+**Key behavioral differences vs. Prepaid:**
+
+| Aspect | Prepaid | POD |
+|---|---|---|
+| WaveStarted step | Yes — WMS → SC → GW | Yes — WMS → SC → GW |
+| Invoice timing | Before dispatch — STS issues ABB/Tax Invoice after `PickConfirmed` | After delivery — STS issues ABB/Tax Invoice after `Delivered` |
+| ABB/Tax Invoice forwarded to | WMS + GW | TMS + GW |
+| Credit Note forwarded to | WMS + GW | TMS + GW |
+
+### 2.4 Click & Collect Flow
 
 ```
 Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForCollection → Collected → Invoiced → Paid
@@ -106,7 +148,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 `ReadyForCollection` is triggered by POS webhook `/webhooks/pos/pos-collection-ready`.  
 `Collected` is triggered by POS webhook `/webhooks/pos/collected`.
 
-### 2.4 Special Statuses
+### 2.5 Special Statuses
 
 | Status | Meaning |
 |---|---|
@@ -122,7 +164,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 
 | UC | Name | Trigger | Key Flow |
 |---|---|---|---|
-| UC1 | Create Order | `POST /orders` | Customer creates outbound order; status → `Pending`; outbox → WMS/CBE |
+| UC1 | Create Order | `POST /orders` | Customer creates outbound order; status → `Pending`; outbox → WMS/TMS |
 | UC2 | Booking Confirmed | WMS webhook | WMS reserves stock; status → `BookingConfirmed` |
 | UC3 | Pick Started | WMS webhook | Picker begins collecting; status → `PickStarted` |
 | UC4 | Pick Confirmed + Packed | WMS webhooks | Picked qty recorded; POS recalc if needed; status → `PickConfirmed` → `Packed` |
@@ -149,13 +191,17 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | UC25 | Time Slot Request (Prepaid) | Customer → GW → PS → TMS | Available delivery windows queried before order creation |
 | UC26 | Delivery Booking (Prepaid) | Customer → GW → PS → TMS | Slot booked before sale order; OMS skips BookingConfirmed |
 | UC27 | POS Recalculation (Prepaid) | WMS → SC → POS (mid-pick) | Repeats multiple times during picking; not limited to substitutions |
-| UC28 | Pre-Delivery Invoice (Prepaid) | SC → WMS after PickConfirmed | ABB/Tax Invoice received from STS after PickConfirmed; forwarded to WMS before TMS dispatch |
-| UC29 | STS Tax Invoice Settlement | STS → SC → WMS after PickConfirmed | Official ABB/Tax Invoice forwarded to WMS; optionally followed by credit note |
+| UC28 | Pre-Delivery Invoice (Prepaid) | SC → WMS/GW after PickConfirmed | ABB/Tax Invoice received from STS after PickConfirmed; forwarded to WMS and GW before TMS dispatch |
+| UC29 | STS Tax Invoice Settlement | STS → SC → WMS/GW after PickConfirmed | Official ABB/Tax Invoice forwarded to WMS and GW; optionally followed by credit note to WMS and GW |
 | UC-WAVE | WaveStarted | WMS webhook: `/webhooks/wms/wave-started` | WMS starts wave picking while order is in `PickStarted`; SC forwards notification to GW via `WaveStartedSentToGW` outbox event. Not a persisted status column. |
 | UC-PARTPICK | Partial Pick | WMS webhook (pick-confirmed with partial quantities) | WMS picks fewer items than ordered (e.g. item out of stock or not fresh); OMS records partial quantities on order lines; remaining items are cancelled; POS recalc triggered. Partial pick cannot reduce all line quantities to zero — use Cancel Order instead. |
 | UC-RESCHEDULE | Rescheduler | `PATCH /orders/{id}/delivery-slot` | Customer or operator reschedules delivery slot. Not allowed after `OutForDelivery`; returns `409 invalid_transition` if attempted. |
 | UC-PARTRETURN | Partial Item Return with Refund | Customer rejects items at delivery | Customer receives order but rejects one or more items at delivery (e.g. item not fresh). Rejected items are returned; OMS triggers partial refund via POS/STS. Only allowed after `Delivered` status. Each returned line item must reference the original order line. |
-| UC-CREDITNOTE | Credit Note from STS | STS webhook: `CreditNoteReceived` | STS issues credit note after `PickConfirmed`; SC receives webhook, stores credit note, forwards to WMS via `CreditNoteSentToWMS` outbox event. Requires `X-Idempotency-Key`; duplicate events are ignored. |
+| UC-CREDITNOTE | Credit Note from STS (Prepaid) | STS webhook: `CreditNoteReceived` | STS issues credit note after `PickConfirmed`; SC receives webhook, stores credit note, forwards to WMS via `CreditNoteSentToWMS` and to GW via `CreditNoteSentToGW` outbox events. Requires `X-Idempotency-Key`; duplicate events are ignored. |
+| UC-POD-BRANCH | BranchNearMe (POD) | Customer → GW | Customer queries nearby branches via GW before booking a delivery slot. GW returns branch list from its own data source. No OMS involvement in this step. |
+| UC-POD-PICKSTART | PickStarted (POD) | WMS webhook: `/webhooks/wms/pick-started` | WMS notifies OMS that picking has begun; OMS transitions order to `PickStarted`. |
+| UC-POD-INVOICE | Post-Delivery Invoice (POD) | TMS webhook: `/webhooks/tms/package-delivered` | After order reaches `Delivered`, STS subsequently sends `ABBTaxInvoiceReceived` webhook; OMS forwards the invoice to TMS (`ABBTaxInvoiceSentToTMS`) and GW (`ABBTaxInvoiceSentToGW`). |
+| UC-POD-CREDITNOTE | Credit Note (POD) | STS webhook: `CreditNoteReceived` | Optional STS credit note issued after delivery. OMS receives webhook and dispatches `CreditNoteSentToTMS` outbox event to TMS and `CreditNoteSentToGW` to Gateway. Requires `X-Idempotency-Key`; duplicates are ignored. |
 
 ---
 
@@ -177,6 +223,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 - **Credit Note idempotency** — credit note webhooks from STS require `X-Idempotency-Key`. Duplicate credit note events are ignored and not reprocessed.
 - **Partial Pick guard** — partial pick cannot reduce picked quantity to zero across all order lines. If all lines would reach zero, the order must be fully cancelled via Cancel Order instead.
 - **Partial Return guard** — partial item return is only allowed after `Delivered` status. Each returned line item must reference the original order line ID.
+- **STS routing** — ABB/Tax Invoice and Credit Note events from STS are routed based on payment method: for Prepaid, both WMS and GW receive the events; for POD, both TMS and GW receive the events. Routing is enforced via `config.outbox_routing_rules` rows keyed on `(trigger_event, payment_method)`.
 
 ---
 
@@ -195,6 +242,15 @@ The OMS supports multiple business units (BUs) and multiple channel types. Routi
 - **Gateway A**: Receives `WaveStartedSentToGW` outbox event (opted in via routing rule).
 - **Gateway B**: Does NOT receive wave status updates (no routing rule entry for WaveStarted).
 - This is controlled by presence or absence of an `outbox_routing_rules` row for the `WaveStartedSentToGW` trigger event per gateway business unit.
+
+### Payment Method as a Routing Dimension
+
+`paymentMethod` on the order is also a routing dimension evaluated by `config.outbox_routing_rules`. Specifically:
+
+- `paymentMethod = 'POD'` — STS invoice events (`ABBTaxInvoiceReceived`, `CreditNoteReceived`) are routed to TMS and GW.
+- `paymentMethod = 'Prepaid'` — STS invoice events are routed to WMS and GW.
+
+This is enforced via `outbox_routing_rules` rows keyed on `(trigger_event, payment_method)`. No conditional logic in application code — routing is entirely table-driven.
 
 ### Business Unit Data Isolation
 

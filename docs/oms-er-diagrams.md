@@ -9,6 +9,8 @@
 
 Core aggregate. Owns the order lifecycle state machine, delivery slots, packages, outbox, and all audit logs.
 
+> `payment_method` on the `orders` entity drives STS outbox routing. `Prepaid` orders forward the ABB/Tax Invoice to WMS; `POD` and `COD` orders forward it to TMS and GW after the `Delivered` event. Credit notes follow the same split: WMS for Prepaid, TMS for POD/COD. No new tables are required for POD — routing is handled by existing `config.outbox_routing_rules` rows keyed on the `trigger_event` for each POD outbox event.
+
 ```mermaid
 erDiagram
     orders {

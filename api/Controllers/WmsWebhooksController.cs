@@ -16,7 +16,8 @@ public class WmsWebhooksController(
     TransferPickConfirmedHandler transferPickConfirmed,
     TransferReceivedHandler transferReceived,
     DamagedGoodsReceivedHandler damagedGoodsReceived,
-    DamagedGoodsPutAwayHandler damagedGoodsPutAway) : ControllerBase
+    DamagedGoodsPutAwayHandler damagedGoodsPutAway,
+    WaveStartedHandler waveStarted) : ControllerBase
 {
     [HttpPost("booking-confirmed")]
     public IResult BookingConfirmed([FromBody] BookingConfirmedRequest req) => bookingConfirmed.Handle(req);
@@ -53,4 +54,7 @@ public class WmsWebhooksController(
 
     [HttpPost("damaged-goods-put-away")]
     public IResult DamagedGoodsPutAway([FromBody] DamagedGoodsPutAwayRequest req) => damagedGoodsPutAway.Handle(req);
+
+    [HttpPost("wave-started")]
+    public IResult WaveStarted([FromBody] WaveStartedRequest req) => waveStarted.Handle(req);
 }

@@ -12,7 +12,13 @@ This glossary defines terms that carry a precise, agreed meaning across business
 A pre-delivery invoice issued by OMS to WMS for a **Prepaid Order** after **Pick Confirmed** and before **Dispatch**. Short for "Advance Billing Before delivery." The ABB Invoice locks in the final basket amount before the driver leaves the warehouse.
 
 **ABBInvoiceSentToWMS**
-An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. See **Prepaid Flow** and **STS**.
+An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS for a **Prepaid** order. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. Also dispatches **ABBInvoiceSentToGW** to Gateway simultaneously. See **Prepaid Flow** and **STS**.
+
+**ABBTaxInvoiceSentToGW**
+An outbox event dispatched to Gateway when STS sends the ABB/Tax Invoice to OMS. For **Prepaid** orders, dispatched after PickConfirmed alongside **ABBInvoiceSentToWMS**. For **Pay on Delivery (POD)** orders, dispatched after Delivered alongside **ABBTaxInvoiceSentToTMS**. Carries the **Invoice Link** so the customer-facing gateway can surface the invoice document.
+
+**ABBTaxInvoiceSentToTMS**
+An outbox event dispatched to TMS when STS sends the ABB/Tax Invoice to OMS for a **Pay on Delivery (POD)** order. Carries the **Invoice Link**. In the Prepaid flow the equivalent event targets WMS; in the POD flow it targets TMS and GW instead.
 
 **Aggregate**
 A cluster of domain objects treated as a single unit for data changes. The **Order** is the primary aggregate in OMS. All changes to an order's state must go through the Order aggregate — no direct column updates.
@@ -33,11 +39,14 @@ The specific storage location code (e.g. `A-12`, `REPAIR-BAY-2`) assigned to a p
 **Barcode**
 A product identifier used for warehouse scanning during **Picking**. Stored on the **Order Line** at order creation so picking can proceed without a live catalogue lookup.
 
+**BranchNearMe**
+The first step in the **Pay on Delivery (POD)** customer journey. The customer requests a list of nearby branches from **GW** before selecting a delivery time slot. GW returns the branch list directly; OMS is not involved in this step.
+
 **Booking**
-The act of reserving a **Delivery Slot** with TMS and CBE before a **Prepaid Order** is created. Booking happens via the customer journey: Customer → GW → PS → TMS → CBE. A booking must succeed before the Sale Order is submitted to OMS.
+The act of reserving a **Delivery Slot** with TMS before a **Prepaid Order** is created. Booking happens via the customer journey: Customer → GW → PS → TMS. A booking must succeed before the Sale Order is submitted to OMS.
 
 **Booking Confirmed**
-An order status. For **Post-Paid Orders**, WMS sends a webhook confirming it has reserved stock for the order. The order moves from **Pending** to **Booking Confirmed**. For **Prepaid Orders**, this step is skipped — the booking was already made via TMS/CBE before order creation.
+An order status. For **Post-Paid Orders**, WMS sends a webhook confirming it has reserved stock for the order. The order moves from **Pending** to **Booking Confirmed**. For **Prepaid Orders**, this step is skipped — the booking was already made via TMS before order creation.
 
 **Bounded Context**
 A module with a clear boundary that owns its own schema and vocabulary. OMS has five: **Order**, **Payment**, **Returns**, **Config**, and **Inbound**. Terms may mean different things in different bounded contexts — context always clarifies meaning.
@@ -52,9 +61,6 @@ An organizational unit (e.g. `CMG`, `CFR`) that owns a set of orders and stores.
 **Cancellation**
 The act of stopping an order before it reaches the warehouse for dispatch. Cancellation is only allowed from **Pending**, **Booking Confirmed**, or **On Hold**. A cancelled order triggers stock release back to WMS.
 
-**CBE (CHG Backend)**
-The system that manages delivery slot availability and booking records. Slot requests from customers are routed through GW → PS → TMS → CBE. Relevant only in the **Prepaid Flow**.
-
 **Channel Type**
 Where an order originated: `Gateway`, `Marketplace`, `Kiosk`, `POSTerminal`, `BulkImport`, `Web`, `App`, `POS`, or `CallCenter`. Determines routing rules, notification templates, and outbox routing via `config.outbox_routing_rules`.
 
@@ -68,10 +74,16 @@ An order status. The customer has physically collected the order at the store. A
 The physical state of a product assessed by warehouse staff during inspection. Three values: `Resellable` (can go directly back on the shelf), `Repairable` (needs fixing before it can be sold), `Dispose` (written off as a loss).
 
 **Credit Note**
-A document issued by STS reducing the amount owed by the customer — for example, for rejected items or price corrections. In OMS the credit note is stored in `payment.credit_notes` keyed by `credit_note_number` from STS. Distinct from an internal financial reversal: STS issues it, OMS records and forwards it. Also see **CreditNoteSentToWMS**.
+A document issued by STS reducing the amount owed by the customer — for example, for rejected items or price corrections. In OMS the credit note is stored in `payment.credit_notes` keyed by `credit_note_number` from STS. Distinct from an internal financial reversal: STS issues it, OMS records and forwards it. Also see **CreditNoteSentToWMS** and **CreditNoteSentToTMS**.
+
+**CreditNoteSentToTMS**
+An outbox event dispatched to TMS when OMS receives a credit note from STS for a **Pay on Delivery (POD)** order. Also dispatches **CreditNoteSentToGW** to Gateway simultaneously. Contrast with **CreditNoteSentToWMS**, which is used for Prepaid orders.
 
 **CreditNoteSentToWMS**
-An outbox event dispatched to WMS when OMS receives a credit note from STS. For prepaid orders, OMS forwards the credit note link to WMS; for post-paid (delivery) orders, OMS forwards it to TMS.
+An outbox event dispatched to WMS when OMS receives a credit note from STS for a **Prepaid** order. Also dispatches **CreditNoteSentToGW** to Gateway simultaneously. For POD orders, credit notes are forwarded to TMS via **CreditNoteSentToTMS** instead.
+
+**CreditNoteSentToGW**
+An outbox event dispatched to Gateway when OMS receives a credit note from STS. Applies to both **Prepaid** and **Pay on Delivery (POD)** orders — dispatched alongside **CreditNoteSentToWMS** (Prepaid) or **CreditNoteSentToTMS** (POD). Carries the credit note link for customer-facing notification.
 
 ---
 
@@ -81,7 +93,7 @@ An outbox event dispatched to WMS when OMS receives a credit note from STS. For 
 A warehouse record created when a TMS driver returns a damaged package to the warehouse dock. Links the damaged package back to the original **Order** via **Tracking ID**.
 
 **Delivered**
-An order status. TMS has confirmed the package was physically handed to the customer. Triggers **Invoice** generation via outbox → POS.
+An order status. TMS has confirmed the package was physically handed to the customer. For POD orders, triggers the ABB/Tax Invoice workflow via STS.
 
 **DeliveredSentToGW**
 An outbox event dispatched to GW when TMS confirms package delivery. Notifies the customer-facing gateway so the customer can receive their delivery confirmation.
@@ -93,7 +105,7 @@ A **Fulfillment Type** where a driver delivers the order to the customer's addre
 An **Order Fee** charged on top of the product total for the cost of home delivery.
 
 **Delivery Slot**
-The agreed time window during which a driver will deliver an order — e.g. `14:00–16:00`. For **Prepaid Orders**, the slot is booked via TMS/CBE before order creation. For other orders, it is assigned at order creation and can be rescheduled until the order is **Out for Delivery**.
+The agreed time window during which a driver will deliver an order — e.g. `14:00–16:00`. For **Prepaid Orders**, the slot is booked via TMS before order creation. For other orders, it is assigned at order creation and can be rescheduled until the order is **Out for Delivery**.
 
 **Dispatch**
 The moment a TMS driver picks up a packed order from the warehouse and begins the delivery journey. Triggers the **Out for Delivery** status transition.
@@ -156,6 +168,9 @@ The warehouse activity of examining returned items to assign a **Condition**. In
 
 **Invoice**
 A fiscal document recording the amount the customer owes (or paid) for an order. In OMS, `Standard` invoices are issued after **Delivered** or **Collected**; `ABB` invoices are issued before **Dispatch** for **Prepaid Orders**; `TaxInvoice` documents are issued by STS post-delivery.
+
+**Invoice Link**
+A URL pointing to the official ABB/Tax Invoice PDF hosted by **STS**. In the **Pay on Delivery (POD)** flow, OMS receives this link after the `Delivered` event and forwards it to TMS (via **ABBTaxInvoiceSentToTMS**) and GW (via **ABBTaxInvoiceSentToGW**). In the **Prepaid** flow, OMS receives this link after `PickConfirmed` and forwards it to WMS (via **ABBInvoiceSentToWMS**) and GW (via **ABBTaxInvoiceSentToGW**).
 
 **Invoiced**
 An order status. POS has confirmed a fiscal invoice has been issued to the customer. The order transitions here after **Delivered** or **Collected**.
@@ -224,8 +239,11 @@ An order status. WMS has confirmed all items are packed into packages with track
 **Paid**
 An order status. POS has confirmed payment was received from the customer. Terminal status — no further transitions occur.
 
+**Pay on Delivery (POD)**
+A payment method where the customer pays at the point of delivery. STS issues the official ABB/Tax Invoice only after the `Delivered` event is confirmed. The POD flow differs from the Prepaid flow in outbox routing: the STS ABB/Tax Invoice is forwarded to TMS and GW (not WMS), and credit notes from STS are forwarded to TMS and GW (not WMS). Represented as `payment_method = 'POD'` on the order. See also **ABBTaxInvoiceSentToTMS**, **ABBTaxInvoiceSentToGW**, **CreditNoteSentToTMS**, **CreditNoteSentToGW**.
+
 **Payment Method**
-How the customer pays for an order: `Prepaid` (paid before delivery), `PostPaid` (paid after delivery), `CreditCard`.
+How the customer pays for an order: `Prepaid` (paid before delivery), `POD` (Pay on Delivery — payment at delivery), `COD` (Cash on Delivery), `PostPaid` (paid after delivery), `CreditCard`.
 
 **Partial Item Return**
 A post-delivery return scenario where the customer rejects a subset of order line items — for example, the customer keeps the beef but rejects the chicken because it was not fresh. Only the rejected items are returned. Triggers a partial refund for those items and a POS Recalculation to remove their value from the order total. See also **Credit Note**.
@@ -244,6 +262,9 @@ An outbox event dispatched to TMS after **Pick Confirmed**. Used in the prepaid 
 
 **Pick Started**
 An order status. WMS has confirmed that a warehouse picker has begun collecting items from the shelves.
+
+**PickStartedSentToTMS**
+An outbox event dispatched to TMS when WMS confirms pick has started. Allows TMS to prepare delivery logistics — e.g. driver scheduling and route planning — in advance of the order being packed and dispatched.
 
 **Picker**
 The warehouse staff member physically collecting items from shelves during the **Picking** process.
@@ -267,10 +288,10 @@ A flag on the **Order** (`true`/`false`). Set to `true` when a recalculation is 
 The order status saved immediately before transitioning to **On Hold**. Restored exactly when the hold is released. Allows the order to resume at the correct point in the lifecycle.
 
 **Prepaid Flow**
-The order lifecycle for **Prepaid Orders**. Key differences from the standard flow: (1) the **Delivery Slot** is booked via TMS/CBE before order creation, so the **Booking Confirmed** step is skipped; (2) an **ABB Invoice** is issued to WMS before **Dispatch**; (3) an official **Tax Invoice** is sent by STS after **Delivered**.
+The order lifecycle for **Prepaid Orders**. Key differences from the standard flow: (1) the **Delivery Slot** is booked via TMS before order creation, so the **Booking Confirmed** step is skipped; (2) an **ABB Invoice** is issued to WMS and GW before **Dispatch**; (3) a credit note (optional) is forwarded to WMS and GW after **Pick Confirmed**.
 
 **Prepaid Order**
-An order where the customer pays before delivery. The delivery slot is pre-booked via TMS/CBE. An **ABB Invoice** is issued before dispatch. STS issues the official tax invoice post-delivery.
+An order where the customer pays before delivery. The delivery slot is pre-booked via TMS. An **ABB Invoice** is issued to WMS and GW before dispatch. STS issues the official tax invoice post-delivery.
 
 **Promotion**
 A discount applied to an order or specific order line by POS. Types include `PercentageDiscount`, `FixedDiscount`, `BuyXGetY`, `FreeGift`. Stored in `payment.order_promotions` and recorded per **POS Recalculation** round.
@@ -320,10 +341,10 @@ A configuration record controlling whether OMS is live at a given store (`Full`)
 ## S
 
 **Sale Order**
-The outbound message sent from OMS to CBE and WMS after an **Order** is created. Registers the order for payment processing (CBE) and warehouse picking (WMS).
+The outbound message sent from OMS to WMS and TMS after an **Order** is created. Registers the order for warehouse picking (WMS) and transport scheduling (TMS).
 
 **SaleOrderSentToTMS**
-An outbox event dispatched to TMS at order creation, used in the prepaid flow. Notifies TMS early so a driver booking can be prepared in parallel with warehouse picking.
+An outbox event dispatched to TMS at order creation for all orders. Notifies TMS so driver scheduling can be prepared in parallel with warehouse picking.
 
 **SC (Sprint Connect)**
 See **OMS**.
@@ -335,7 +356,7 @@ See **Assigned Sloc**.
 The order reference from the originating external system (app, POS, e-commerce platform). Used for idempotent order creation — submitting the same `source_order_id` twice returns the existing order rather than creating a duplicate.
 
 **STS (Settlement Tax System)**
-The external system that issues official ABB/Tax invoices post-delivery for **Prepaid Orders**. STS sends the invoice to OMS via webhook; OMS forwards it to the customer through **GW**.
+The external system that issues official ABB/Tax invoices. For **Prepaid Orders**, STS issues the invoice after `PickConfirmed` (before dispatch). For **POD** orders, STS issues the invoice after `Delivered`. STS sends the invoice to OMS via webhook; OMS forwards it to downstream systems via the **Outbox**.
 
 **Status History**
 The append-only log of every status transition an order has gone through. Used to build the **Timeline** and for audit purposes.

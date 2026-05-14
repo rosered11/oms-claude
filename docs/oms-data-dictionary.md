@@ -24,7 +24,7 @@ One row per customer order. This is the central aggregate that all other tables 
 | `business_unit` | varchar | The brand operating this order — e.g. `TOPS`, `CFH`. |
 | `store_id` | bigint FK | The store or DC fulfilling this order. References `config.store_locations`. |
 | `fulfillment_type` | varchar | How the order will reach the customer: `Delivery` (driver delivers), `Express` (faster delivery), `ClickAndCollect` (customer picks up at store). |
-| `payment_method` | varchar | How the customer pays: `Prepaid` (paid before delivery), `PostPaid` (paid after), `CreditCard`. |
+| `payment_method` | ENUM('Prepaid', 'POD', 'COD') | How the customer pays and when the invoice is triggered. `Prepaid`: payment collected before delivery — STS ABB/Tax Invoice is issued at Pick Confirmed and forwarded to WMS and GW; credit notes go to WMS and GW. `POD` (Pay on Delivery): customer pays at delivery — invoice triggered after `Delivered` event; STS ABB/Tax Invoice forwarded to TMS + GW; credit notes go to TMS + GW. `COD` (Cash on Delivery): same invoice-after-delivery timing as POD. This field is an additional routing dimension used by `config.outbox_routing_rules` alongside `channel_type` and `business_unit`. |
 | `status` | varchar | The current stage of the order in the lifecycle state machine. |
 | `pre_hold_status` | varchar | The status the order was in before it was put on hold. Saved so it can be restored when the hold is released. `null` when not on hold. |
 | `hold_reason` | varchar | Why the order was placed on hold — e.g. `ManualReview`, `PackageDamaged`. `null` when not on hold. |
@@ -282,7 +282,7 @@ One invoice per order. For **pre-paid** orders, created by the Settlement & Tax 
 | `total_amount` | decimal | Total amount invoiced. |
 | `currency` | varchar | `THB`. |
 | `status` | varchar | `Generated` (created in OMS), `Issued` (sent or linked to customer), `Voided` (cancelled by a credit note). |
-| `invoice_link` | varchar | URL to the ABB/Tax Invoice PDF provided by STS. For pre-paid orders, set when STS fires after `PickConfirmed`; OMS forwards to WMS + Gateway. For POD orders, set when STS fires after `Delivered`; OMS forwards to TMS + Gateway. `null` for POS-generated invoices. |
+| `invoice_link` | varchar | URL to the ABB/Tax Invoice PDF provided by STS. For Prepaid orders, set when STS fires after `PickConfirmed`; OMS forwards to WMS + GW. For POD orders, set when STS fires after `Delivered`; OMS forwards to TMS + GW. `null` for POS-generated invoices. |
 | `source_sts_ref` | varchar | Reference ID assigned by STS for this invoice document. Used for idempotency on `POST /webhooks/sts/abb-tax-invoice` and cross-system reconciliation. `null` for POS-generated invoices. |
 | `generated_at` | timestamptz | When the invoice was created. For pre-paid orders, this is the `issuedAt` timestamp from the STS webhook (before dispatch). For POD orders, set after `PackageDelivered`. |
 | `issued_at` | timestamptz | When the invoice was sent to the customer. |
@@ -304,7 +304,7 @@ Stores credit notes received from STS (reducing the amount owed by the customer 
 | `currency` | varchar(3) | Currency code. Default `THB`. |
 | `reason` | varchar(255) | Why the credit note was issued — e.g. `CustomerRejection`, `QualityIssue`, `PriceAdjustment`, `DamagedGoods`. |
 | `status` | varchar | `Issued` (created), `Applied` (applied to the payment), `Cancelled`. |
-| `credit_note_link` | varchar | URL to the Credit Note PDF provided by STS. Set when OMS receives `POST /webhooks/sts/credit-note`. For prepaid orders OMS forwards to WMS; for POD orders OMS forwards to TMS. `null` for non-STS credit notes. |
+| `credit_note_link` | varchar | URL to the Credit Note PDF provided by STS. Set when OMS receives `POST /webhooks/sts/credit-note`. For Prepaid orders OMS forwards to WMS and GW; for POD orders OMS forwards to TMS and GW. `null` for non-STS credit notes. |
 | `source_sts_ref` | varchar | Reference ID assigned by STS for this credit note. Used for idempotency on the STS credit note webhook. `null` for credit notes from internal returns or manual adjustments. |
 | `issued_at` | datetime UTC | When STS issued the credit note. |
 | `received_at` | datetime UTC | When OMS received the credit note from STS. `null` for internally generated credit notes. |
@@ -594,8 +594,15 @@ The `oms-outbox-worker` looks up matching rows for `(channel_type, business_unit
 | `Marketplace` | `TikTok` | `PickConfirmedSentToTMS` | `Marketplace` | `tiktok.pick-confirm` | TikTok receives pick confirmed notification |
 | `Marketplace` | `Lazada` | `PackConfirmedSentToLazada` | `Marketplace` | `lazada.pack-confirm` | Lazada receives packed confirmation |
 | `Gateway` | `GatewayA` | `WaveStartedSentToGW` | `Gateway` | `gateway-a.wave-start` | GatewayA has opted in to wave start events |
+| `*` | `*` | `ABBTaxInvoiceSentToTMS` | `TMS` | `tms.abb-tax-invoice` | POD: STS ABB/Tax Invoice forwarded to TMS after Delivered |
+| `*` | `*` | `ABBTaxInvoiceSentToGW` | `Gateway` | `gateway.abb-tax-invoice` | POD: STS ABB/Tax Invoice forwarded to GW after Delivered |
+| `*` | `*` | `CreditNoteSentToTMS` | `TMS` | `tms.credit-note` | POD: STS credit note forwarded to TMS (not WMS as in Prepaid) |
+| `*` | `*` | `ABBInvoiceSentToGW` | `Gateway` | `gateway.abb-invoice` | Prepaid: STS ABB/Tax Invoice forwarded to GW after PickConfirmed |
+| `*` | `*` | `CreditNoteSentToGW` | `Gateway` | `gateway.credit-note` | Prepaid + POD: STS credit note forwarded to GW |
 
 > Note: GatewayB has no row for `WaveStartedSentToGW` — the outbox worker finds no matching rule and skips dispatch. Adding or removing rows here is the only change required to opt a Gateway in or out of an event.
+
+> Note: `payment_method` is an additional routing dimension alongside `channel_type` and `business_unit`. The outbox worker filters payment-method-specific rules by matching the order's `payment_method` field at dispatch time. Rules for `ABBTaxInvoiceSentToTMS` and `ABBTaxInvoiceSentToGW` apply when `payment_method` is `POD` or `COD`. Rules for `ABBInvoiceSentToGW` and `CreditNoteSentToGW` apply for Prepaid orders as well.
 
 ---
 
