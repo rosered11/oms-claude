@@ -31,17 +31,8 @@ public class InvoicedHandler(InMemoryStore store)
             IssuedAt = req.InvoicedAt
         });
 
-        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("POS", "Invoiced", OrderStatus.Invoiced,
+        store.AppendEvent(req.OrderId, ApiResult.DomainEvent("Invoiced", OrderStatus.Invoiced,
             $"Invoice {req.InvoiceNumber} issued for {req.TotalAmount} {req.Currency}."));
-        store.AddWebhookLog(req.OrderId, new WebhookLogDto
-        {
-            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
-            SourceSystem = "POS",
-            EventType = "Invoiced",
-            Detail = $"Invoice {req.InvoiceNumber} — {req.TotalAmount} {req.Currency}.",
-            IdempotencyKey = req.IdempotencyKey,
-            ReceivedAt = now
-        });
 
         return Results.Accepted(null, new
         {

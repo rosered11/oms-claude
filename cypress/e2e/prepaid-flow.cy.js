@@ -158,7 +158,7 @@ describe('Prepaid Order Flow', () => {
 
   // ── Step 9: TMS PackageDelivered → Delivered ──────────────────────────────
   // Sequence: TMS->>SC: Delivered [/tms/package-delivered]
-  //           DeliveredEvent → outbox → POS (trigger invoice)
+  //           DeliveredSentToGW → outbox → GW
   it('Step 9 — TMS package-delivered transitions order to Delivered', () => {
     cy.omsApi('POST', '/webhooks/tms/package-delivered', {
       trackingId,
@@ -173,7 +173,6 @@ describe('Prepaid Order Flow', () => {
   });
 
   // ── Step 10: POS Invoiced → Invoiced ──────────────────────────────────────
-  // Sequence: DeliveredEvent → outbox → POS triggers invoice confirmation.
   // invoiceType 'ABB' matches the ABB/Tax Invoice sent by STS in Step 6.
   it('Step 10 — POS invoiced transitions order to Invoiced', () => {
     cy.omsApi('POST', '/webhooks/pos/invoiced', {

@@ -17,8 +17,8 @@ public class PackageDeliveredHandler(InMemoryStore store)
             o.Status = OrderStatus.Delivered;
             store.AppendEvent(o.Id, ApiResult.WebhookEvent("TMS", "PackageDelivered", OrderStatus.Delivered,
                 $"Delivered to {req.RecipientName} at {req.DeliveredAt:o}."));
-            store.AppendEvent(o.Id, ApiResult.OutboxEvent("GW", "DeliveredNotified",
-                $"SC → GW: Delivered. Package {req.TrackingId} signed by {req.RecipientName} — delivery confirmation sent."));
+            store.AppendEvent(o.Id, ApiResult.OutboxEvent("GW", "DeliveredSentToGW",
+                $"SC → GW: Delivered. Package {req.TrackingId} signed by {req.RecipientName}."));
         }
 
         store.AddWebhookLog(o.Id, new WebhookLogDto

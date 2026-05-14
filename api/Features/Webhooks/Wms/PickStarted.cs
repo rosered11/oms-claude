@@ -23,8 +23,6 @@ public class PickStartedHandler(InMemoryStore store)
             Detail = $"Picker {req.PickerId} started at {req.StartedAt:o}.",
             ReceivedAt = DateTime.UtcNow
         });
-        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("TMS", "PickStartedEvent",
-            $"SC → TMS: PickStartedEvent dispatched. TMS notified for driver slot scheduling."));
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.PickStarted });
     }
 }

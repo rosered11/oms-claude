@@ -42,17 +42,8 @@ public class PaymentConfirmedHandler(InMemoryStore store)
             CreatedAt = req.PaidAt
         });
 
-        store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("POS", "PaymentConfirmed", OrderStatus.Paid,
+        store.AppendEvent(req.OrderId, ApiResult.DomainEvent("PaymentConfirmed", OrderStatus.Paid,
             $"Payment {req.PaidAmount} {req.Currency} confirmed via {req.PaymentMethod}."));
-        store.AddWebhookLog(req.OrderId, new WebhookLogDto
-        {
-            WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
-            SourceSystem = "POS",
-            EventType = "PaymentConfirmed",
-            Detail = $"Paid {req.PaidAmount} {req.Currency} via {req.PaymentMethod}.",
-            IdempotencyKey = req.IdempotencyKey,
-            ReceivedAt = now
-        });
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.Paid });
     }
