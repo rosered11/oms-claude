@@ -12,10 +12,16 @@ public class GetDeliverySlotHandler(InMemoryStore store)
         return Results.Ok(new
         {
             orderId = id,
-            slotId = o.DeliverySlot.SlotId,
-            scheduledStart = o.DeliverySlot.ScheduledStart,
-            scheduledEnd = o.DeliverySlot.ScheduledEnd,
-            storeId = o.DeliverySlot.StoreId
+            deliverySlot = new
+            {
+                slotId         = o.DeliverySlot.SlotId,
+                scheduledStart = o.DeliverySlot.ScheduledStart,
+                scheduledEnd   = o.DeliverySlot.ScheduledEnd,
+                storeId        = o.DeliverySlot.StoreId,
+                bookedVia      = o.DeliverySlot.BookedVia,
+                bookingRef     = o.DeliverySlot.BookingRef,
+                history        = o.DeliverySlot.History
+            }
         });
     }
 }

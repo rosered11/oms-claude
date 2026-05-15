@@ -23,6 +23,8 @@ public class RecalcRequestedHandler(InMemoryStore store)
             $"WMS requested POS recalculation. Reason: {req.Reason}."));
         store.AppendEvent(req.OrderId, ApiResult.DomainEvent("PosRecalcCalled", o.Status,
             $"SC → POS [outbound]: recalculation completed synchronously. Adjusted basket: {o.Amount} THB."));
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("GW", "RecalcRequestedEvent",
+            $"SC → GW: recalc triggered by RecalcRequested for order {req.OrderId} → gw.recalc-requested"));
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, adjustedAmount = o.Amount });
     }

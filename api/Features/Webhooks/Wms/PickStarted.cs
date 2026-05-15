@@ -8,7 +8,7 @@ public class PickStartedHandler(InMemoryStore store)
     {
         var o = store.FindOrder(req.OrderId);
         if (o is null) return ApiResult.NotFound("order", req.OrderId);
-        if (o.Status is not (OrderStatus.BookingConfirmed or OrderStatus.Pending))
+        if (o.Status != OrderStatus.Pending)
             return ApiResult.InvalidTransition(o.Status, OrderStatus.PickStarted);
 
         o.Status = OrderStatus.PickStarted;

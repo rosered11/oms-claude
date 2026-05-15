@@ -472,8 +472,10 @@ sequenceDiagram
   rect rgb(220, 255, 220)
     Note over Customer,OMS: Slot reschedule allowed while order is Pending
     Customer->>GW: Reschedule delivery to +5 hours
-    GW->>OMS: PATCH /orders/{orderId}/delivery-slot { scheduledStart: +5h, scheduledEnd: +6h, bookedVia: "TMS", bookingRef, reason: "CustomerRequest" }
-    OMS-->>GW: 200 { orderId, deliverySlot: { scheduledStart } }
+    GW->>TMS: Reschedule request
+    TMS->>OMS: POST /webhooks/tms/slot-rescheduled { orderId, newScheduledStart: +5h, newScheduledEnd: +6h, bookingRef, reason: "CustomerRequest" }
+    OMS-->>TMS: 202 { accepted: true, orderId, deliverySlot: { scheduledStart } }
+    Note over OMS,WMS: Outbox: DeliverySlotRescheduledEvent → WMS
 
     GW->>OMS: GET /orders/{orderId}/delivery-slot
     OMS-->>GW: 200 { deliverySlot: { scheduledStart } }
@@ -512,8 +514,9 @@ sequenceDiagram
   rect rgb(255, 210, 210)
     Note over Customer,OMS: Reschedule attempt rejected once OutForDelivery
     Customer->>GW: Attempt to reschedule slot again (+7 hours)
-    GW->>OMS: PATCH /orders/{orderId}/delivery-slot { scheduledStart: +7h, scheduledEnd: +8h, reason: "CustomerRequest" }
-    OMS-->>GW: 409 { error: "slot_change_not_allowed" }
+    GW->>TMS: Reschedule request
+    TMS->>OMS: POST /webhooks/tms/slot-rescheduled { orderId, newScheduledStart: +7h, newScheduledEnd: +8h, reason: "CustomerRequest" }
+    OMS-->>TMS: 409 { error: "slot_change_not_allowed" }
   end
 ```
 

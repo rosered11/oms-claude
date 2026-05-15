@@ -245,7 +245,7 @@ const EVT_STYLE = {
 };
 
 const STATUS_COLOR = {
-  Pending: 'bg-gray-100 text-gray-700', BookingConfirmed: 'bg-blue-100 text-blue-700',
+  Pending: 'bg-gray-100 text-gray-700',
   PickStarted: 'bg-sky-100 text-sky-700', PickConfirmed: 'bg-cyan-100 text-cyan-700',
   ReadyForCollection: 'bg-teal-100 text-teal-700', Packed: 'bg-indigo-100 text-indigo-700',
   OutForDelivery: 'bg-purple-100 text-purple-700',
@@ -331,14 +331,10 @@ function orderUrgency(order) {
 
 const ORDER_ACTIONS = {
   Pending: [
-    { method: 'POST',  path: '/webhooks/wms/booking-confirmed',    label: 'Confirm Booking (WMS)',    uc: 'UC2'  },
-    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
-    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
-  ],
-  BookingConfirmed: [
-    { method: 'POST',  path: '/webhooks/wms/pick-started',         label: 'Start Pick (WMS)',         uc: 'UC3'  },
-    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',            uc: 'UC6'  },
-    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
+    { method: 'POST',  path: '/webhooks/wms/pick-started',          label: 'Start Pick (WMS)',             uc: 'UC3'           },
+    { method: 'HOOK',  path: '/webhooks/tms/slot-rescheduled',      label: 'TMS: Reschedule Delivery Slot', uc: 'UC-RESCHEDULE' },
+    { method: 'PATCH', path: '/orders/{id}/hold',                  label: 'Place on Hold',                uc: 'UC6'           },
+    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',                 uc: 'UC9'           },
   ],
   PickStarted: [
     { method: 'POST',  path: '/webhooks/wms/wave-started',         label: 'Wave Started (WMS)',       uc: 'UC-WAVE'     },
@@ -399,10 +395,10 @@ const ALL_USE_CASES = [
     trigger: 'Customer submits order via App / Web / POS',
     actors: ['Customer', 'OMS', 'WMS'],
     steps: ['Customer POSTs /orders', 'OMS creates order with status Pending', 'Outbox fires OrderCreatedEvent', 'WMS receives order for booking prep'] },
-  { id: 'UC2',  section: 'outbound', title: 'Book Order at WMS',
-    trigger: 'WMS confirms it can fulfil the order',
+  { id: 'UC2',  section: 'outbound', title: 'Start Picking at WMS',
+    trigger: 'WMS picker begins collecting items from shelves',
     actors: ['WMS', 'Sprint Connect', 'OMS'],
-    steps: ['WMS sends BookingConfirmed webhook', 'OMS transitions → BookingConfirmed', 'Outbox fires OrderBookedEvent'] },
+    steps: ['WMS sends PickStarted webhook directly from Pending', 'OMS transitions Pending → PickStarted', 'BookingConfirmed step is no longer part of the OMS flow'] },
   { id: 'UC3',  section: 'outbound', title: 'Start Picking',
     trigger: 'Picker begins collecting items from shelves',
     actors: ['WMS', 'OMS'],
@@ -523,9 +519,9 @@ const ALL_USE_CASES = [
     actors: ['WMS', 'Sprint Connect', 'POS'],
     steps: ['WMS picks partial quantities and sends PickConfirmed with reduced line amounts', 'OMS records partial quantities on order lines; remaining items are cancelled', 'POS recalculation triggered (pos_recalc_pending = true)', 'Partial pick cannot reduce ALL line quantities to zero — use Cancel Order instead', 'Available via PATCH /orders/{id}/partial-pick during PickStarted'] },
   { id: 'UC-RESCHEDULE', section: 'outbound', title: 'Delivery Slot Reschedule',
-    trigger: 'Customer or operator reschedules delivery slot before dispatch',
-    actors: ['Customer', 'OMS', 'TMS'],
-    steps: ['PATCH /orders/{id}/delivery-slot with new scheduledStart/scheduledEnd', 'Not allowed after OutForDelivery — returns 409 invalid_transition', 'TMS is updated with new slot via outbox'] },
+    trigger: 'TMS notifies OMS that the delivery slot has been rescheduled',
+    actors: ['TMS', 'OMS', 'WMS'],
+    steps: ['TMS → POST /webhooks/tms/slot-rescheduled with new slot window', 'OMS updates delivery slot and records history entry', 'Not allowed after OutForDelivery — returns 409 slot_change_not_allowed', 'OMS → WMS: DeliverySlotRescheduledEvent dispatched via outbox'] },
   { id: 'UC-PARTRETURN', section: 'outbound', title: 'Partial Item Return with Refund',
     trigger: 'Customer rejects items at delivery (e.g. item not fresh)',
     actors: ['Customer', 'OMS', 'TMS', 'WMS', 'POS'],
@@ -1115,6 +1111,19 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
       body = { releasedBy: 'dashboard-user' };
     else if (resolvedPath.includes('/cancel'))
       body = { reason: 'Cancelled via dashboard', cancelledBy: 'dashboard-user' };
+    else if (resolvedPath.includes('/webhooks/tms/slot-rescheduled')) {
+      const current = order.deliverySlot?.scheduledStart
+        ? new Date(order.deliverySlot.scheduledStart).getTime()
+        : Date.now();
+      body = {
+        orderId:           order.id,
+        newScheduledStart: new Date(current + 5 * 3600 * 1000).toISOString(),
+        newScheduledEnd:   new Date(current + 7 * 3600 * 1000).toISOString(),
+        bookingRef:        `TMS-RESCHEDULE-${Date.now()}`,
+        reason:            'CustomerRequest',
+        rescheduledAt:     new Date().toISOString(),
+      };
+    }
     else if (resolvedPath.includes('/partial-pick')) {
       const nonZeroLines = (order.lines || []).filter(l => l.requestedAmount > 1);
       if (!nonZeroLines.length) { showToast('No lines with quantity > 1 for partial pick', 'error'); return; }
@@ -1222,14 +1231,38 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
 
       {/* Delivery slot */}
       {order.deliverySlot && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-4">
-          <div className="text-blue-500 text-lg shrink-0">🕐</div>
-          <div>
-            <div className="text-xs font-bold text-blue-600 uppercase tracking-wide mb-0.5">Delivery Slot</div>
-            <div className="text-sm text-blue-800 font-medium">
-              {formatDate(order.deliverySlot.scheduledStart)} — {new Date(order.deliverySlot.scheduledEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="text-blue-500 text-lg shrink-0 mt-0.5">🕐</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">Delivery Slot</div>
+                {order.deliverySlot.history?.length > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 font-semibold">
+                    Rescheduled x{order.deliverySlot.history.length}
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-blue-800 font-medium">
+                {formatDate(order.deliverySlot.scheduledStart)} — {new Date(order.deliverySlot.scheduledEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+              <div className="text-xs text-blue-500 font-mono mt-0.5">{order.deliverySlot.slotId}</div>
+              {order.deliverySlot.history?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <div className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-1">Delivery History</div>
+                  {order.deliverySlot.history.map((h, i) => (
+                    <div key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 py-0.5 text-xs text-blue-600">
+                      <span className="text-blue-300 font-mono shrink-0">#{i + 1}</span>
+                      <span className="font-mono">
+                        {formatDate(h.scheduledStart)} — {new Date(h.scheduledEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {h.reason && <span className="text-amber-600 font-medium">({h.reason})</span>}
+                      <span className="text-blue-300 text-xs">{formatDate(h.changedAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="text-xs text-blue-500 font-mono mt-0.5">{order.deliverySlot.slotId}</div>
           </div>
         </div>
       )}
@@ -1488,7 +1521,6 @@ function ApiReferenceView() {
 
 const OUTBOUND_COLS = [
   { key: 'Pending',            label: 'Pending',      top: 'border-t-gray-300'    },
-  { key: 'BookingConfirmed',   label: 'Booking',      top: 'border-t-blue-400'    },
   { key: 'PickStarted',        label: 'Picking',      top: 'border-t-sky-400'     },
   { key: 'PickConfirmed',      label: 'Pick Done',    top: 'border-t-cyan-500'    },
   { key: 'ReadyForCollection', label: 'Ready',        top: 'border-t-teal-400'    },
@@ -3448,7 +3480,7 @@ const BU_META = {
   CMG:  { name: 'Central Marketing Group',cls: 'bg-blue-600',   badge: 'bg-blue-100 text-blue-800 border border-blue-200'      },
 };
 
-const ACTIVE_STATUSES = new Set(['Pending','BookingConfirmed','PickStarted','PickConfirmed','Packed','OutForDelivery','OnHold']);
+const ACTIVE_STATUSES = new Set(['Pending','PickStarted','PickConfirmed','Packed','OutForDelivery','OnHold']);
 const CLOSED_STATUS_SET = new Set(['Delivered','Invoiced','Paid','Collected','Cancelled','Returned']);
 
 function BUDashboardView() {
@@ -3467,7 +3499,7 @@ function BUDashboardView() {
   const buKeys = Object.keys(BU_META).filter(k => byBU[k]);
 
   const statusGroups = [
-    { label: 'Active',    statuses: ['Pending','BookingConfirmed','PickStarted','PickConfirmed','Packed'],    color: 'text-blue-700'   },
+    { label: 'Active',    statuses: ['Pending','PickStarted','PickConfirmed','Packed'],    color: 'text-blue-700'   },
     { label: 'In Transit',statuses: ['OutForDelivery'],                                                        color: 'text-purple-700' },
     { label: 'Completed', statuses: ['Delivered','Invoiced','Paid','Collected'],                               color: 'text-emerald-700'},
     { label: 'Issues',    statuses: ['OnHold','Cancelled','Returned'],                                         color: 'text-red-700'    },

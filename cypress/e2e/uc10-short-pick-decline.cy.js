@@ -35,6 +35,7 @@ describe('UC10 — Short-pick: dish soap out of stock, only water delivered', ()
         {
           sku:           'WATER-500ML',
           productName:   'Water 500ml',
+          barcode:       '8851234590001',
           requestedQty:  2,
           unitPrice:     1500,
           unitOfMeasure: 'Each',
@@ -42,17 +43,18 @@ describe('UC10 — Short-pick: dish soap out of stock, only water delivered', ()
         {
           sku:           'DISH-SOAP-500ML',
           productName:   'Dish Soap 500ml',
+          barcode:       '8851234590002',
           requestedQty:  1,
           unitPrice:     4500,
           unitOfMeasure: 'Each',
         },
       ],
     }).then((order) => {
-      expect(order.status).to.eq('Pending');
-      expect(order.lines).to.have.length(2);
       orderId     = order.id;
       waterLineId = order.lines[0].id;
       soapLineId  = order.lines[1].id;
+      expect(order.status).to.eq('Pending');
+      expect(order.lines).to.have.length(2);
     });
   });
 
@@ -191,10 +193,10 @@ describe('UC10 — Short-pick: dish soap out of stock, only water delivered', ()
       expect(res.body.status).to.eq('Delivered');
 
       const soapLine = res.body.lines.find(
-        (l) => l.orderLineId === soapLineId || l.sku === 'DISH-SOAP-500ML' || l.id === soapLineId,
+        (l) => l.sku === 'DISH-SOAP-500ML' || l.id === soapLineId,
       );
       expect(soapLine).to.exist;
-      expect(soapLine.pickedQty ?? soapLine.pickedQuantity).to.eq(0);
+      expect(soapLine.pickedAmount).to.eq(0);
     });
   });
 });

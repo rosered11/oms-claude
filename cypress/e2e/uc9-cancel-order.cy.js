@@ -5,7 +5,7 @@
  * Scenario B: Order advanced to PickStarted, cancel attempt rejected (409).
  *
  * Cancel invariants (docs/oms-overview.md):
- *   - PATCH /orders/{id}/cancel is valid from Pending, BookingConfirmed, OnHold
+ *   - PATCH /orders/{id}/cancel is valid from Pending, OnHold
  *   - Cancel from PickStarted → 409 invalid_transition
  *   - Cancelled is a terminal state; GET confirms status persists
  */

@@ -40,6 +40,7 @@ describe('UC11 — Substitution: fabric softener → dish soap, credit note for 
         {
           sku:           'WATER-500ML',
           productName:   'Water 500ml',
+          barcode:       '8851234590001',
           requestedQty:  2,
           unitPrice:     1500,
           unitOfMeasure: 'Each',
@@ -47,17 +48,18 @@ describe('UC11 — Substitution: fabric softener → dish soap, credit note for 
         {
           sku:           'FABRIC-SOFTENER-500ML',
           productName:   'Fabric Softener 500ml',
+          barcode:       '8851234590003',
           requestedQty:  1,
           unitPrice:     8900,
           unitOfMeasure: 'Each',
         },
       ],
     }).then((order) => {
-      expect(order.status).to.eq('Pending');
-      expect(order.lines).to.have.length(2);
       orderId        = order.id;
       waterLineId    = order.lines[0].id;
       softenerLineId = order.lines[1].id;
+      expect(order.status).to.eq('Pending');
+      expect(order.lines).to.have.length(2);
     });
   });
 

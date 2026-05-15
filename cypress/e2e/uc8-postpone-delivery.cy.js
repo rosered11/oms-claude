@@ -11,7 +11,7 @@
  *   slot reschedule attempt → 409 slot_change_not_allowed
  *
  * Key invariants exercised:
- *   - Delivery slot can be changed while order is Pending/BookingConfirmed
+ *   - Delivery slot can be changed while order is Pending
  *   - Slot change is forbidden once order is OutForDelivery (409)
  */
 
@@ -36,18 +36,20 @@ describe('UC8 — Customer postpones delivery date', () => {
     });
   });
 
-  it('Step 3 — Customer reschedules slot to +5 hours; verifies new scheduledStart returned', () => {
+  it('Step 3 — TMS reschedules slot to +5 hours; OMS updates slot and notifies WMS', () => {
     const plus5  = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
     const plus6  = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
 
-    cy.omsApi('PATCH', `/orders/${orderId}/delivery-slot`, {
-      scheduledStart: plus5,
-      scheduledEnd:   plus6,
-      bookedVia:      'TMS',
-      bookingRef:     `TMS-RESCHEDULE-${Date.now()}`,
-      reason:         'CustomerRequest',
+    cy.omsApi('POST', '/webhooks/tms/slot-rescheduled', {
+      orderId,
+      newScheduledStart: plus5,
+      newScheduledEnd:   plus6,
+      bookingRef:        `TMS-RESCHEDULE-${Date.now()}`,
+      reason:            'CustomerRequest',
+      rescheduledAt:     now(),
     }).then((res) => {
-      expect(res.status).to.eq(200);
+      expect(res.status).to.eq(202);
+      expect(res.body.accepted).to.be.true;
       expect(res.body.orderId).to.eq(orderId);
       expect(res.body.deliverySlot).to.have.property('scheduledStart');
     });
@@ -144,16 +146,17 @@ describe('UC8 — Customer postpones delivery date', () => {
     });
   });
 
-  it('Step 6 — Rescheduling slot while OutForDelivery returns 409 slot_change_not_allowed', () => {
+  it('Step 6 — TMS slot reschedule while OutForDelivery returns 409 slot_change_not_allowed', () => {
     const plus7 = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString();
     const plus8 = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
 
-    cy.omsApi('PATCH', `/orders/${orderId}/delivery-slot`, {
-      scheduledStart: plus7,
-      scheduledEnd:   plus8,
-      bookedVia:      'TMS',
-      bookingRef:     `TMS-RESCHEDULE-LATE-${Date.now()}`,
-      reason:         'CustomerRequest',
+    cy.omsApi('POST', '/webhooks/tms/slot-rescheduled', {
+      orderId,
+      newScheduledStart: plus7,
+      newScheduledEnd:   plus8,
+      bookingRef:        `TMS-RESCHEDULE-LATE-${Date.now()}`,
+      reason:            'CustomerRequest',
+      rescheduledAt:     now(),
     }).then((res) => {
       expect(res.status).to.eq(409);
       expect(res.body.error).to.eq('slot_change_not_allowed');

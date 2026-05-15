@@ -8,7 +8,8 @@ public class TmsWebhooksController(
     PackageDispatchedHandler packageDispatched,
     PackageDeliveredHandler packageDelivered,
     PackageDamageReportedHandler packageDamageReported,
-    TmsRecalcRequestedHandler tmsRecalcRequested) : ControllerBase
+    TmsRecalcRequestedHandler tmsRecalcRequested,
+    TmsSlotRescheduledHandler tmsSlotRescheduled) : ControllerBase
 {
     [HttpPost("package-dispatched")]
     public IResult PackageDispatched([FromBody] PackageDispatchedRequest req) => packageDispatched.Handle(req);
@@ -21,4 +22,7 @@ public class TmsWebhooksController(
 
     [HttpPost("recalculation-requested")]
     public IResult RecalcRequested([FromBody] TmsRecalcRequestedRequest req) => tmsRecalcRequested.Handle(req);
+
+    [HttpPost("slot-rescheduled")]
+    public IResult SlotRescheduled([FromBody] TmsSlotRescheduledRequest req) => tmsSlotRescheduled.Handle(req);
 }

@@ -16,6 +16,6 @@ public class CancelOrderHandler(InMemoryStore store)
         o.UpdatedBy = req.CancelledBy;
         store.AppendEvent(id, ApiResult.DomainEvent("OrderCancelled", OrderStatus.Cancelled,
             $"Cancelled: {req.Reason}"));
-        return Results.Ok(o);
+        return Results.Ok(new { id, newStatus = OrderStatus.Cancelled });
     }
 }

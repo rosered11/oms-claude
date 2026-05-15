@@ -3,7 +3,6 @@ namespace OmsApi;
 public static class OrderStatus
 {
     public const string Pending = "Pending";
-    public const string BookingConfirmed = "BookingConfirmed";
     public const string PickStarted = "PickStarted";
     public const string PickConfirmed = "PickConfirmed";
     public const string Packed = "Packed";
@@ -23,7 +22,7 @@ public static class OrderStatus
     ];
 
     public static bool CanCancel(string status) =>
-        status is Pending or BookingConfirmed or OnHold;
+        status is Pending or OnHold;
 
     public static bool CanHold(string status) =>
         status is not (Cancelled or Delivered or Collected or Paid or Returned);

@@ -5,7 +5,6 @@ namespace OmsApi;
 [ApiController]
 [Route("api/webhooks/wms")]
 public class WmsWebhooksController(
-    BookingConfirmedHandler bookingConfirmed,
     PickStartedHandler pickStarted,
     PickConfirmedHandler pickConfirmed,
     PackedHandler packed,
@@ -20,9 +19,6 @@ public class WmsWebhooksController(
     WaveStartedHandler waveStarted,
     RecalcRequestedHandler recalcRequested) : ControllerBase
 {
-    [HttpPost("booking-confirmed")]
-    public IResult BookingConfirmed([FromBody] BookingConfirmedRequest req) => bookingConfirmed.Handle(req);
-
     [HttpPost("pick-started")]
     public IResult PickStarted([FromBody] PickStartedRequest req) => pickStarted.Handle(req);
 

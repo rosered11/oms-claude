@@ -172,7 +172,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | UC5 | Substitution | WMS webhook | WMS offers alternative SKU; customer approves/rejects; POS recalc triggered |
 | UC6 | Hold / Release Hold | `PATCH /orders/{id}/hold`, `/release-hold` | Saves `pre_hold_status`; restores on release |
 | UC7 | Out for Delivery | TMS webhook | Driver dispatched; status → `OutForDelivery`; customer notified |
-| UC8 | Delivered | TMS webhook | Package delivered; invoice generation triggered |
+| UC8 | Customer postpones delivery date | TMS webhook (`slot-rescheduled`) | Delivery slot rescheduled before dispatch; slot change forbidden once `OutForDelivery` (`409 slot_change_not_allowed`) |
 | UC9 | Cancel Order | `PATCH /orders/{id}/cancel` | Allowed from `Pending`, `BookingConfirmed`, `OnHold` only |
 | UC10 | Click & Collect Ready | POS webhook | Order ready at store; customer notified |
 | UC11 | Collected | POS webhook | Customer collects; invoice triggered |
@@ -196,7 +196,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | UC29 | STS Tax Invoice Settlement | STS → SC → WMS/GW after PickConfirmed | Official ABB/Tax Invoice forwarded to WMS and GW; optionally followed by credit note to WMS and GW |
 | UC-WAVE | WaveStarted | WMS webhook: `/webhooks/wms/wave-started` | WMS starts wave picking while order is in `PickStarted`; SC forwards notification to GW via `WaveStartedSentToGW` outbox event. Not a persisted status column. |
 | UC-PARTPICK | Partial Pick | WMS webhook (pick-confirmed with partial quantities) | WMS picks fewer items than ordered (e.g. item out of stock or not fresh); OMS records partial quantities on order lines; remaining items are cancelled; POS recalc triggered. Partial pick cannot reduce all line quantities to zero — use Cancel Order instead. |
-| UC-RESCHEDULE | Rescheduler | `PATCH /orders/{id}/delivery-slot` | Customer or operator reschedules delivery slot. Not allowed after `OutForDelivery`; returns `409 invalid_transition` if attempted. |
+| UC-RESCHEDULE | Rescheduler | `POST /webhooks/tms/slot-rescheduled` | TMS notifies OMS of a customer-requested slot change. Not allowed after `OutForDelivery`; returns `409 slot_change_not_allowed` if attempted. |
 | UC-PARTRETURN | Partial Item Return with Refund | Customer rejects items at delivery | Customer receives order but rejects one or more items at delivery (e.g. item not fresh). Rejected items are returned; OMS triggers partial refund via POS/STS. Only allowed after `Delivered` status. Each returned line item must reference the original order line. |
 | UC-CREDITNOTE | Credit Note from STS (Prepaid) | STS webhook: `CreditNoteReceived` | STS issues credit note after `PickConfirmed`; SC receives webhook, stores credit note, forwards to WMS via `CreditNoteSentToWMS` and to GW via `CreditNoteSentToGW` outbox events. Requires `X-Idempotency-Key`; duplicate events are ignored. |
 | UC-POD-BRANCH | BranchNearMe (POD) | Customer → GW | Customer queries nearby branches via GW before booking a delivery slot. GW returns branch list from its own data source. No OMS involvement in this step. |

@@ -6,7 +6,7 @@
  *   STS ABB/Tax Invoice (→ WMS + GW) → Packed → OutForDelivery → Delivered
  *
  * Key invariants exercised:
- *   - Prepaid skips BookingConfirmed
+ *   - WMS pick can start directly from Pending (no BookingConfirmed step)
  *   - STS ABB/Tax Invoice issued after PickConfirmed, forwarded to WMS + GW
  *   - BU isolation: order carries businessUnit = CMG
  *   - POS recalculation is an outbound OMS → POS call; POS does not webhook OMS

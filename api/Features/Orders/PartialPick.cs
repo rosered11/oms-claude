@@ -6,7 +6,7 @@ public record PartialPickRequest(List<PartialPickLineRequest> Lines, string? Ide
 public class PartialPickHandler(InMemoryStore store)
 {
     private static readonly HashSet<string> AllowedStatuses =
-        [OrderStatus.BookingConfirmed, OrderStatus.PickStarted];
+        [OrderStatus.PickStarted];
 
     public IResult Handle(string id, PartialPickRequest req)
     {
@@ -18,13 +18,6 @@ public class PartialPickHandler(InMemoryStore store)
             {
                 error = "invalid_transition",
                 detail = $"Order {id} is in status {order.Status}. Partial pick is not allowed from this state."
-            });
-
-        if (req.Lines.All(l => l.PickedQuantity == 0))
-            return Results.UnprocessableEntity(new
-            {
-                error = "zero_pick_not_allowed",
-                detail = "All lines reduced to zero. Use Cancel Order instead."
             });
 
         var now = DateTime.UtcNow;

@@ -1082,6 +1082,33 @@ WMS confirms damaged items inspected, condition assigned, shelved/disposed. (UC2
 
 ---
 
+### POST /webhooks/tms/slot-rescheduled
+
+TMS notifies OMS that the delivery slot has been rescheduled by the customer. Updates the delivery slot and notifies WMS. Not allowed once the order is `OutForDelivery` or later. (UC8)
+
+**Request:**
+```json
+{
+  "orderId": "ORD-001",
+  "newScheduledStart": "2024-01-15T20:00:00Z",
+  "newScheduledEnd": "2024-01-15T21:00:00Z",
+  "bookingRef": "TMS-RESCHEDULE-001",
+  "reason": "CustomerRequest",
+  "rescheduledAt": "2024-01-15T14:00:00Z"
+}
+```
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "deliverySlot": { "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T21:00:00Z" } }`
+
+**Outbox event dispatched:** `DeliverySlotRescheduledEvent` → WMS
+
+**Response 409:**
+```json
+{ "error": "slot_change_not_allowed", "detail": "Order ORD-001 is already OutForDelivery. Slot cannot be changed." }
+```
+
+---
+
 ### POST /webhooks/tms/package-dispatched
 
 TMS driver collected the package. Transitions order to `OutForDelivery`. (UC7)

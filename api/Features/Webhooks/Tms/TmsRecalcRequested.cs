@@ -26,6 +26,8 @@ public class TmsRecalcRequestedHandler(InMemoryStore store)
             $"TMS requested POS recalculation. Actual weight: {req.ActualWeight} kg. Reason: {req.Reason}."));
         store.AppendEvent(o.Id, ApiResult.DomainEvent("PosRecalcCalled", o.Status,
             $"SC → POS [outbound]: recalculation requested by driver at door. Actual weight: {req.ActualWeight} kg."));
+        store.AppendEvent(o.Id, ApiResult.OutboxEvent("GW", "RecalcRequestedEvent",
+            $"SC → GW: recalc triggered by TmsRecalcRequested for order {o.Id} → gw.recalc-requested"));
 
         return Results.Accepted(null, new { accepted = true, orderId = o.Id, adjustedAmount = o.Amount });
     }

@@ -90,6 +90,17 @@ public class DeliverySlotDto
     public string? BookingRef { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public List<SlotHistoryEntryDto> History { get; set; } = [];
+}
+
+public class SlotHistoryEntryDto
+{
+    public DateTime ScheduledStart { get; set; }
+    public DateTime ScheduledEnd { get; set; }
+    public string? BookedVia { get; set; }
+    public string? BookingRef { get; set; }
+    public string? Reason { get; set; }
+    public DateTime ChangedAt { get; set; }
 }
 
 public class OrderHoldDto

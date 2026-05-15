@@ -26,7 +26,6 @@ public class WaveStartedHandler(InMemoryStore store)
 
         store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "WaveStartedSentToGW",
             "Dispatched to Gateway."));
-
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, waveId = req.WaveId });
     }
 }

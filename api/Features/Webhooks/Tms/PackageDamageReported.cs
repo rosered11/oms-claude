@@ -17,7 +17,6 @@ public class PackageDamageReportedHandler(InMemoryStore store)
 
         store.AppendEvent(o.Id, ApiResult.WebhookEvent("TMS", "PackageDamageReported", OrderStatus.OnHold,
             $"Driver reported damage on {req.TrackingId}: {req.DriverNote}"));
-
         return Results.Accepted(null, new
         {
             accepted = true,
