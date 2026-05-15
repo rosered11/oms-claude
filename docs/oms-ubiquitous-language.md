@@ -59,7 +59,16 @@ An organizational unit (e.g. `CMG`, `CFR`) that owns a set of orders and stores.
 ## C
 
 **Cancellation**
-The act of stopping an order before it reaches the warehouse for dispatch. Cancellation is only allowed from **Pending**, **Booking Confirmed**, or **On Hold**. A cancelled order triggers stock release back to WMS.
+The act of stopping an order before it reaches the warehouse for dispatch. Cancellation is only allowed from **Pending**, **Booking Confirmed**, or **On Hold**. On cancellation, OMS atomically dispatches three outbox events: **OrderCancelledSentToWMS** (stock release), **OrderCancelledSentToTMS** (cancel delivery booking), and **OrderCancelledSentToGW** (customer notification). All three appear on the order timeline.
+
+**OrderCancelledSentToGW**
+An outbox event dispatched to GW when an order is cancelled. Notifies the customer-facing gateway so the customer receives a cancellation notification. Dispatched atomically alongside **OrderCancelledSentToWMS** and **OrderCancelledSentToTMS** by `PATCH /orders/{id}/cancel`. Event `type: "outbox"`, `system: "GW"`.
+
+**OrderCancelledSentToTMS**
+An outbox event dispatched to TMS when an order is cancelled. Instructs TMS to cancel the delivery booking and free the driver slot. Dispatched atomically alongside **OrderCancelledSentToWMS** and **OrderCancelledSentToGW** by `PATCH /orders/{id}/cancel`. Event `type: "outbox"`, `system: "TMS"`.
+
+**OrderCancelledSentToWMS**
+An outbox event dispatched to WMS when an order is cancelled. Instructs WMS to release the reserved stock back to available inventory. Dispatched atomically alongside **OrderCancelledSentToTMS** and **OrderCancelledSentToGW** by `PATCH /orders/{id}/cancel`. Event `type: "outbox"`, `system: "WMS"`.
 
 **Channel Type**
 Where an order originated: `Gateway`, `Marketplace`, `Kiosk`, `POSTerminal`, `BulkImport`, `Web`, `App`, `POS`, or `CallCenter`. Determines routing rules, notification templates, and outbox routing via `config.outbox_routing_rules`.
@@ -220,6 +229,9 @@ The set of allowed status transitions for an order. Enforced as an invariant —
 **Outbox**
 A staging table (`orders.order_outbox`) where domain events are written atomically with the domain state change in the same database transaction. A background worker reads pending rows and dispatches them to external systems. This guarantees events are never lost even if the dispatcher crashes.
 
+**OrderReturned**
+The domain event raised when `POST /webhooks/wms/put-away-confirmed` is processed for a full return. OMS transitions the order's status from `Delivered` to `Returned`. This is distinct from the return record's own `PutAway` status — both transitions happen atomically in the same webhook handler. After `OrderReturned`, `GET /orders/{id}` returns `status: "Returned"`. `Returned` is a terminal order status — no further transitions occur.
+
 **Out for Delivery**
 An order status. The TMS driver has collected the package and is travelling to the customer's address.
 
@@ -303,7 +315,10 @@ An internal routing proxy that sits between **GW** and backend systems. Acts as 
 A record in OMS tracking expected goods from a supplier. Created by ERP/JDA or an operator. Progresses through `Created → PartiallyReceived → FullyReceived → Closed` as goods arrive and are shelved.
 
 **Put Away**
-The warehouse activity of placing inspected items on a shelf, repair bay, or disposal location after they are received. For **Returns**, put-away triggers atomic creation of a **Refund** and **Credit Note**. For inbound POs, put-away closes the PO and signals stock availability.
+The warehouse activity of placing inspected items on a shelf, repair bay, or disposal location after they are received.
+
+- **Return put-away** (`POST /webhooks/wms/put-away-confirmed`): Atomically transitions the **return record** to `PutAway` status AND transitions the **linked order** from `Delivered` to `Returned`. Also triggers creation of a **Refund** record. Do NOT confuse the return record's `PutAway` status with the order's `Returned` status — they are distinct states in different aggregates, but always change together in this webhook.
+- **Inbound PO put-away** (`POST /webhooks/wms/purchase-order-put-away-confirmed`): Closes the PO and signals stock availability for picking.
 
 ---
 

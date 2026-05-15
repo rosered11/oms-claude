@@ -254,6 +254,48 @@ List all webhook events received for an order.
 
 ---
 
+### GET /orders/{id}/credit-note
+
+Get the credit note associated with an order. Returns the credit note issued by STS for this order — for example, after a substitution where the replacement item is cheaper than the original (UC11), or after a partial pick adjustment.
+
+Returns `404` if no credit note exists for the order.
+
+**Response 200:**
+```json
+{
+  "creditNoteId": "CN-001",
+  "creditNoteNumber": "CN-UC11-1716000000000",
+  "invoiceId": "inv-001",
+  "amount": 4400,
+  "currency": "THB",
+  "reason": "PriceAdjustment",
+  "status": "Issued",
+  "creditNoteLink": "https://sts.example.com/cn/UC11.pdf",
+  "sourceStsRef": "STS-CN-REF-001",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+```
+
+**Response 404:**
+```json
+{ "error": "not_found", "detail": "No credit note exists for order ORD-001." }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `creditNoteId` | string | OMS internal credit note ID |
+| `creditNoteNumber` | string | Fiscal credit note number from STS |
+| `invoiceId` | string | The invoice being partially reversed |
+| `amount` | number | Credit amount in satang (smallest THB unit) |
+| `currency` | string | Currency code — `THB` |
+| `reason` | string | Why the credit note was issued — e.g. `PriceAdjustment`, `CustomerRejection` |
+| `status` | string | `Issued`, `Applied`, or `Cancelled` |
+| `creditNoteLink` | string | URL to the Credit Note PDF hosted by STS |
+| `sourceStsRef` | string | STS reference ID for reconciliation |
+| `issuedAt` | timestamp | When STS issued the credit note (ISO 8601 UTC) |
+
+---
+
 ### GET /orders/{id}/substitutions
 
 List substitutions offered by WMS. (UC5)
@@ -395,6 +437,16 @@ Cancel order. Allowed from `Pending`, `BookingConfirmed`, `OnHold` only. (UC9)
 **Request:** `{ "reason": "CustomerRequest", "cancelledBy": "ops-agent-01" }`
 
 **Response 200:** `{ "id": "ORD-005", "newStatus": "Cancelled" }`
+
+**Outbox events dispatched on cancellation (all three are appended atomically):**
+
+| Event | Target | Purpose |
+|---|---|---|
+| `OrderCancelledSentToWMS` | WMS | Reverse stock reservation |
+| `OrderCancelledSentToTMS` | TMS | Cancel delivery booking |
+| `OrderCancelledSentToGW` | GW | Notify customer of cancellation |
+
+All three events appear on `GET /orders/{id}/timeline` with `type: "outbox"` and the respective `system` values (`"WMS"`, `"TMS"`, `"GW"`).
 
 **Response 409:**
 ```json
@@ -965,7 +1017,7 @@ WMS offers alternative SKU for unfulfillable line. Sets `substitution_flag = tru
 
 ### POST /webhooks/wms/put-away-confirmed
 
-WMS confirms returned items are shelved. Triggers atomic refund calculation and credit note. (UC14)
+WMS confirms returned items are shelved. Atomically: transitions the **return record** to `PutAway`, transitions the **linked order** from `Delivered` to `Returned`, and initiates the refund calculation. (UC12, UC14)
 
 **Request:**
 ```json
@@ -979,6 +1031,17 @@ WMS confirms returned items are shelved. Triggers atomic refund calculation and 
 ```
 
 **Response 202:** `{ "accepted": true, "returnId": "RET-001", "newReturnStatus": "PutAway", "refundInitiated": true, "creditNoteId": "CN-RET-001" }`
+
+**Side effects (all atomic in the same DB transaction):**
+
+| Effect | Detail |
+|---|---|
+| Return record status | `Requested` → `PutAway` |
+| **Order status** | `Delivered` → **`Returned`** |
+| Refund record | Created with `status: Pending` |
+| Credit note | Created or linked if applicable |
+
+The order status transition to `Returned` was added to fix a bug where the order remained in `Delivered` after the return was put away. Calling `GET /orders/{orderId}` after this webhook now returns `status: "Returned"`.
 
 ---
 
@@ -1302,7 +1365,7 @@ Note: `invoiceLink` is required for POD (the link is forwarded to TMS and GW). F
 
 ### POST /webhooks/sts/credit-note-received
 
-STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after partial pick). Forwarding target depends on payment method.
+STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after substitution or partial pick). Forwarding target depends on payment method.
 
 **Headers:** `X-Idempotency-Key: <uuid>`
 
@@ -1311,13 +1374,14 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
 {
   "orderId": "ORD-001",
   "creditNoteNumber": "CN-001",
-  "creditAmount": 15000,
+  "amount": 4400,
   "currency": "THB",
   "creditNoteLink": "https://sts.example.com/credit-notes/CN-001.pdf",
-  "reason": "PriceAdjustment",
   "issuedAt": "2024-01-15T16:05:00Z"
 }
 ```
+
+**Note:** The request field is `amount` (not `creditAmount` — that was a previous naming that caused a 0-amount bug and has been corrected).
 
 **Response 202 Accepted**
 

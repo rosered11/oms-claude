@@ -107,6 +107,9 @@ public class InMemoryStore
         Add("*", "*", "*", "ABBTaxInvoiceSentToTMS", "TMS",     "tms.abb-tax-invoice", 1);
         Add("*", "*", "*", "ABBInvoiceSentToGW",     "Gateway", "gateway.abb-invoice", 1);
         Add("*", "*", "*", "CreditNoteSentToGW",     "Gateway", "gateway.credit-note", 1);
+        Add("*", "*", "*", "OrderCancelledEvent",    "WMS",     "wms.cancel-order",    1);
+        Add("*", "*", "*", "OrderCancelledEvent",    "TMS",     "tms.cancel-booking",  2);
+        Add("*", "*", "*", "OrderCancelledEvent",    "GW",      "gw.order-cancelled",  3);
     }
 
     // ── Orders ────────────────────────────────────────────────────────────────

@@ -203,4 +203,11 @@ describe('UC12 — Full return after delivery (CustomerRequest)', () => {
       expect(res.body.status).to.eq('PutAway');
     });
   });
+
+  it('Step 9 — GET order; status transitioned to Returned', () => {
+    cy.omsApi('GET', `/orders/${orderId}`).then((res) => {
+      expect(res.status).to.eq(200);
+      expect(res.body.status).to.eq('Returned');
+    });
+  });
 });

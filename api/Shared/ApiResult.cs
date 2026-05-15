@@ -6,8 +6,8 @@ public static class ApiResult
         Results.NotFound(new { error_code = "NOT_FOUND", message = $"{resource} '{id}' not found.", trace_id = Guid.NewGuid() });
 
     public static IResult InvalidTransition(string current, string target) =>
-        Results.UnprocessableEntity(new { error_code = "INVALID_TRANSITION",
-            message = $"Cannot transition from '{current}' to '{target}'.", trace_id = Guid.NewGuid() });
+        Results.Conflict(new { error = "invalid_transition",
+            detail = $"Cannot transition from '{current}' to '{target}'.", trace_id = Guid.NewGuid() });
 
     public static TimelineEventDto DomainEvent(string evt, string outStatus, string detail) => new()
     {

@@ -2,6 +2,12 @@
 
 This document contains one Mermaid sequence diagram per end-to-end use case defined in `cypress/e2e/`. Each diagram title matches the Cypress `describe()` label exactly. Actors are consistent across all diagrams: `Customer` (end customer), `GW` (CFW Gateway), `OMS` (Sprint Connect OMS), `WMS` (Warehouse System), `TMS` (Transport System), `POS` (Point of Sale), `STS` (Settlement Tax System). All monetary values are in satang (smallest THB unit).
 
+**Key API changes reflected in this document:**
+- `PATCH /orders/{id}/cancel` dispatches three outbox events: `OrderCancelledSentToWMS`, `OrderCancelledSentToTMS`, `OrderCancelledSentToGW` (UC9)
+- `POST /webhooks/wms/put-away-confirmed` transitions the linked **order** to `Returned` in addition to transitioning the return record to `PutAway` (UC12)
+- `POST /webhooks/sts/credit-note-received` request field is `amount` (not `creditAmount`) (UC11)
+- `GET /orders/{id}/credit-note` — new endpoint returning `CreditNoteDto` for an order (UC11)
+
 ---
 
 ## UC1 — Web / CMG / Prepaid full order flow
@@ -522,28 +528,35 @@ sequenceDiagram
 
 ---
 
-## UC9 — Customer cancels order
+## UC9 — OMS operator cancels order via OMS UI
 
 ```mermaid
 sequenceDiagram
-  title: UC9 — Customer cancels order
+  title: UC9 — OMS operator cancels order via OMS UI
 
   participant Customer
   participant GW
   participant OMS
   participant WMS
+  participant TMS
 
   rect rgb(220, 255, 220)
-    Note over Customer,OMS: Scenario A — Cancel from Pending (allowed)
+    Note over Customer,OMS: Scenario A — Cancel from Pending via Kanban UI (allowed)
     Customer->>GW: Place order
     GW->>OMS: POST /orders
     OMS-->>GW: 201 { orderId1, status: "Pending" }
     Note over OMS: State: Pending
 
-    Customer->>GW: Cancel order
+    Note over OMS: OMS operator clicks "Cancel Order" on Kanban card (window.confirm → true)
     GW->>OMS: PATCH /orders/{orderId1}/cancel { reason: "CustomerRequest", cancelledBy }
     OMS-->>GW: 200 { id: orderId1, newStatus: "Cancelled" }
     Note over OMS: State: Cancelled (terminal)
+    Note over OMS,WMS: Outbox: OrderCancelledSentToWMS → WMS (reverse stock reservation)
+    Note over OMS,TMS: Outbox: OrderCancelledSentToTMS → TMS (cancel delivery booking)
+    Note over OMS,GW: Outbox: OrderCancelledSentToGW → GW (notify customer)
+
+    GW->>OMS: GET /orders/{orderId1}/timeline
+    OMS-->>GW: 200 { events: [ OrderCancelled (domain), OrderCancelledSentToWMS (outbox), OrderCancelledSentToTMS (outbox), OrderCancelledSentToGW (outbox) ] }
 
     GW->>OMS: GET /orders/{orderId1}
     OMS-->>GW: 200 { status: "Cancelled" }
@@ -560,7 +573,6 @@ sequenceDiagram
     OMS-->>WMS: 202 { accepted: true, newStatus: "PickStarted" }
     Note over OMS: State: PickStarted
 
-    Customer->>GW: Attempt to cancel order in PickStarted
     GW->>OMS: PATCH /orders/{orderId2}/cancel { reason: "CustomerRequest", cancelledBy }
     OMS-->>GW: 409 { error: "invalid_transition" }
     Note over OMS: State unchanged: PickStarted — cancel invariant enforced
@@ -788,10 +800,15 @@ sequenceDiagram
 
     WMS->>OMS: POST /webhooks/wms/put-away-confirmed { returnId, items: [{ sku: "APPLE-1KG", condition: "Resellable", sloc: "B-05", quantity: 2, performedBy }], putAwayAt }
     OMS-->>WMS: 202 { accepted: true, returnId, newReturnStatus: "PutAway", refundInitiated: true }
-    Note over OMS: Return status: PutAway — refund initiated automatically
+    Note over OMS: Return status → PutAway AND Order status → Returned (both change atomically)
+    Note over OMS: Refund initiated automatically
 
     GW->>OMS: GET /returns/{returnId}
     OMS-->>GW: 200 { status: "PutAway" }
+
+    GW->>OMS: GET /orders/{orderId}
+    OMS-->>GW: 200 { status: "Returned" }
+    Note over OMS: Order status is now Returned — terminal state
   end
 ```
 
@@ -863,15 +880,15 @@ sequenceDiagram
 | UC | Title | Channel | BU | Payment | Terminal State |
 |----|-------|---------|-----|---------|----------------|
 | UC1 | Web / CMG / Prepaid full order flow | Web | CMG | Prepaid | Delivered |
-| UC2 | Web / CFR / Prepaid full order flow | Web | CFR | Prepaid | Delivered |
+| UC2 | Web / CFR / Prepaid full order flow (BU isolation verified) | Web | CFR | Prepaid | Delivered |
 | UC3 | TikTok Marketplace / CMG / Prepaid — AWB retrieval after OutForDelivery | Marketplace (TikTok) | CMG | Prepaid | Delivered |
 | UC4 | Web / CFR / POD full order flow | Web | CFR | POD | Delivered |
 | UC5 | Web / CFR / POD — weight-based fresh products (pork 841.23 g + duck 1.23 kg) | Web | CFR | POD | Delivered |
-| UC6 | Web / CFR / POD — beef + chicken order, beef not fresh → partial return | Web | CFR | POD | Delivered + ReturnRequested |
-| UC7 | Stock transfer from Store A to Store B | — (Inbound) | — | — | Completed |
+| UC6 | Web / CFR / POD — beef + chicken order, beef not fresh → partial return | Web | CFR | POD | Delivered (order) + Requested (return) |
+| UC7 | Stock transfer from Store A to Store B | — (Inbound) | — | — | Completed (transfer order) |
 | UC8 | Customer postpones delivery date | Web | CFR | Prepaid | OutForDelivery (slot-reschedule 409 enforced) |
-| UC9 | Customer cancels order | Web | — | — | Cancelled (Scenario A) / PickStarted—unchanged (Scenario B) |
+| UC9 | OMS operator cancels order via OMS UI | Web | — | — | Cancelled + 3 outbox events (Scenario A) / PickStarted unchanged (Scenario B) |
 | UC10 | Short-pick: dish soap out of stock, only water delivered | Web | CFR | Prepaid | Delivered |
 | UC11 | Substitution: fabric softener → dish soap, credit note for price difference | Web | CFR | Prepaid | Delivered |
-| UC12 | Full return after delivery (CustomerRequest) | Web | CFR | Prepaid | Delivered + PutAway (return) |
+| UC12 | Full return after delivery (CustomerRequest) | Web | CFR | Prepaid | Returned (order) + PutAway (return) |
 | UC13 | Web / CFR / Prepaid order with coupon FRESH10 (10% discount) | Web | CFR | Prepaid | Delivered |

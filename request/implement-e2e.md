@@ -11,6 +11,8 @@ And all incoming requirements should be learned and incorporated into your team'
 
 I want you to create or update e2e follow use cases, with the details of OMS in these documents. By the path of e2e is 'cypress'
 
+and then I want to every cancel order from UI. It must to send outbox to TMS, WMS and GW.
+
 ## Path documents
 
 - docs

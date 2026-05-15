@@ -3,7 +3,7 @@ namespace OmsApi;
 public record CreditNoteReceivedRequest(
     string OrderId,
     string CreditNoteNumber,
-    decimal CreditAmount,
+    decimal Amount,
     string Currency,
     string? CreditNoteLink,
     string? Reason,
@@ -25,7 +25,7 @@ public class CreditNoteReceivedHandler(InMemoryStore store)
             CreditNoteId = $"CN-{Guid.NewGuid():N}"[..10],
             CreditNoteNumber = req.CreditNoteNumber,
             InvoiceId = store.GetInvoice(req.OrderId)?.InvoiceId ?? "",
-            Amount = req.CreditAmount,
+            Amount = req.Amount,
             Currency = req.Currency,
             Reason = req.Reason ?? "PriceAdjustment",
             Status = "Issued",
@@ -39,11 +39,11 @@ public class CreditNoteReceivedHandler(InMemoryStore store)
             WebhookLogId = $"whl-{Guid.NewGuid():N}"[..8],
             SourceSystem = "STS",
             EventType = "CreditNoteReceived",
-            Detail = $"Credit Note {req.CreditNoteNumber} · {req.CreditAmount} {req.Currency} received from STS.",
+            Detail = $"Credit Note {req.CreditNoteNumber} · {req.Amount} {req.Currency} received from STS.",
             ReceivedAt = DateTime.UtcNow
         });
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("STS", "CreditNoteReceived", order.Status,
-            $"Credit Note {req.CreditNoteNumber} · {req.CreditAmount} {req.Currency} received from STS."));
+            $"Credit Note {req.CreditNoteNumber} · {req.Amount} {req.Currency} received from STS."));
 
         if (order.IsPrepaid)
         {

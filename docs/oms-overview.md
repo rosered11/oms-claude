@@ -47,6 +47,8 @@ OMS integrates with external systems using two patterns:
 
 ```
 Pending → BookingConfirmed → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered → Invoiced → Paid
+                                                                                                ↓
+                                                                                            Returned  (via full return put-away)
 ```
 
 | Transition | Trigger | Notes |
@@ -154,46 +156,39 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | Status | Meaning |
 |---|---|
 | `OnHold` | Manual hold (supervisor) or automatic hold (damaged goods). `pre_hold_status` saves the previous status and is restored on release. |
-| `Cancelled` | Allowed from `Pending`, `BookingConfirmed`, or `OnHold` only. Triggers `OrderCancelledEvent` → WMS reverses stock reservation. |
+| `Cancelled` | Allowed from `Pending`, `BookingConfirmed`, or `OnHold` only. `PATCH /orders/{id}/cancel` transitions the order to `Cancelled` and dispatches three outbox events atomically: `OrderCancelledSentToWMS` (WMS reverses stock reservation), `OrderCancelledSentToTMS` (TMS cancels delivery booking), `OrderCancelledSentToGW` (GW notifies customer). All three events appear on the order timeline. |
 | `ReadyForCollection` | Click & Collect only — order packed and waiting at store counter. |
 | `Collected` | Customer picked up the order at the store. |
-| `Returned` | Full or partial return processed. |
+| `Returned` | Terminal state. An order transitions from `Delivered` to `Returned` when WMS confirms put-away of a full return via `POST /webhooks/wms/put-away-confirmed`. This is distinct from the return record's own `PutAway` status — the **order** reaches `Returned`, and the **return record** reaches `PutAway`. Both transitions happen atomically in the same webhook handler. |
 
 ---
 
 ## 3. Use Cases
 
+### 3.1 E2E Test Use Cases (UC1–UC13)
+
+The following 13 use cases are exercised by the Cypress e2e test suite in `cypress/e2e/`. Each UC number matches its test file exactly.
+
+| UC | E2E File | Description | Channel | BU | Payment | Terminal State |
+|---|---|---|---|---|---|---|
+| UC1 | `uc1-web-cmg-prepaid.cy.js` | Web / CMG / Prepaid full order flow: `Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered`. STS ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS + GW. | Web | CMG | Prepaid | Delivered |
+| UC2 | `uc2-web-cfr-prepaid.cy.js` | Web / CFR / Prepaid full order flow: same as UC1 but for CFR business unit. Verifies BU data isolation. | Web | CFR | Prepaid | Delivered |
+| UC3 | `uc3-tiktok-cmg-prepaid-awb.cy.js` | TikTok Marketplace / CMG / Prepaid. Standard Prepaid flow plus TikTok-specific AWB retrieval: after `OutForDelivery`, TikTok calls `GET /orders/{id}/packages` to retrieve the Air Waybill. OMS dispatches `OutForDeliveryEvent` outbox to Marketplace. | Marketplace (TikTok) | CMG | Prepaid | Delivered |
+| UC4 | `uc4-web-cfr-pod.cy.js` | Web / CFR / POD full order flow: `Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → (TMS pre-delivery recalc) → Delivered`. STS ABB/Tax Invoice issued after Delivered; forwarded to TMS + GW. | Web | CFR | POD | Delivered |
+| UC5 | `uc5-web-cfr-pod-pork.cy.js` | Web / CFR / POD — weight-based fresh products (pork 841.23 g + duck 1.23 kg). POS-rounded pricing in satang: pork 10684 + duck 4871 = 15555 sat total. TMS pre-delivery recalc confirms final actual weight before driver collects payment. | Web | CFR | POD | Delivered |
+| UC6 | `uc6-web-cfr-partial-return.cy.js` | Web / CFR / POD — beef + chicken order, beef not fresh at delivery. Customer keeps chicken; returns beef (BEEF-KG, 0.5 kg, 17500 sat). `POST /returns` with `returnType: PartialItem`. Return status: `Requested`. | Web | CFR | POD | Delivered + Return Requested |
+| UC7 | `uc7-stock-transfer.cy.js` | Stock transfer from Store A to Store B: `POST /inbound/transfer-orders → Created → WMS transfer-pick-confirmed → PickConfirmed → WMS transfer-received → Completed`. | Inbound | — | — | Completed |
+| UC8 | `uc8-postpone-delivery.cy.js` | Customer postpones delivery slot (allowed from Pending). Second reschedule attempt while `OutForDelivery` returns `409 slot_change_not_allowed`. | Web | CFR | Prepaid | OutForDelivery (409 enforced) |
+| UC9 | `uc9-cancel-order.cy.js` | OMS operator cancels a Pending order via the Kanban UI. `PATCH /orders/{id}/cancel` transitions to `Cancelled` and dispatches three outbox events: `OrderCancelledSentToWMS` (reverse stock reservation), `OrderCancelledSentToTMS` (cancel delivery booking), `OrderCancelledSentToGW` (notify customer). Cancel from `PickStarted` returns `409 invalid_transition`. | Web | — | — | Cancelled |
+| UC10 | `uc10-short-pick-decline.cy.js` | Short-pick: dish soap out of stock; only water delivered. `PATCH /orders/{id}/partial-pick` records soap line `shortfallQuantity: 1`. WMS packs water only. Final order `Delivered` with soap line `pickedQty: 0`. | Web | CFR | Prepaid | Delivered |
+| UC11 | `uc11-substitution-refund.cy.js` | Substitution: fabric softener (8900 sat) → dish soap (4500 sat). Customer approves via `POST /orders/{id}/substitutions/{subId}/approve`. STS issues credit note for price difference (4400 sat). | Web | CFR | Prepaid | Delivered |
+| UC12 | `uc12-full-return.cy.js` | Full return after delivery (CustomerRequest). `POST /returns → Requested`. `POST /webhooks/wms/put-away-confirmed` transitions return to `PutAway` and **transitions the linked order to `Returned`** (order status changes from `Delivered` → `Returned`). Refund initiated automatically. | Web | CFR | Prepaid | Returned |
+| UC13 | `uc13-coupon-order.cy.js` | Prepaid order with coupon FRESH10 (10% PercentageDiscount). POS applies discount at recalculation; `adjustedAmount` reflects discount (e.g. 19800 × 0.90 = 17820 sat). STS ABB/Tax Invoice for discounted amount. | Web | CFR | Prepaid | Delivered |
+
+### 3.2 Extended Use Case Reference
+
 | UC | Name | Trigger | Key Flow |
 |---|---|---|---|
-| UC1 | Create Order | `POST /orders` | Customer creates outbound order; status → `Pending`; outbox → WMS/TMS |
-| UC2 | Booking Confirmed | WMS webhook | WMS reserves stock; status → `BookingConfirmed` |
-| UC3 | Pick Started | WMS webhook | Picker begins collecting; status → `PickStarted` |
-| UC4 | Pick Confirmed + Packed | WMS webhooks | Picked qty recorded; POS recalc if needed; status → `PickConfirmed` → `Packed` |
-| UC5 | Substitution | WMS webhook | WMS offers alternative SKU; customer approves/rejects; POS recalc triggered |
-| UC6 | Hold / Release Hold | `PATCH /orders/{id}/hold`, `/release-hold` | Saves `pre_hold_status`; restores on release |
-| UC7 | Out for Delivery | TMS webhook | Driver dispatched; status → `OutForDelivery`; customer notified |
-| UC8 | Customer postpones delivery date | TMS webhook (`slot-rescheduled`) | Delivery slot rescheduled before dispatch; slot change forbidden once `OutForDelivery` (`409 slot_change_not_allowed`) |
-| UC9 | Cancel Order | `PATCH /orders/{id}/cancel` | Allowed from `Pending`, `BookingConfirmed`, `OnHold` only |
-| UC10 | Click & Collect Ready | POS webhook | Order ready at store; customer notified |
-| UC11 | Collected | POS webhook | Customer collects; invoice triggered |
-| UC12 | Invoiced | POS webhook | POS issues fiscal invoice; status → `Invoiced` |
-| UC13 | Payment Confirmed | POS webhook | Payment received; status → `Paid` |
-| UC14 | Return | `POST /returns` + WMS webhooks | ReturnRequested → PickupScheduled → PickedUp → Received → Inspected → PutAway → Refunded |
-| UC15 | POS Recalculation | `POST /webhooks/wms/recalculation-requested` or `POST /orders/{id}/recalculate` | OMS calls POS API outbound synchronously; returns `adjustedAmount` immediately |
-| UC16 | Order Detail & Timeline | `GET /orders/{id}`, `/timeline` | Full order detail with event history across domain/webhook/outbox |
-| UC17 | List Orders | `GET /orders` | Paginated list; filter by status, store, type |
-| UC18 | List Packages | `GET /orders/{id}/packages` | Package and tracking info |
-| UC19 | Delivery Slot | `GET/PATCH /orders/{id}/delivery-slot` | View or reschedule slot; not allowed after OutForDelivery |
-| UC20 | Package Damaged | TMS webhook | Driver reports damage; status → `OnHold`; goods returned to warehouse |
-| UC21 | Purchase Order | `POST/GET /inbound/purchase-orders` + WMS webhooks | PO Created → FullyReceived → Closed |
-| UC22 | Transfer Order | `POST/GET /inbound/transfer-orders` + WMS webhooks | Created → PickConfirmed → InTransit → Received → Completed |
-| UC23 | Damaged Goods Receipt | WMS webhooks | Damaged return checked in; items inspected; order placed OnHold |
-| UC24 | Stock Ledger | `GET /stock/{sku}/ledger` | Read-only per-SKU stock movement view |
-| UC25 | Time Slot Request (Prepaid) | Customer → GW → PS → TMS | Available delivery windows queried before order creation |
-| UC26 | Delivery Booking (Prepaid) | Customer → GW → PS → TMS | Slot booked before sale order; OMS skips BookingConfirmed |
-| UC27 | POS Recalculation (Prepaid) | WMS → SC → POS (mid-pick) | Repeats multiple times during picking; not limited to substitutions |
-| UC28 | Pre-Delivery Invoice (Prepaid) | SC → WMS/GW after PickConfirmed | ABB/Tax Invoice received from STS after PickConfirmed; forwarded to WMS and GW before TMS dispatch |
-| UC29 | STS Tax Invoice Settlement | STS → SC → WMS/GW after PickConfirmed | Official ABB/Tax Invoice forwarded to WMS and GW; optionally followed by credit note to WMS and GW |
 | UC-WAVE | WaveStarted | WMS webhook: `/webhooks/wms/wave-started` | WMS starts wave picking while order is in `PickStarted`; SC forwards notification to GW via `WaveStartedSentToGW` outbox event. Not a persisted status column. |
 | UC-PARTPICK | Partial Pick | WMS webhook (pick-confirmed with partial quantities) | WMS picks fewer items than ordered (e.g. item out of stock or not fresh); OMS records partial quantities on order lines; remaining items are cancelled; POS recalc triggered. Partial pick cannot reduce all line quantities to zero — use Cancel Order instead. |
 | UC-RESCHEDULE | Rescheduler | `POST /webhooks/tms/slot-rescheduled` | TMS notifies OMS of a customer-requested slot change. Not allowed after `OutForDelivery`; returns `409 slot_change_not_allowed` if attempted. |

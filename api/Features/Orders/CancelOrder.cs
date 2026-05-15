@@ -14,8 +14,16 @@ public class CancelOrderHandler(InMemoryStore store)
         o.Status = OrderStatus.Cancelled;
         o.UpdatedAt = DateTime.UtcNow;
         o.UpdatedBy = req.CancelledBy;
+
         store.AppendEvent(id, ApiResult.DomainEvent("OrderCancelled", OrderStatus.Cancelled,
-            $"Cancelled: {req.Reason}"));
+            $"Cancelled by {req.CancelledBy}: {req.Reason}. Status → Cancelled."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "OrderCancelledSentToWMS",
+            $"SC → WMS: OrderCancelled. Reverse stock reservation for order {id}."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("TMS", "OrderCancelledSentToTMS",
+            $"SC → TMS: OrderCancelled. Cancel delivery booking for order {id}."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("GW", "OrderCancelledSentToGW",
+            $"SC → GW: OrderCancelled. Notify customer of cancellation for order {id}."));
+
         return Results.Ok(new { id, newStatus = OrderStatus.Cancelled });
     }
 }

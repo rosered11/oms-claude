@@ -312,6 +312,40 @@ Stores credit notes received from STS (reducing the amount owed by the customer 
 
 ---
 
+### `CreditNoteDto` — API response shape for GET /orders/{id}/credit-note
+
+This is the Data Transfer Object returned by `GET /orders/{id}/credit-note`. It maps directly from the `payment.credit_notes` table. Returns `404` if no credit note exists for the order.
+
+| Field | Type | Source column | Description |
+|---|---|---|---|
+| `creditNoteId` | string | `credit_notes.id` | OMS internal credit note ID |
+| `creditNoteNumber` | string | `credit_notes.credit_note_number` | Fiscal credit note number assigned by STS — e.g. `CN-RET-001` |
+| `invoiceId` | string | `credit_notes.invoice_id` | The invoice being partially reversed. `null` if not tied to a specific internal invoice |
+| `amount` | number | `credit_notes.credit_amount` | Credit amount in satang (smallest THB unit). Stored as integer to avoid floating-point errors |
+| `currency` | string | `credit_notes.currency` | Currency code — `THB` |
+| `reason` | string | `credit_notes.reason` | Why the credit note was issued — e.g. `PriceAdjustment`, `CustomerRejection`, `DamagedGoods` |
+| `status` | string | `credit_notes.status` | `Issued` (created), `Applied` (applied to payment), `Cancelled` |
+| `creditNoteLink` | string | `credit_notes.credit_note_link` | URL to the Credit Note PDF hosted by STS. `null` for non-STS credit notes |
+| `sourceStsRef` | string | `credit_notes.source_sts_ref` | Reference ID from STS for reconciliation. `null` for internally generated credit notes |
+| `issuedAt` | timestamp | `credit_notes.issued_at` | When STS issued the credit note (ISO 8601 UTC) |
+
+**Example (UC11 — substitution price difference):**
+
+| Field | Example value |
+|---|---|
+| `creditNoteId` | `"cn-001"` |
+| `creditNoteNumber` | `"CN-UC11-1716000000000"` |
+| `invoiceId` | `"inv-001"` |
+| `amount` | `4400` (satang — fabric softener 8900 − dish soap 4500 = 4400 sat refund) |
+| `currency` | `"THB"` |
+| `reason` | `"PriceAdjustment"` |
+| `status` | `"Issued"` |
+| `creditNoteLink` | `"https://sts.example.com/cn/UC11.pdf"` |
+| `sourceStsRef` | `"STS-CN-REF-001"` |
+| `issuedAt` | `"2024-01-15T16:05:00Z"` |
+
+---
+
 ### `order_line_amounts` — recalculated price per line, per round
 
 One row per recalculation round per order line. When WMS substitutes a product or picks a different quantity, POS recalculates the price. Each round creates a new set of rows here.

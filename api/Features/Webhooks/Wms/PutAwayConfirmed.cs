@@ -43,6 +43,15 @@ public class PutAwayConfirmedHandler(InMemoryStore store)
         ret.PutAwayAt = req.PutAwayAt;
         ret.UpdatedAt = now;
 
+        var order = store.FindOrder(ret.OrderId);
+        if (order is not null)
+        {
+            order.Status = OrderStatus.Returned;
+            order.UpdatedAt = now;
+            store.AppendEvent(order.Id, ApiResult.DomainEvent("OrderReturned", OrderStatus.Returned,
+                $"All return items put away for return {req.ReturnId}. Order status → Returned."));
+        }
+
         var creditNoteId = $"CN-RET-{ret.Id}";
         ret.CreditNoteId = creditNoteId;
 
