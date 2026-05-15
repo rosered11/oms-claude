@@ -15,7 +15,8 @@
       "PowerShell(New-Item *)",
       "PowerShell(Copy-Item *)",
       "PowerShell([System.IO.Directory]::GetFiles\\(\"D:\\\\workspace\\\\oms-claude\\\\memory\"\\))",
-      "PowerShell(dotnet build *)"
+      "PowerShell(dotnet build *)",
+      "Bash(dir D:workspaceoms-claude *)"
     ]
   }
 }
