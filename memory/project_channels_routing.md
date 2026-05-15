@@ -105,6 +105,34 @@ Two weight-based fresh products in a single POD order:
 
 ---
 
+## Configuration-Driven Outbox Dispatch (implemented)
+
+Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. The outbox worker calls `InMemoryStore.GetRoutingRules(channelType, businessUnit, triggerEvent)` to resolve targets rather than applying hardcoded per-channel logic.
+
+**Matching algorithm:**
+- Exact match on `(channel_type, business_unit)` takes precedence over wildcard `*` entries.
+- All rules whose `is_active = true` and that match the trigger are dispatched — one outbox event per matching rule.
+- Results are processed in ascending `execution_order`.
+- If no rule matches, no outbox event is dispatched. This is the intentional opt-out mechanism (absence of a row = no dispatch).
+
+**Order handler pattern:**
+- Handlers call `ApiResult.DispatchOutbox()` instead of hardcoded `ApiResult.OutboxEvent()` calls.
+- `DispatchOutbox()` looks up matching routing rules and emits one outbox entry per rule, so a single domain transition can fan out to multiple targets if the configuration warrants it.
+
+**Management endpoints (documented in `docs/oms-api-blueprint.md`, Group: Configuration Management):**
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/config/outbox-routing-rules` | List all rules |
+| GET | `/config/outbox-routing-rules/{ruleId}` | Get single rule |
+| POST | `/config/outbox-routing-rules` | Create new rule |
+| PUT | `/config/outbox-routing-rules/{ruleId}` | Replace rule |
+| DELETE | `/config/outbox-routing-rules/{ruleId}` | Soft-delete (sets `is_active = false`) |
+
+**When to apply:** Any time a new domain event needs to be routed to an external system, add a row to `outbox_routing_rules` rather than changing domain handler code.
+
+---
+
 ## Known Use Cases
 
 | Use case | Notes |

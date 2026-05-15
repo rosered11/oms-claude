@@ -1329,6 +1329,113 @@ Returns branches near a given location. Used as the first step in the POD custom
 
 ---
 
+## Group: Configuration Management
+
+### Outbox Routing Rules
+
+Endpoints for managing `config.outbox_routing_rules` — the table that drives dynamic outbox dispatch. The outbox worker matches `(channel_type, business_unit, trigger_event)` to resolve which target systems receive an event. Exact matches take precedence over wildcard `*` entries; all matching rules are dispatched, ordered by `execution_order`. If no rule matches, no outbox event is dispatched (safe opt-out via config).
+
+**OutboxRoutingRule response shape:**
+
+```json
+{
+  "rule_id": 1,
+  "channel_type": "Marketplace",
+  "business_unit": "TikTok",
+  "trigger_event": "PickConfirmedEvent",
+  "target_system": "Marketplace",
+  "endpoint_key": "tiktok.pick-confirm",
+  "execution_order": 2,
+  "is_active": true
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `rule_id` | bigint | Auto-generated primary key |
+| `channel_type` | string | Channel this rule applies to; use `"*"` to match all channels |
+| `business_unit` | string | Business unit this rule applies to; use `"*"` to match all BUs |
+| `trigger_event` | string | Domain event name that triggers dispatch |
+| `target_system` | string | Downstream system: `WMS`, `TMS`, `Marketplace`, `Gateway`, etc. |
+| `endpoint_key` | string | ACL adapter key resolved to a real URL (e.g. `tiktok.pick-confirm`) |
+| `execution_order` | int | Ascending sort order when multiple rules match the same trigger |
+| `is_active` | bool | `false` = soft-deleted / opted out; worker skips inactive rules |
+
+---
+
+### GET /config/outbox-routing-rules
+
+Return all outbox routing rules.
+
+**Auth:** Bearer JWT
+
+**Response 200:**
+```json
+{ "data": [ { "rule_id": 1, "channel_type": "Marketplace", "business_unit": "TikTok", "trigger_event": "PickConfirmedEvent", "target_system": "Marketplace", "endpoint_key": "tiktok.pick-confirm", "execution_order": 2, "is_active": true } ] }
+```
+
+---
+
+### GET /config/outbox-routing-rules/{ruleId}
+
+Return a single outbox routing rule by ID.
+
+**Auth:** Bearer JWT
+
+**Response 200:** `{ "data": OutboxRoutingRule }`
+
+**Response 404:** `{ "error_code": "not_found", "message": "Rule <ruleId> not found.", "trace_id": "..." }`
+
+---
+
+### POST /config/outbox-routing-rules
+
+Create a new outbox routing rule.
+
+**Auth:** Bearer JWT
+
+**Request:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `channel_type` | string | Yes | Channel type or `"*"` for all channels |
+| `business_unit` | string | Yes | Business unit or `"*"` for all BUs |
+| `trigger_event` | string | Yes | Domain event name |
+| `target_system` | string | Yes | Downstream system identifier |
+| `endpoint_key` | string | Yes | ACL adapter endpoint key |
+| `execution_order` | int | Yes | Dispatch order when multiple rules match |
+| `is_active` | bool | Yes | Set `true` to activate immediately |
+
+**Response 201:** `{ "data": OutboxRoutingRule }`
+
+---
+
+### PUT /config/outbox-routing-rules/{ruleId}
+
+Replace an existing outbox routing rule. All fields are replaced.
+
+**Auth:** Bearer JWT
+
+**Request:** Same fields as `POST /config/outbox-routing-rules`.
+
+**Response 200:** `{ "data": OutboxRoutingRule }`
+
+**Response 404:** `{ "error_code": "not_found", "message": "Rule <ruleId> not found.", "trace_id": "..." }`
+
+---
+
+### DELETE /config/outbox-routing-rules/{ruleId}
+
+Soft-delete a routing rule: sets `is_active = false`. The worker will stop dispatching events for this rule. The record is retained for audit.
+
+**Auth:** Bearer JWT
+
+**Response 200:** `{ "data": { "message": "Rule deactivated" } }`
+
+**Response 404:** `{ "error_code": "not_found", "message": "Rule <ruleId> not found.", "trace_id": "..." }`
+
+---
+
 ## Error Envelope
 
 All error responses share this shape:

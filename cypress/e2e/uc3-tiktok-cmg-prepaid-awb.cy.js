@@ -24,6 +24,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
   it('Step 1 — Creates a Prepaid order via TikTok Marketplace for CMG', () => {
     cy.createOrder({
       channelType:  'Marketplace',
+      subChannel:   'TikTok',
       businessUnit: 'CMG',
     }).then((order) => {
       expect(order.status).to.eq('Pending');
@@ -113,13 +114,21 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 7 — TMS package-dispatched transitions order to OutForDelivery', () => {
+  it('Step 7 — TMS package-dispatched transitions order to OutForDelivery; OMS dispatches AWB-notify to TikTok Marketplace', () => {
     cy.omsApi('POST', '/webhooks/tms/package-dispatched', {
       trackingId,
       dispatchedAt: now(),
     }).then((res) => {
       expect(res.status).to.eq(202);
       expect(res.body.newOrderStatus).to.eq('OutForDelivery');
+    });
+
+    cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
+      const events = res.body.events ?? res.body;
+      const awbOutbox = events.find(
+        (e) => e.type === 'outbox' && e.system === 'Marketplace' && e.event === 'OutForDeliveryEvent',
+      );
+      expect(awbOutbox, 'TikTok AWB-notify outbox event must be present').to.exist;
     });
   });
 

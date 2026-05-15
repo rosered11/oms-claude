@@ -233,7 +233,9 @@ The OMS supports multiple business units (BUs) and multiple channel types. Routi
 
 ### Marketplace-Specific Routing
 
-- **TikTok Marketplace**: At `PickConfirmed`, OMS must call TikTok's API (via `TmsAdapter` or dedicated `MarketplaceAdapter`) in addition to the standard outbox events.
+- **TikTok Marketplace**: Two outbox events are required:
+  1. At `PickConfirmed` — OMS dispatches `PickConfirmedSentToTMS` via `tiktok.pick-confirm` to notify TikTok of the confirmed basket.
+  2. At `OutForDelivery` — OMS dispatches `OutForDeliverySentToTikTok` via `tiktok.get-awb` to call TikTok's AWB API and retrieve the Air Waybill (shipment tracking number). This step is TikTok-specific; standard orders only send `OutForDeliverySentToGW`.
 - **Lazada Marketplace**: At `Packed` (PackConfirmed), OMS must send data to Lazada's API via the marketplace adapter.
 - These are driven by `outbox_routing_rules` entries where `channel_type = 'Marketplace'` and `business_unit IN ('TikTok', 'Lazada')`.
 

@@ -3,6 +3,19 @@ using System.Text.Json.Serialization;
 
 namespace OmsApi;
 
+public class OutboxRoutingRule
+{
+    public long RuleId { get; set; }
+    public string ChannelType { get; set; } = "";
+    public string SubChannel { get; set; } = "*";
+    public string BusinessUnit { get; set; } = "";
+    public string TriggerEvent { get; set; } = "";
+    public string TargetSystem { get; set; } = "";
+    public string EndpointKey { get; set; } = "";
+    public int ExecutionOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
 public class InMemoryStore
 {
     private static readonly JsonSerializerOptions _json = new()
@@ -18,6 +31,7 @@ public class InMemoryStore
     public List<TransferOrderDto> TransferOrders { get; private set; } = [];
     public List<TimelineEventDto> OrderTimeline { get; private set; } = [];
     public List<TimelineEventDto> PrepaidTimeline { get; private set; } = [];
+    public List<OutboxRoutingRule> RoutingRules { get; private set; } = [];
 
     private readonly Dictionary<string, List<TimelineEventDto>> _orderEvents = [];
     private readonly Dictionary<string, List<SubstitutionDto>> _substitutions = [];
@@ -54,6 +68,45 @@ public class InMemoryStore
 
         if (Orders.Count > 0)
             _orderEvents["ORD-001"] = [.. OrderTimeline];
+
+        SeedRoutingRules();
+    }
+
+    private void SeedRoutingRules()
+    {
+        long id = 1;
+        void Add(string ch, string sub, string bu, string evt, string sys, string ep, int order) =>
+            RoutingRules.Add(new OutboxRoutingRule
+            {
+                RuleId = id++, ChannelType = ch, SubChannel = sub, BusinessUnit = bu,
+                TriggerEvent = evt, TargetSystem = sys, EndpointKey = ep,
+                ExecutionOrder = order, IsActive = true
+            });
+
+        // TikTok (all BUs: CMG, CFR, …) — Marketplace-specific rules fire for any BU under TikTok
+        Add("Marketplace", "TikTok", "*", "OrderCreatedEvent",    "WMS",         "wms.create-order",      1);
+        Add("Marketplace", "TikTok", "*", "OrderCreatedEvent",    "Marketplace", "tiktok.order-create",   2);
+        Add("Marketplace", "TikTok", "*", "PickConfirmedEvent",   "TMS",         "tms.pick-confirm",      1);
+        Add("Marketplace", "TikTok", "*", "PickConfirmedEvent",   "Marketplace", "tiktok.pick-confirm",   2);
+        Add("Marketplace", "TikTok", "*", "PackedEvent",          "TMS",         "tms.pack-confirm",      1);
+        Add("Marketplace", "TikTok", "*", "OutForDeliveryEvent",  "Marketplace", "tiktok.awb-notify",     1);
+
+        // Lazada (all BUs)
+        Add("Marketplace", "Lazada", "*", "OrderCreatedEvent",    "WMS",         "wms.create-order",      1);
+        Add("Marketplace", "Lazada", "*", "OrderCreatedEvent",    "Marketplace", "lazada.order-create",   2);
+        Add("Marketplace", "Lazada", "*", "PickConfirmedEvent",   "TMS",         "tms.pick-confirm",      1);
+        Add("Marketplace", "Lazada", "*", "PickConfirmedEvent",   "Marketplace", "lazada.pick-confirm",   2);
+        Add("Marketplace", "Lazada", "*", "PackedEvent",          "TMS",         "tms.pack-confirm",      1);
+        Add("Marketplace", "Lazada", "*", "PackedEvent",          "Marketplace", "lazada.pack-confirm",   2);
+
+        // Wildcard fallback — all other channels / sub-channels / BUs
+        Add("*", "*", "*", "OrderCreatedEvent",      "WMS",     "wms.create-order",    1);
+        Add("*", "*", "*", "PickConfirmedEvent",     "TMS",     "tms.pick-confirm",    1);
+        Add("*", "*", "*", "PackedEvent",            "TMS",     "tms.pack-confirm",    1);
+        Add("*", "*", "*", "OutForDeliveryEvent",    "GW",      "gw.out-for-delivery", 1);
+        Add("*", "*", "*", "ABBTaxInvoiceSentToTMS", "TMS",     "tms.abb-tax-invoice", 1);
+        Add("*", "*", "*", "ABBInvoiceSentToGW",     "Gateway", "gateway.abb-invoice", 1);
+        Add("*", "*", "*", "CreditNoteSentToGW",     "Gateway", "gateway.credit-note", 1);
     }
 
     // ── Orders ────────────────────────────────────────────────────────────────
@@ -423,6 +476,35 @@ public class InMemoryStore
             Currency = "THB",
             Locations = locations
         };
+    }
+
+    // ── Routing Rules ─────────────────────────────────────────────────────────
+
+    public IEnumerable<OutboxRoutingRule> GetRoutingRules(
+        string channelType, string subChannel, string businessUnit, string triggerEvent)
+    {
+        bool Eq(string ruleVal, string orderVal) =>
+            ruleVal == "*" || ruleVal.Equals(orderVal, StringComparison.OrdinalIgnoreCase);
+
+        IList<OutboxRoutingRule> Bucket(bool chWild, bool subWild, bool buWild) =>
+            RoutingRules
+                .Where(r => r.IsActive && r.TriggerEvent == triggerEvent
+                    && (r.ChannelType  == "*") == chWild  && Eq(r.ChannelType,  channelType)
+                    && (r.SubChannel   == "*") == subWild && Eq(r.SubChannel,   subChannel)
+                    && (r.BusinessUnit == "*") == buWild  && Eq(r.BusinessUnit, businessUnit))
+                .OrderBy(r => r.ExecutionOrder)
+                .ToList();
+
+        // Most-specific bucket that has at least one rule wins; stops at first non-empty bucket
+        IList<OutboxRoutingRule>[] buckets =
+        [
+            Bucket(false, false, false),  // exact: ch + sub + bu
+            Bucket(false, false, true),   // ch + sub, any bu
+            Bucket(false, true,  false),  // ch + bu,  any sub
+            Bucket(false, true,  true),   // ch only
+            Bucket(true,  true,  true),   // full wildcard
+        ];
+        return buckets.FirstOrDefault(b => b.Count > 0) ?? [];
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

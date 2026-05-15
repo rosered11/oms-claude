@@ -1,7 +1,7 @@
 [
   {
     "id": "ORD-001", "orderNumber": "ORD-001", "customer": "Alice Johnson",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "App", "businessUnit": "TOPS", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T14:02:00Z", "createdAt": "2024-01-15T14:02:00Z", "updatedAt": "2024-01-15T14:02:00Z",
     "status": "Pending", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
@@ -19,7 +19,7 @@
   },
   {
     "id": "ORD-002", "orderNumber": "ORD-002", "customer": "Bob Smith",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-002", "store": "Store A",
+    "channelType": "App", "businessUnit": "CFH", "storeId": "store-002", "store": "Store A",
     "orderDate": "2024-01-15T13:45:00Z", "createdAt": "2024-01-15T13:45:00Z", "updatedAt": "2024-01-15T14:10:00Z",
     "status": "PickStarted", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
@@ -34,7 +34,7 @@
   },
   {
     "id": "ORD-003", "orderNumber": "ORD-003", "customer": "Carol Davis",
-    "channelType": "Web", "businessUnit": "Retail", "storeId": "store-003", "store": "Store B",
+    "channelType": "Web", "businessUnit": "TOPS", "storeId": "store-003", "store": "Store B",
     "orderDate": "2024-01-15T10:30:00Z", "createdAt": "2024-01-15T10:30:00Z", "updatedAt": "2024-01-15T13:00:00Z",
     "status": "ReadyForCollection", "preHoldStatus": null, "holdReason": null,
     "type": "ClickAndCollect", "fulfillmentType": "ClickAndCollect", "paymentMethod": "PrePaid",
@@ -50,7 +50,7 @@
   },
   {
     "id": "ORD-004", "orderNumber": "ORD-004", "customer": "David Wilson",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "App", "businessUnit": "CMG", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T09:00:00Z", "createdAt": "2024-01-15T09:00:00Z", "updatedAt": "2024-01-15T14:30:00Z",
     "status": "OutForDelivery", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PayOnDelivery",
@@ -68,7 +68,7 @@
   },
   {
     "id": "ORD-005", "orderNumber": "ORD-005", "customer": "Eve Martinez",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-002", "store": "Store A",
+    "channelType": "App", "businessUnit": "CFH", "storeId": "store-002", "store": "Store A",
     "orderDate": "2024-01-14T16:00:00Z", "createdAt": "2024-01-14T16:00:00Z", "updatedAt": "2024-01-14T19:30:00Z",
     "status": "Delivered", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
@@ -84,7 +84,7 @@
   },
   {
     "id": "ORD-006", "orderNumber": "ORD-006", "customer": "Frank Lee",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "App", "businessUnit": "TOPS", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T11:00:00Z", "createdAt": "2024-01-15T11:00:00Z", "updatedAt": "2024-01-15T16:00:00Z",
     "status": "OnHold", "preHoldStatus": "OutForDelivery", "holdReason": "PackageDamaged",
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
@@ -101,7 +101,7 @@
   },
   {
     "id": "ORD-007", "orderNumber": "ORD-007", "customer": "Grace Kim",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-004", "store": "Store C",
+    "channelType": "App", "businessUnit": "TOPS", "storeId": "store-004", "store": "Store C",
     "orderDate": "2024-01-15T12:00:00Z", "createdAt": "2024-01-15T12:00:00Z", "updatedAt": "2024-01-15T14:45:00Z",
     "status": "Packed", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
@@ -118,7 +118,7 @@
   },
   {
     "id": "ORD-008", "orderNumber": "ORD-008", "customer": "Henry Park",
-    "channelType": "Web", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "Web", "businessUnit": "CMG", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-14T10:00:00Z", "createdAt": "2024-01-14T10:00:00Z", "updatedAt": "2024-01-15T14:00:00Z",
     "status": "Returned", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
@@ -134,7 +134,7 @@
   },
   {
     "id": "ORD-009", "orderNumber": "ORD-009", "customer": "Iris Chen",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-003", "store": "Store B",
+    "channelType": "App", "businessUnit": "CFH", "storeId": "store-003", "store": "Store B",
     "orderDate": "2024-01-15T13:00:00Z", "createdAt": "2024-01-15T13:00:00Z", "updatedAt": "2024-01-15T15:30:00Z",
     "status": "PickConfirmed", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
@@ -153,7 +153,7 @@
   },
   {
     "id": "ORD-010", "orderNumber": "ORD-010", "customer": "James Taylor",
-    "channelType": "Web", "businessUnit": "Retail", "storeId": "store-002", "store": "Store A",
+    "channelType": "Web", "businessUnit": "TOPS", "storeId": "store-002", "store": "Store A",
     "orderDate": "2024-01-14T11:00:00Z", "createdAt": "2024-01-14T11:00:00Z", "updatedAt": "2024-01-14T13:00:00Z",
     "status": "Paid", "preHoldStatus": null, "holdReason": null,
     "type": "ClickAndCollect", "fulfillmentType": "ClickAndCollect", "paymentMethod": "PrePaid",
@@ -168,7 +168,7 @@
   },
   {
     "id": "ORD-011", "orderNumber": "ORD-011", "customer": "Kate Brown",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "App", "businessUnit": "CMG", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T08:30:00Z", "createdAt": "2024-01-15T08:30:00Z", "updatedAt": "2024-01-15T09:00:00Z",
     "status": "BookingConfirmed", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PayOnDelivery",
@@ -183,7 +183,7 @@
   },
   {
     "id": "ORD-012", "orderNumber": "ORD-012", "customer": "Leo Nguyen",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-004", "store": "Store C",
+    "channelType": "App", "businessUnit": "CFH", "storeId": "store-004", "store": "Store C",
     "orderDate": "2024-01-15T09:15:00Z", "createdAt": "2024-01-15T09:15:00Z", "updatedAt": "2024-01-15T09:30:00Z",
     "status": "Cancelled", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
@@ -197,9 +197,9 @@
   },
   {
     "id": "ORD-013", "orderNumber": "ORD-013", "customer": "Mia Patel",
-    "channelType": "Web", "businessUnit": "Retail", "storeId": "store-001", "store": "Central DC",
+    "channelType": "Web", "businessUnit": "TOPS", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T07:00:00Z", "createdAt": "2024-01-15T07:00:00Z", "updatedAt": "2024-01-15T14:00:00Z",
-    "status": "Delivering", "preHoldStatus": null, "holdReason": null,
+    "status": "OutForDelivery", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
     "substitutionFlag": false, "posRecalcPending": false, "items": 9, "amount": 680000,
     "createdBy": "customer-web", "updatedBy": "tms-system",
@@ -215,7 +215,7 @@
   },
   {
     "id": "ORD-014", "orderNumber": "ORD-014", "customer": "Noah Kim",
-    "channelType": "App", "businessUnit": "Retail", "storeId": "store-003", "store": "Store B",
+    "channelType": "App", "businessUnit": "CMG", "storeId": "store-003", "store": "Store B",
     "orderDate": "2024-01-14T09:00:00Z", "createdAt": "2024-01-14T09:00:00Z", "updatedAt": "2024-01-14T17:00:00Z",
     "status": "Paid", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",

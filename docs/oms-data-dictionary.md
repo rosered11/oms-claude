@@ -591,6 +591,7 @@ The `oms-outbox-worker` looks up matching rows for `(channel_type, business_unit
 | channel_type | business_unit | trigger_event | target_system | endpoint_key | Notes |
 |---|---|---|---|---|---|
 | `Marketplace` | `TikTok` | `PickConfirmedSentToTMS` | `Marketplace` | `tiktok.pick-confirm` | TikTok receives pick confirmed notification |
+| `Marketplace` | `TikTok` | `OutForDeliverySentToTikTok` | `Marketplace` | `tiktok.get-awb` | After PackageDispatched → OutForDelivery: OMS calls TikTok API to retrieve the AWB (Air Waybill / tracking number) |
 | `Marketplace` | `Lazada` | `PackConfirmedSentToLazada` | `Marketplace` | `lazada.pack-confirm` | Lazada receives packed confirmation |
 | `Gateway` | `GatewayA` | `WaveStartedSentToGW` | `Gateway` | `gateway-a.wave-start` | GatewayA has opted in to wave start events |
 | `*` | `*` | `ABBTaxInvoiceSentToTMS` | `TMS` | `tms.abb-tax-invoice` | POD: STS ABB/Tax Invoice forwarded to TMS after Delivered |

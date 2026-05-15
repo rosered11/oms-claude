@@ -120,7 +120,7 @@ const STOCK_FLOW_DATA = {
 };
 
 const PREPAID_TIMELINE_DATA = [
-  { id:  1, time: "09:00", phase: "booking",  type: "domain",  system: "TMS", event: "TimeSlotRequested",         detail: "Customer → GW → PS → TMS. Available delivery windows queried. TMS queries CHG Backend internally for available slots. Slot 14:00–16:00 selected." },
+  { id:  1, time: "09:00", phase: "booking",  type: "domain",  system: "TMS", event: "TimeSlotRequested",         detail: "Customer → GW → PS → TMS. Available delivery windows queried. Slot 14:00–16:00 selected." },
   { id:  2, time: "09:05", phase: "booking",  type: "domain",  system: "TMS", event: "BookingCreated",            detail: "Customer → GW → PS → TMS. Delivery booking confirmed. Slot locked in TMS." },
   { id:  3, time: "09:10", phase: "outbound", type: "domain",  system: "OMS", event: "OrderCreated",              detail: "PRE-001 — PrePaid · Delivery · 4 items · ฿1,200. Status → Pending" },
   { id:  4, time: "09:10", phase: "outbound", type: "outbox",  system: "WMS", event: "SaleOrderSentToWMS",        detail: "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", outStatus: "Published" },
@@ -234,7 +234,6 @@ const SYS_BADGE = {
   POS: 'bg-orange-100 text-orange-800 border border-orange-200',
   OMS: 'bg-slate-100 text-slate-700 border border-slate-200',
   GW:  'bg-blue-50 text-blue-600 border border-blue-100',
-  CBE: 'bg-purple-100 text-purple-800 border border-purple-200',
   STS: 'bg-rose-100 text-rose-800 border border-rose-200',
 };
 
@@ -249,7 +248,7 @@ const STATUS_COLOR = {
   Pending: 'bg-gray-100 text-gray-700', BookingConfirmed: 'bg-blue-100 text-blue-700',
   PickStarted: 'bg-sky-100 text-sky-700', PickConfirmed: 'bg-cyan-100 text-cyan-700',
   ReadyForCollection: 'bg-teal-100 text-teal-700', Packed: 'bg-indigo-100 text-indigo-700',
-  OutForDelivery: 'bg-purple-100 text-purple-700', Delivering: 'bg-purple-100 text-purple-700',
+  OutForDelivery: 'bg-purple-100 text-purple-700',
   Delivered: 'bg-green-100 text-green-700', Paid: 'bg-emerald-100 text-emerald-700',
   Invoiced: 'bg-green-100 text-green-700', Collected: 'bg-teal-100 text-teal-700',
   OnHold: 'bg-amber-100 text-amber-700', Cancelled: 'bg-red-100 text-red-700',
@@ -366,9 +365,6 @@ const ORDER_ACTIONS = {
   OutForDelivery: [
     { method: 'POST',  path: '/webhooks/tms/package-delivered',    label: 'Delivered (TMS)',          uc: 'UC8'  },
     { method: 'POST',  path: '/webhooks/tms/package-damage-reported', label: 'Report Damage (TMS)',   uc: 'UC20' },
-  ],
-  Delivering: [
-    { method: 'POST',  path: '/webhooks/tms/package-delivered',    label: 'Delivered (TMS)',          uc: 'UC8'  },
   ],
   Delivered: [
     { method: 'POST',  path: '/webhooks/pos/invoiced',             label: 'Invoice (POS)',            uc: 'UC12' },
@@ -499,12 +495,12 @@ const ALL_USE_CASES = [
   // ── Prepaid-specific use cases ──────────────────────────────
   { id: 'UC25', section: 'outbound', title: 'Time Slot Request (Prepaid)',
     trigger: 'Customer checks available delivery windows before placing a prepaid order',
-    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS', 'CHG Backend'],
-    steps: ['Customer → GW → PS → TMS: Request Time Slot', 'TMS → CHG Backend (CBE): query available slots', 'CBE returns available delivery windows to customer', 'Customer selects preferred slot — booking not yet confirmed'] },
-  { id: 'UC26', section: 'outbound', title: 'Delivery Booking via TMS/CBE (Prepaid)',
+    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS'],
+    steps: ['Customer → GW → PS → TMS: Request Time Slot', 'TMS returns available delivery windows to customer', 'Customer selects preferred slot — booking not yet confirmed'] },
+  { id: 'UC26', section: 'outbound', title: 'Delivery Booking via TMS (Prepaid)',
     trigger: 'Customer confirms delivery booking before placing the sale order',
-    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS', 'CHG Backend'],
-    steps: ['Customer → GW → PS → TMS → CBE: Create Booking', 'Delivery slot locked in TMS and CHG Backend', 'Booking confirmed before the sale order is submitted to OMS', 'OMS order is created (Pending) with slot already reserved — no separate BookingConfirmed step from WMS'] },
+    actors: ['Customer', 'CFW Gateway', 'Proxy Service', 'TMS'],
+    steps: ['Customer → GW → PS → TMS: Create Booking', 'Delivery slot locked in TMS', 'Booking confirmed before the sale order is submitted to OMS', 'OMS order is created (Pending) with slot already reserved — no separate BookingConfirmed step from WMS'] },
   { id: 'UC27', section: 'outbound', title: 'WMS-Triggered POS Recalculation (Prepaid)',
     trigger: 'WMS requests price recalculation mid-pick (not triggered by substitution)',
     actors: ['WMS', 'Sprint Connect', 'POS'],
@@ -663,7 +659,6 @@ const PREPAID_ACTORS = [
   { key: 'C',   label: 'Customer',       cls: 'bg-green-100 text-green-800 border border-green-300'    },
   { key: 'GW',  label: 'CFW Gateway',    cls: 'bg-blue-100 text-blue-700 border border-blue-200'       },
   { key: 'PS',  label: 'Proxy Service',  cls: 'bg-slate-100 text-slate-600 border border-slate-300'    },
-  { key: 'CBE', label: 'CHG Backend',    cls: 'bg-purple-100 text-purple-800 border border-purple-300' },
   { key: 'SC',  label: 'Sprint Connect', cls: 'bg-blue-600 text-white border border-blue-700'           },
   { key: 'WMS', label: 'WMS',            cls: 'bg-blue-100 text-blue-800 border border-blue-200'       },
   { key: 'TMS', label: 'TMS',            cls: 'bg-green-100 text-green-800 border border-green-200'    },
@@ -685,9 +680,9 @@ const PREPAID_PHASES = [
     key: 'slot-booking',
     label: 'Phase 1 — Slot & Booking',
     bg: 'bg-green-50', border: 'border-green-200',
-    note: 'Customer queries available delivery windows and locks a slot via TMS (TMS calls CHG Backend internally) — before the sale order is placed.',
+    note: 'Customer queries available delivery windows and locks a slot via TMS — before the sale order is placed.',
     steps: [
-      { id: 1, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Request Time Slot', note: 'TMS queries CHG Backend (CBE) internally for available windows.' },
+      { id: 1, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Request Time Slot', note: 'TMS queries available windows and returns slots to the customer.' },
       { id: 2, from: ['TMS'], to: ['C'],              type: 'response', label: 'Available Slots' },
       { id: 3, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Create Booking', note: 'Slot locked in TMS. Delivery window confirmed before the sale order exists.' },
     ],
@@ -759,12 +754,12 @@ const POD_PHASES = [
     key: 'branch-slot',
     label: 'Phase 1 — Branch Lookup & Slot Booking',
     bg: 'bg-green-50', border: 'border-green-200',
-    note: 'Customer queries nearby branches (GW handles this — no OMS involvement), then locks a delivery slot via TMS before placing the sale order. No CHG Backend (CBE) involved in POD.',
+    note: 'Customer queries nearby branches (GW handles this — no OMS involvement), then locks a delivery slot via TMS before placing the sale order.',
     steps: [
       { id:  1, from: ['C'],   to: ['GW'],           type: 'request',  label: 'Branch Near Me', note: 'GW returns branch list from its own data source. OMS not involved in this step.' },
       { id:  2, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Request Time Slot' },
       { id:  3, from: ['TMS'], to: ['C'],             type: 'response', label: 'Available Slots' },
-      { id:  4, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Create Booking', note: 'Delivery slot locked in TMS. TMS-only — no CBE/CHG Backend as in Prepaid.' },
+      { id:  4, from: ['C'],   to: ['GW','PS','TMS'], type: 'request',  label: 'Create Booking', note: 'Delivery slot locked in TMS.' },
     ],
   },
   {
@@ -1499,7 +1494,6 @@ const OUTBOUND_COLS = [
   { key: 'ReadyForCollection', label: 'Ready',        top: 'border-t-teal-400'    },
   { key: 'Packed',             label: 'Packed',       top: 'border-t-indigo-400'  },
   { key: 'OutForDelivery',     label: 'Dispatched',   top: 'border-t-purple-400'  },
-  { key: 'Delivering',         label: 'Delivering',   top: 'border-t-purple-500'  },
   { key: 'Delivered',          label: 'Delivered',    top: 'border-t-green-400'   },
   { key: 'Collected',          label: 'Collected',    top: 'border-t-teal-500'    },
   { key: 'Invoiced',           label: 'Invoiced',     top: 'border-t-green-500'   },
@@ -3206,7 +3200,7 @@ function PrepaidFlowView() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         {bookingEvents.length > 0 && (
           <>
-            <SectionDivider label="Slot & Booking — TMS / CHG Backend" color="bg-green-200" />
+            <SectionDivider label="Slot & Booking — TMS" color="bg-green-200" />
             {bookingEvents.map(e => <TimelineRow key={e.id} evt={e} />)}
           </>
         )}
@@ -3245,7 +3239,7 @@ function PODFlowView() {
         <ul className="space-y-1.5">
           {[
             ['Branch lookup first',       'Customer queries "Branch Near Me" via GW before booking. GW returns list from its own data source — no OMS involvement.'],
-            ['TMS-only booking',          'No CHG Backend (CBE) involved. Slot is locked in TMS only.'],
+            ['TMS-only booking',          'Slot is locked in TMS only — no separate slot backend as in Prepaid.'],
             ['WaveStarted present',        'POD flow includes WaveStarted (same as Prepaid): WMS → SC → GW via WaveStartedSentToGW outbox event.'],
             ['PickStartedSentToTMS',      'POD-specific outbox event after PickStarted. Prepaid does not send this.'],
             ['Invoice after delivery',    'DeliveredSentToPOS triggers invoice generation AFTER delivery — not before dispatch like Prepaid.'],
@@ -3262,7 +3256,7 @@ function PODFlowView() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-5">
         <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">System Actors</div>
         <div className="flex flex-wrap gap-3">
-          {PREPAID_ACTORS.filter(a => a.key !== 'CBE').map(a => (
+          {PREPAID_ACTORS.map(a => (
             <div key={a.key} className="flex items-center gap-1.5">
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${a.cls}`}>{a.key}</span>
               <span className="text-xs text-gray-400">{a.label}</span>
@@ -3338,7 +3332,7 @@ function PODFlowView() {
             <tbody>
               {[
                 ['Branch lookup',        'Not required',                                      'Customer queries "Branch Near Me" via GW first'],
-                ['Booking backend',      'TMS + CHG Backend (CBE)',                           'TMS only — no CBE'],
+                ['Booking backend',      'TMS',                                               'TMS'],
                 ['WaveStarted',          'Yes — WMS → SC → GW (WaveStartedSentToGW)',         'Yes — WMS → SC → GW (WaveStartedSentToGW)'],
                 ['PickStartedSentToTMS', 'Not sent',                                          'POD-specific outbox after PickStarted'],
                 ['Invoice timing',       'Before dispatch — ABB invoice sent to WMS after PickConfirmed', 'After delivery — DeliveredSentToPOS triggers it'],
@@ -3444,12 +3438,487 @@ function StockFlowView() {
 // APP SHELL
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// BU DASHBOARD VIEW
+// ─────────────────────────────────────────────────────────────
+
+const BU_META = {
+  TOPS: { name: 'Tops Supermarket',       cls: 'bg-green-600',  badge: 'bg-green-100 text-green-800 border border-green-200'   },
+  CFH:  { name: 'Central Food Hall',      cls: 'bg-amber-600',  badge: 'bg-amber-100 text-amber-800 border border-amber-200'   },
+  CMG:  { name: 'Central Marketing Group',cls: 'bg-blue-600',   badge: 'bg-blue-100 text-blue-800 border border-blue-200'      },
+};
+
+const ACTIVE_STATUSES = new Set(['Pending','BookingConfirmed','PickStarted','PickConfirmed','Packed','OutForDelivery','OnHold']);
+const CLOSED_STATUS_SET = new Set(['Delivered','Invoiced','Paid','Collected','Cancelled','Returned']);
+
+function BUDashboardView() {
+  const { orders } = React.useContext(DataContext);
+
+  const byBU = React.useMemo(() => {
+    const map = {};
+    (orders || []).forEach(o => {
+      const bu = o.businessUnit || 'Unknown';
+      if (!map[bu]) map[bu] = [];
+      map[bu].push(o);
+    });
+    return map;
+  }, [orders]);
+
+  const buKeys = Object.keys(BU_META).filter(k => byBU[k]);
+
+  const statusGroups = [
+    { label: 'Active',    statuses: ['Pending','BookingConfirmed','PickStarted','PickConfirmed','Packed'],    color: 'text-blue-700'   },
+    { label: 'In Transit',statuses: ['OutForDelivery'],                                                        color: 'text-purple-700' },
+    { label: 'Completed', statuses: ['Delivered','Invoiced','Paid','Collected'],                               color: 'text-emerald-700'},
+    { label: 'Issues',    statuses: ['OnHold','Cancelled','Returned'],                                         color: 'text-red-700'    },
+  ];
+
+  const totals = React.useMemo(() => {
+    const all = orders || [];
+    return {
+      orders: all.length,
+      gmv:    all.reduce((s, o) => s + (o.amount || 0), 0),
+      active: all.filter(o => ACTIVE_STATUSES.has(o.status)).length,
+      issues: all.filter(o => ['OnHold','Cancelled','Returned'].includes(o.status)).length,
+    };
+  }, [orders]);
+
+  return (
+    <div className="max-w-screen-xl mx-auto p-4 pb-16">
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900">Business Unit Dashboard</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Order volumes and GMV breakdown per business unit · {buKeys.length} active BUs</p>
+      </div>
+
+      {/* System-wide summary */}
+      <div className="grid grid-cols-4 gap-3 mb-6">
+        {[
+          { label: 'Total Orders',   value: totals.orders,                              cls: 'text-gray-900'    },
+          { label: 'Total GMV',      value: `฿${fmtSatang(totals.gmv)}`,               cls: 'text-blue-700'    },
+          { label: 'Active Orders',  value: totals.active,                              cls: 'text-purple-700'  },
+          { label: 'Needs Attention',value: totals.issues,                              cls: 'text-red-700'     },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">{label}</div>
+            <div className={`text-2xl font-bold ${cls}`}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-BU cards */}
+      <div className="space-y-4">
+        {buKeys.map(bu => {
+          const meta   = BU_META[bu] || { name: bu, cls: 'bg-gray-600', badge: 'bg-gray-100 text-gray-700 border border-gray-200' };
+          const orders = byBU[bu];
+          const gmv    = orders.reduce((s, o) => s + (o.amount || 0), 0);
+
+          const channelCounts = {};
+          const typeCounts    = {};
+          orders.forEach(o => {
+            channelCounts[o.channelType] = (channelCounts[o.channelType] || 0) + 1;
+            typeCounts[o.fulfillmentType] = (typeCounts[o.fulfillmentType] || 0) + 1;
+          });
+
+          return (
+            <div key={bu} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+              {/* BU header */}
+              <div className={`${meta.cls} px-5 py-3 flex items-center justify-between`}>
+                <div>
+                  <div className="font-bold text-white text-base">{bu}</div>
+                  <div className="text-white/80 text-xs">{meta.name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-bold text-lg">฿{fmtSatang(gmv)}</div>
+                  <div className="text-white/70 text-xs">{orders.length} orders · GMV</div>
+                </div>
+              </div>
+
+              <div className="p-5">
+                {/* Status breakdown */}
+                <div className="mb-4">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Order Status Breakdown</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {statusGroups.map(({ label, statuses, color }) => {
+                      const count = orders.filter(o => statuses.includes(o.status)).length;
+                      return (
+                        <div key={label} className="rounded-lg bg-gray-50 border border-gray-100 p-3 text-center">
+                          <div className={`text-xl font-bold ${color}`}>{count}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Channel breakdown */}
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">By Channel</div>
+                    <div className="space-y-1.5">
+                      {Object.entries(channelCounts).sort((a,b) => b[1]-a[1]).map(([ch, n]) => (
+                        <div key={ch} className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">{ch}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-400 rounded-full" style={{ width: `${(n / orders.length) * 100}%` }} />
+                            </div>
+                            <span className="text-xs font-medium text-gray-700 w-4 text-right">{n}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Fulfillment type breakdown */}
+                  <div>
+                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">By Fulfillment Type</div>
+                    <div className="space-y-1.5">
+                      {Object.entries(typeCounts).sort((a,b) => b[1]-a[1]).map(([type, n]) => (
+                        <div key={type} className="flex items-center justify-between">
+                          <span className="text-xs text-gray-600">{type}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-teal-400 rounded-full" style={{ width: `${(n / orders.length) * 100}%` }} />
+                            </div>
+                            <span className="text-xs font-medium text-gray-700 w-4 text-right">{n}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent orders table */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Orders</div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="pb-1.5 text-left font-semibold text-gray-500">Order</th>
+                          <th className="pb-1.5 text-left font-semibold text-gray-500">Customer</th>
+                          <th className="pb-1.5 text-left font-semibold text-gray-500">Status</th>
+                          <th className="pb-1.5 text-left font-semibold text-gray-500">Type</th>
+                          <th className="pb-1.5 text-left font-semibold text-gray-500">Store</th>
+                          <th className="pb-1.5 text-right font-semibold text-gray-500">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orders.map(o => (
+                          <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50">
+                            <td className="py-1.5 font-mono text-gray-700">{o.id}</td>
+                            <td className="py-1.5 text-gray-600">{o.customer}</td>
+                            <td className="py-1.5">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[o.status] || 'bg-gray-100 text-gray-600'}`}>
+                                {o.status}
+                              </span>
+                            </td>
+                            <td className="py-1.5 text-gray-500">{o.fulfillmentType}</td>
+                            <td className="py-1.5 text-gray-500">{o.store}</td>
+                            <td className="py-1.5 text-right font-medium text-gray-700">฿{fmtSatang(o.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ROUTING RULES VIEW
+// ─────────────────────────────────────────────────────────────
+
+const SYS_COLOR_EXT = {
+  WMS:         'bg-blue-100 text-blue-800 border border-blue-200',
+  TMS:         'bg-green-100 text-green-800 border border-green-200',
+  POS:         'bg-orange-100 text-orange-800 border border-orange-200',
+  GW:          'bg-blue-50 text-blue-600 border border-blue-100',
+  Marketplace: 'bg-purple-100 text-purple-800 border border-purple-200',
+  Gateway:     'bg-sky-100 text-sky-700 border border-sky-200',
+  STS:         'bg-rose-100 text-rose-800 border border-rose-200',
+};
+
+const CH_COLOR = {
+  Marketplace: 'bg-purple-50 text-purple-700 border border-purple-200',
+  Gateway:     'bg-sky-50 text-sky-700 border border-sky-200',
+  Kiosk:       'bg-amber-50 text-amber-700 border border-amber-200',
+  Web:         'bg-teal-50 text-teal-700 border border-teal-200',
+  App:         'bg-indigo-50 text-indigo-700 border border-indigo-200',
+};
+
+function RoutingRulesView() {
+  const { apiBase } = React.useContext(DataContext);
+  const [rules, setRules]             = React.useState([]);
+  const [loading, setLoading]         = React.useState(true);
+  const [error, setError]             = React.useState(null);
+  const [filterChannel, setFilterChannel] = React.useState('');
+  const [filterBU, setFilterBU]       = React.useState('');
+  const [filterEvent, setFilterEvent] = React.useState('');
+  const [showInactive, setShowInactive] = React.useState(false);
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [newRule, setNewRule]         = React.useState({ channelType: '', subChannel: '*', businessUnit: '', triggerEvent: '', targetSystem: '', endpointKey: '', executionOrder: 1 });
+  const [toast, setToast]             = React.useState(null);
+
+  function showToastMsg(msg, type = 'success') {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  async function fetchRules() {
+    setLoading(true); setError(null);
+    try {
+      const headers = _token ? { Authorization: `Bearer ${_token}` } : {};
+      const r = await fetch(`${apiBase}/config/outbox-routing-rules`, { headers });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      const d = await r.json();
+      setRules(d.data ?? d);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  React.useEffect(() => { fetchRules(); }, []);
+
+  async function deactivate(ruleId) {
+    try {
+      const headers = { ...(_token ? { Authorization: `Bearer ${_token}` } : {}), 'Content-Type': 'application/json' };
+      const r = await fetch(`${apiBase}/config/outbox-routing-rules/${ruleId}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error(`${r.status}`);
+      showToastMsg('Rule deactivated');
+      fetchRules();
+    } catch (e) { showToastMsg('Error: ' + e.message, 'error'); }
+  }
+
+  async function addRule() {
+    if (!newRule.channelType || !newRule.businessUnit || !newRule.triggerEvent || !newRule.targetSystem || !newRule.endpointKey) {
+      showToastMsg('All fields are required', 'error'); return;
+    }
+    try {
+      const headers = { ...(_token ? { Authorization: `Bearer ${_token}` } : {}), 'Content-Type': 'application/json' };
+      const r = await fetch(`${apiBase}/config/outbox-routing-rules`, {
+        method: 'POST', headers, body: JSON.stringify(newRule),
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+      showToastMsg('Rule added');
+      setShowAddForm(false);
+      setNewRule({ channelType: '', subChannel: '*', businessUnit: '', triggerEvent: '', targetSystem: '', endpointKey: '', executionOrder: 1 });
+      fetchRules();
+    } catch (e) { showToastMsg('Error: ' + e.message, 'error'); }
+  }
+
+  const allChannels = [...new Set(rules.map(r => r.channelType))];
+
+  const filtered = rules
+    .filter(r =>
+      (!filterChannel || r.channelType === filterChannel) &&
+      (!filterBU || r.businessUnit.toLowerCase().includes(filterBU.toLowerCase())) &&
+      (!filterEvent || r.triggerEvent.toLowerCase().includes(filterEvent.toLowerCase())) &&
+      (showInactive || r.isActive)
+    )
+    .sort((a, b) => a.triggerEvent.localeCompare(b.triggerEvent) || a.executionOrder - b.executionOrder);
+
+  // Group rows by triggerEvent for visual separation
+  const grouped = filtered.reduce((acc, rule) => {
+    const key = rule.triggerEvent;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(rule);
+    return acc;
+  }, {});
+
+  return (
+    <div className="p-6 max-w-screen-xl mx-auto">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Outbox Routing Rules</h2>
+          <p className="text-sm text-gray-500 mt-1 max-w-2xl">
+            Determines which external systems receive each domain event, per channel + BU.
+            Exact <span className="font-mono text-xs bg-gray-100 px-1 rounded">(channel, BU)</span> match
+            takes precedence over wildcard <span className="font-mono text-xs bg-gray-100 px-1 rounded">*</span> entries.
+            Multiple matching rules are dispatched in <em>execution order</em>.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0 ml-4">
+          <button onClick={fetchRules}
+            className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors">
+            ↻ Refresh
+          </button>
+          <button onClick={() => setShowAddForm(f => !f)}
+            className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+            + Add Rule
+          </button>
+        </div>
+      </div>
+
+      {/* Add Rule Form */}
+      {showAddForm && (
+        <div className="mb-5 p-4 bg-white rounded-xl border border-blue-200 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">New Routing Rule</h3>
+          <div className="grid grid-cols-6 gap-3">
+            {[
+              ['Channel Type', 'channelType', 'Marketplace'],
+              ['Sub-Channel', 'subChannel', 'TikTok  (or * for all)'],
+              ['Business Unit', 'businessUnit', 'CMG  (or * for all)'],
+              ['Trigger Event', 'triggerEvent', 'OutForDeliveryEvent'],
+              ['Target System', 'targetSystem', 'Marketplace'],
+              ['Endpoint Key', 'endpointKey', 'tiktok.awb-notify'],
+              ['Exec Order', 'executionOrder', '1'],
+            ].map(([label, field, ph]) => (
+              <div key={field}>
+                <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                <input
+                  className="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={ph}
+                  value={newRule[field]}
+                  onChange={e => setNewRule(prev => ({ ...prev, [field]: field === 'executionOrder' ? +e.target.value : e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={addRule}
+              className="text-sm px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Save
+            </button>
+            <button onClick={() => setShowAddForm(false)}
+              className="text-sm px-4 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <select value={filterChannel} onChange={e => setFilterChannel(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">All Channels</option>
+          {allChannels.map(c => <option key={c} value={c}>{c === '*' ? '* (wildcard)' : c}</option>)}
+        </select>
+        <input className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Filter BU…" value={filterBU} onChange={e => setFilterBU(e.target.value)} />
+        <input className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Filter event…" value={filterEvent} onChange={e => setFilterEvent(e.target.value)} />
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} className="rounded" />
+          Show inactive
+        </label>
+        <span className="ml-auto text-sm text-gray-400">
+          {filtered.length} rule{filtered.length !== 1 ? 's' : ''}
+          {rules.length !== filtered.length && ` (of ${rules.length})`}
+        </span>
+      </div>
+
+      {loading && <div className="text-center py-16 text-gray-400 text-sm">Loading rules…</div>}
+      {error   && <div className="text-center py-16 text-red-500 text-sm">Failed to load: {error}</div>}
+
+      {!loading && !error && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide w-12">#</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Channel</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sub-Channel</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Business Unit</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Trigger Event</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Target</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Endpoint Key</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide text-center w-16">Order</th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide text-center w-20">Status</th>
+                <th className="px-4 py-2.5 w-28"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={10} className="text-center py-10 text-gray-400">No rules match the current filters.</td></tr>
+              )}
+              {Object.entries(grouped).map(([evt, evtRules], gi) => (
+                <React.Fragment key={evt}>
+                  {/* Event group divider */}
+                  {gi > 0 && <tr><td colSpan={10} className="h-px bg-gray-100 p-0" /></tr>}
+                  {evtRules.map(rule => (
+                    <tr key={rule.ruleId}
+                      className={`hover:bg-blue-50/40 transition-colors ${!rule.isActive ? 'opacity-40' : ''}`}>
+                      <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{rule.ruleId}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${rule.channelType === '*' ? 'bg-gray-100 text-gray-500 border border-gray-200' : (CH_COLOR[rule.channelType] || 'bg-gray-100 text-gray-700 border border-gray-200')}`}>
+                          {rule.channelType === '*' ? '* all' : rule.channelType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-700">
+                        {rule.subChannel === '*'
+                          ? <span className="text-gray-400 italic">* all</span>
+                          : <span className="font-semibold text-indigo-700">{rule.subChannel}</span>}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-700">
+                        {rule.businessUnit === '*'
+                          ? <span className="text-gray-400 italic">* all</span>
+                          : rule.businessUnit}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-800">{rule.triggerEvent}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${SYS_COLOR_EXT[rule.targetSystem] || 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                          {rule.targetSystem}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{rule.endpointKey}</td>
+                      <td className="px-4 py-2.5 text-center text-xs text-gray-600">{rule.executionOrder}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${rule.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                          {rule.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {rule.isActive && (
+                          <button onClick={() => deactivate(rule.ruleId)}
+                            className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors">
+                            Deactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Legend */}
+      {!loading && !error && (
+        <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
+          <span className="font-medium text-gray-600">Target Systems:</span>
+          {Object.entries(SYS_COLOR_EXT).map(([sys, cls]) => (
+            <span key={sys} className={`px-2 py-0.5 rounded font-medium ${cls}`}>{sys}</span>
+          ))}
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-2.5 rounded-xl shadow-lg text-sm text-white z-50 transition-all ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-600'}`}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const NAV_TABS = [
   { key: 'kanban',    label: 'Orders'         },
+  { key: 'buview',    label: 'By BU'          },
   { key: 'prepaid',   label: 'Prepaid Flow'   },
   { key: 'pod',       label: 'POD Flow'       },
   { key: 'usecases',  label: 'Use Cases'      },
   { key: 'stockflow', label: 'Stock Flow'     },
+  { key: 'routing',   label: 'Routing Rules'  },
   { key: 'apiref',    label: 'API Reference'  },
 ];
 
@@ -3508,10 +3977,12 @@ function App() {
           />
         )}
         {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); setTimelineOrderId(null); }} orderId={timelineOrderId} />}
+        {view === 'buview'    && <BUDashboardView />}
         {view === 'prepaid'   && <PrepaidFlowView />}
         {view === 'pod'       && <PODFlowView />}
         {view === 'usecases'  && <UseCaseExplorer />}
         {view === 'stockflow' && <StockFlowView />}
+        {view === 'routing'   && <RoutingRulesView />}
         {view === 'apiref'    && <ApiReferenceView />}
       </main>
     </div>

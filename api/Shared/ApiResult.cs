@@ -44,4 +44,12 @@ public static class ApiResult
         Detail = detail,
         OccurredAt = DateTime.UtcNow
     };
+
+    public static IEnumerable<TimelineEventDto> DispatchOutbox(
+        InMemoryStore store, string channelType, string subChannel, string businessUnit,
+        string triggerEvent, string payloadDetail)
+    {
+        return store.GetRoutingRules(channelType, subChannel, businessUnit, triggerEvent)
+            .Select(rule => OutboxEvent(rule.TargetSystem, triggerEvent, $"{payloadDetail} → {rule.EndpointKey}"));
+    }
 }

@@ -18,7 +18,10 @@ public record CreateOrderRequest(
     string? ExternalCustomerId,
     CreateOrderAddressRequest? DeliveryAddress,
     CreateOrderSlotRequest? DeliverySlot,
-    List<CreateOrderLineRequest> Lines);
+    List<CreateOrderLineRequest> Lines)
+{
+    public string SubChannel { get; init; } = "*";
+}
 
 public class CreateOrderHandler(InMemoryStore store)
 {
@@ -57,6 +60,7 @@ public class CreateOrderHandler(InMemoryStore store)
             CustomerEmail = req.CustomerEmail,
             ExternalCustomerId = req.ExternalCustomerId,
             ChannelType = req.ChannelType,
+            SubChannel = req.SubChannel,
             BusinessUnit = req.BusinessUnit,
             StoreId = req.StoreId,
             OrderDate = now,
@@ -101,10 +105,9 @@ public class CreateOrderHandler(InMemoryStore store)
         store.AddOrder(order);
         store.AppendEvent(id, ApiResult.DomainEvent("OrderCreated", OrderStatus.Pending,
             $"Order {num} created via {req.ChannelType}."));
-        store.AppendEvent(id, ApiResult.OutboxEvent("TMS", "SaleOrderSentToTMS",
-            $"SC → TMS: Sale Order {num} dispatched for driver slot scheduling."));
-        store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "SaleOrderSentToWMS",
-            $"SC → WMS: Sale Order {num} dispatched for warehouse picking."));
+        foreach (var evt in ApiResult.DispatchOutbox(store, req.ChannelType, req.SubChannel, req.BusinessUnit,
+            "OrderCreatedEvent", $"SC → {{target}}: Sale Order {num}"))
+            store.AppendEvent(id, evt);
         return Results.Created($"/api/orders/{id}", order);
     }
 }

@@ -12,6 +12,7 @@ public class OrderDto
     public string? CustomerEmail { get; set; }
     public string? ExternalCustomerId { get; set; }
     public string ChannelType { get; set; } = "";
+    public string SubChannel { get; set; } = "*";
     public string BusinessUnit { get; set; } = "";
     public string StoreId { get; set; } = "";
     public string FulfillmentType { get; set; } = "";

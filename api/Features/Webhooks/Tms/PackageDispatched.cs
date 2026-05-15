@@ -17,8 +17,9 @@ public class PackageDispatchedHandler(InMemoryStore store)
             o.Status = OrderStatus.OutForDelivery;
             store.AppendEvent(o.Id, ApiResult.WebhookEvent("TMS", "PackageDispatched", OrderStatus.OutForDelivery,
                 $"Package {req.TrackingId} dispatched at {req.DispatchedAt:o}."));
-            store.AppendEvent(o.Id, ApiResult.OutboxEvent("GW", "OutForDeliveryNotified",
-                $"SC → GW: Out for Delivery. Package {req.TrackingId} dispatched — customer push notification sent."));
+            foreach (var outbox in ApiResult.DispatchOutbox(store, o.ChannelType, o.SubChannel, o.BusinessUnit,
+                "OutForDeliveryEvent", $"Package {req.TrackingId} dispatched"))
+                store.AppendEvent(o.Id, outbox);
         }
 
         store.AddWebhookLog(o.Id, new WebhookLogDto
