@@ -400,7 +400,7 @@ sequenceDiagram
   Note over OMS,GW: Outbox: ABBTaxInvoiceSentToGW → GW
 
   rect rgb(255, 220, 220)
-    Note over Customer,OMS: Customer rejects beef at the door (not fresh); keeps chicken
+    Note over Customer,OMS: Customer rejects beef at the door (not fresh) — keeps chicken
     Customer->>GW: Initiate partial return for beef only
     GW->>OMS: POST /returns { orderId, returnType: "PartialItem", returnReason: "ItemNotFresh", items: [{ orderLineId: beefLineId, sku: "BEEF-KG", quantity: 0.5 }] }
     OMS-->>GW: 201 { returnId, orderId, status: "Requested", items: [beefLine] }
@@ -600,8 +600,8 @@ sequenceDiagram
 
   rect rgb(255, 240, 210)
     Note over WMS,OMS: Short-pick recorded — soap line pickedQty = 0
-    GW->>OMS: PATCH /orders/{orderId}/partial-pick { lines: [{ orderLineId: soapLineId, pickedQuantity: 0, orderedQuantity: 1, reason: "OutOfStock" }], idempotencyKey }
-    OMS-->>GW: 200 { orderId, partialLines: [{ orderLineId: soapLineId, shortfallQuantity: 1 }] }
+    WMS->>OMS: PATCH /orders/{orderId}/partial-pick { lines: [{ orderLineId: soapLineId, pickedQuantity: 0, orderedQuantity: 1, reason: "OutOfStock" }], idempotencyKey }
+    OMS-->>WMS: 200 { orderId, partialLines: [{ orderLineId: soapLineId, shortfallQuantity: 1 }] }
   end
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [waterLine pickedQty=2, soapLine pickedQty=0] }
