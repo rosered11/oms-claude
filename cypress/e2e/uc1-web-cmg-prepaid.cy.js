@@ -50,6 +50,12 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
       expect(res.body.accepted).to.be.true;
       expect(res.body.orderId).to.eq(orderId);
     });
+
+    cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
+      const events = res.body.events ?? res.body;
+      const names  = events.map((e) => e.event);
+      expect(names).to.include('WaveStartedSentToGW');
+    });
   });
 
   it('Step 3a — WMS requests POS recalculation; OMS calls POS outbound and returns adjusted amount', () => {

@@ -21,7 +21,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
       "Bash(xargs ls)",
-      "Bash(Select-String -Pattern \"error CS|warning CS|Error\\\\\\(s\\\\\\)|Warning\\\\\\(s\\\\\\)|Build succeeded\")"
+      "Bash(Select-String -Pattern \"error CS|warning CS|Error\\\\\\(s\\\\\\)|Warning\\\\\\(s\\\\\\)|Build succeeded\")",
+      "Bash(git add *)"
     ]
   }
 }

@@ -42,6 +42,19 @@ The `MarketplaceAdapter` ACL resolves `endpoint_key` to a real URL and handles m
 
 Opt-in/opt-out is controlled entirely by the presence or absence of a row in `outbox_routing_rules`. This is the canonical pattern for per-Gateway feature flags.
 
+**Implementation verified 2026-05-16.** Requirement: "After receiving WaveStarted webhook from WMS, OMS must send outbox to GW."
+- `api/Features/Webhooks/Wms/WaveStarted.cs` — handler calls `adapterService.Dispatch(... "WaveStartedSentToGW" ...)` after validating `order.Status == OrderStatus.PickStarted`.
+- `InMemoryStore.SeedRoutingRules()` — routing rule seeded: `("Gateway", "*", "*", "WaveStartedSentToGW", "GW", "gw.wave-started", 1)`.
+- `InMemoryStore.SeedEndpointConfigs()` — endpoint config seeded: `"gw.wave-started"` → `{mock}/gw/api/status-update` (same endpoint as OutForDelivery and Delivered), auth: StaticToken via `x-api-key` header.
+- State machine guard is correct: `WaveStarted` is rejected unless `order.Status == OrderStatus.PickStarted`.
+
+**Payload fix 2026-05-16.** Requirement: "In WaveStartedEvent, request body not match with spec."
+- Root cause: WaveStarted handler was forwarding raw inbound fields `{orderId, waveId, startedAt}` to GW instead of the standard GW status update format.
+- Fix: `WaveStarted.cs` now calls `GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same payload builder as OutForDelivery and Delivered, with `order_status = "WAVE_STARTED"`.
+- Fix: `GwUpdateStatusPayload.Build()` now accepts `orderStatus` parameter (default `"DELIVERED"`) to support reuse across multiple status transitions.
+- Outbound payload to GW: `{order_id, sale_channel, sale_source, order_status: "WAVE_STARTED", updated_at, updated_by: "OMS", payments[]}` — identical shape to Integration 2 (OutForDelivery/Delivered).
+- Routing rule scope is `"*"` (wildcard) — all channel types dispatch `WaveStartedSentToGW`, consistent with `OutForDelivery` and `Delivered`. The `"Gateway"` channel type restriction was incorrect; it confused `channelType = "Gateway"` (an OMS channel value) with the GW external system.
+
 ---
 
 ## Multi-BU Workflow

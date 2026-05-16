@@ -24,12 +24,9 @@ public class WaveStartedHandler(InMemoryStore store, OutboxAdapterService adapte
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "WaveStarted", order.Status,
             $"Wave {req.WaveId} started."));
 
-        var payload = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            orderId = req.OrderId,
-            waveId = req.WaveId,
-            startedAt = req.StartedAt
-        });
+        var payment = store.GetOrderPayment(req.OrderId);
+        var payload = System.Text.Json.JsonSerializer.Serialize(
+            GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED"));
 
         foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
             order.BusinessUnit, "WaveStartedSentToGW", payload))

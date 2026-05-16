@@ -2,7 +2,7 @@ namespace OmsApi;
 
 public static class GwUpdateStatusPayload
 {
-    public static object Build(OrderDto order, OrderPaymentDto? payment)
+    public static object Build(OrderDto order, OrderPaymentDto? payment, string orderStatus = "DELIVERED")
     {
         string saleChannel = order.ChannelType switch
         {
@@ -65,7 +65,7 @@ public static class GwUpdateStatusPayload
             order_id = order.OrderNumber,
             sale_channel = saleChannel,
             sale_source = salesource,
-            order_status = "DELIVERED",
+            order_status = orderStatus,
             updated_at = DateTime.UtcNow,
             updated_by = "OMS",
             payments = payments ?? Array.Empty<object>()

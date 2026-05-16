@@ -9,4 +9,4 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-I view in outbox monitoring, I think it is missing in the event WaveStartedSentToGW and POS Recalculation SPC->POS. help me fixed
+In WaveStartedEvent, use endpoint same to OutForDelivery and Delivered.

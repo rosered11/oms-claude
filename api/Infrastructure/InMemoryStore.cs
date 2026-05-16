@@ -166,7 +166,7 @@ public class InMemoryStore
         Add("*", "*", "*", "PosRecalculateEvent",    "POS",     "pos.recalculate",     1);
         Add("*", "*", "*", "ABBInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
         Add("*", "*", "*", "CreditNoteSentToWMS",    "WMS",     "wms.credit-note",     1);
-        Add("Gateway", "*", "*", "WaveStartedSentToGW", "GW",  "gw.wave-started",     1);
+        Add("*",       "*", "*", "WaveStartedSentToGW", "GW",  "gw.wave-started",     1);
     }
 
     private void SeedEndpointConfigs()
@@ -268,7 +268,7 @@ public class InMemoryStore
         Add("tiktok.awb-notify",   $"{mock}/tiktok/api/awb",
             "OAuth2ClientCredentials", tokenUrl: $"{mock}/tiktok/oauth/token",
             clientId: "oms-tiktok", clientSecret: "***");
-        Add("gw.wave-started",     $"{mock}/gw/api/wave-started",
+        Add("gw.wave-started",     $"{mock}/gw/api/status-update",
             "StaticToken", staticToken: "static-gw-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });

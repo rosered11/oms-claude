@@ -108,6 +108,38 @@ This document provides field-level traceability from every OMS database column t
 
 ---
 
+## Integration 2b — WaveStarted Forwarding to Gateway
+
+**Trigger event:** `WaveStartedSentToGW` — fired when WMS sends `POST /api/webhooks/wms/wave-started` and the order is in `PickStarted` status  
+**Endpoint key:** `gw.wave-started`  
+**Target URL:** `https://gw.internal/api/status-update`  
+**Auth:** StaticToken (`x-api-key: static-gw-token`)  
+**Channel scope:** All channel types (`"*"` wildcard rule) — consistent with `OutForDelivery` and `Delivered` GW dispatch  
+**Payload builder:** Inline in `WaveStartedHandler.Handle()` — no dedicated builder class
+
+### Request Header Fields
+
+| External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
+|---|---|---|---|---|---|
+| `x-api-key` | string | M | — | — | Hardcoded: `static-gw-token` from endpoint config `StaticToken` |
+| `x-channel` | string | M | — | — | Hardcoded: `"TWD"` from endpoint config `Headers` |
+
+### Request Body Fields
+
+Uses `GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same builder and field mapping as Integration 2, with `order_status` set to `"WAVE_STARTED"`. See Integration 2 for the full field-level mapping.
+
+| External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
+|---|---|---|---|---|---|
+| `order_id` | string | M | `OrderDto.OrderNumber` | `orders.order_number` | Direct mapping |
+| `sale_channel` | string | M | `OrderDto.ChannelType` | `orders.channel_type` | Mapped: `Gateway`→`CFW`, `App`→`CHEF`, `POS`→`CHO`, all others→`CFW` |
+| `sale_source` | string | M | `OrderDto.SubChannel` | `orders.sub_channel` | Mapped: `WA`→`WA`, `XB`→`XB`, `CF`→`CF`, `CO`→`CO`, all others→`WA` |
+| `order_status` | string | M | — | — | Hardcoded: `"WAVE_STARTED"` |
+| `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time |
+| `updated_by` | string | M | — | — | Hardcoded: `"OMS"` |
+| `payments` | array | O | `OrderPaymentDto` (if present) | `payment.order_payments` | Same mapping as Integration 2 — empty `[]` when no payment record exists |
+
+---
+
 ## Integration 3 — TMS/WMS Tax Invoice
 
 **Trigger events:**  
@@ -236,6 +268,7 @@ The following endpoint keys are seeded in `InMemoryStore.SeedEndpointConfigs()`.
 |---|---|---|---|---|
 | `pos.recalculate` | `https://pos.internal/api/recalculate` | StaticToken | Header: `accessToken: pos-access-token`; `refId: ""` | Integration 1 — POS Recalculation |
 | `gw.out-for-delivery` | `https://gw.internal/api/status-update` | StaticToken | `static-gw-token` | Integration 2 — Gateway Update Status |
+| `gw.wave-started` | `https://gw.internal/api/status-update` | StaticToken | `static-gw-token` (header: `x-api-key`); `x-channel: TWD` | Integration 2b — WaveStarted Forwarding to Gateway |
 | `tms.abb-tax-invoice` | `https://tms.internal/api/invoices` | StaticToken | `static-tms-token` | Integration 3 — Tax Invoice (POD flow) |
 | `wms.tax-invoice` | `https://wms.internal/api/invoices` | StaticToken | `static-wms-token` | Integration 3 — Tax Invoice (Prepaid flow) |
 | `wms.credit-note` | `https://wms.internal/api/credit-notes` | StaticToken | `static-wms-token` | Integration 4 — Credit Note (Prepaid flow) |
