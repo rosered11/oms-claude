@@ -3,6 +3,7 @@ using OmsApi;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<InMemoryStore>();
+builder.Services.AddSingleton<OutboxAdapterService>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddControllers();

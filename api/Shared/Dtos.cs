@@ -459,6 +459,53 @@ public class DamagedGoodsItemDto
     public DateTime? ConfirmedAt { get; set; }
 }
 
+// ── Outbox ────────────────────────────────────────────────────────────────────
+
+public class OutboxEndpointConfigDto
+{
+    public string EndpointKey { get; set; } = "";
+    public string BaseUrl { get; set; } = "";
+    public Dictionary<string, string> Headers { get; set; } = new();
+    public Dictionary<string, string> TokenRequestHeaders { get; set; } = new();
+    public string AuthType { get; set; } = "None";
+    public string? StaticToken { get; set; }
+    public string StaticTokenHeader { get; set; } = "Authorization";
+    public string? TokenUrl { get; set; }
+    public string? ClientId { get; set; }
+    public string? Scope { get; set; }
+    public string GrantType { get; set; } = "client_credentials";
+    public Dictionary<string, string> AdditionalTokenParams { get; set; } = new();
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public class OutboxDispatchLogDto
+{
+    public long LogId { get; set; }
+    public string OrderId { get; set; } = "";
+    public string EndpointKey { get; set; } = "";
+    public string TriggerEvent { get; set; } = "";
+    public string TargetSystem { get; set; } = "";
+    public string AuthType { get; set; } = "None";
+    public string Status { get; set; } = "";
+    // Phase 1 — Token Fetch (OAuth2 only)
+    public string? TokenUrl { get; set; }
+    public string? TokenRequestHeaders { get; set; }
+    public string? TokenRequestBody { get; set; }
+    public string? TokenResponsePayload { get; set; }
+    // Phase 2 — API Call
+    public string? BaseUrl { get; set; }
+    public string? ApiRequestHeaders { get; set; }
+    public string? RequestPayload { get; set; }
+    public string? ResponsePayload { get; set; }
+    public int HttpStatusCode { get; set; }
+    public int AttemptCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
 // ── Stock ─────────────────────────────────────────────────────────────────────
 
 public class StockLedgerDto

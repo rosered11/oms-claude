@@ -7,6 +7,7 @@ This document contains one Mermaid sequence diagram per end-to-end use case defi
 - `POST /webhooks/wms/put-away-confirmed` transitions the linked **order** to `Returned` in addition to transitioning the return record to `PutAway` (UC12)
 - `POST /webhooks/sts/credit-note-received` request field is `amount` (not `creditAmount`) (UC11)
 - `GET /orders/{id}/credit-note` — new endpoint returning `CreditNoteDto` for an order (UC11)
+- `POST /webhooks/tms/package-delivered` dispatches `DeliveredEvent → GW` via outbox on every delivery (routing rule: `("*", "*", "*", "DeliveredEvent", "GW", "gw.delivered", 1)`) (UC1–UC6, UC10–UC13)
 
 ---
 
@@ -64,6 +65,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered", businessUnit: "CMG" }
@@ -125,6 +127,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR" }
@@ -194,6 +197,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered" }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered", channelType: "Marketplace", businessUnit: "CMG" }
@@ -258,6 +262,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { accepted: true, newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (customer pays driver at door)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
@@ -328,6 +333,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (customer pays driver at door)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 15555, currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
@@ -398,6 +404,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 25000, currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
@@ -640,6 +647,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered", lines: [waterLine pickedQty=2, soapLine pickedQty=0] }
@@ -721,6 +729,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}/substitutions
   OMS-->>GW: 200 [ { substitutionId, customerApproved: true } ]
@@ -781,6 +790,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered" }
@@ -868,6 +878,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
+  Note over OMS,GW: Outbox: DeliveredEvent → GW
 
   GW->>OMS: GET /orders/{orderId}
   OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR" }

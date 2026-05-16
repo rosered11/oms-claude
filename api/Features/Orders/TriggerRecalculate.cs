@@ -1,6 +1,6 @@
 namespace OmsApi;
 
-public class TriggerRecalculateHandler(InMemoryStore store)
+public class TriggerRecalculateHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(string id)
     {
@@ -9,8 +9,15 @@ public class TriggerRecalculateHandler(InMemoryStore store)
 
         o.UpdatedAt = DateTime.UtcNow;
         store.AppendEvent(id, ApiResult.DomainEvent("RecalcRequested", o.Status, "POS recalculation triggered manually."));
-        store.AppendEvent(id, ApiResult.DomainEvent("PosRecalcCalled", o.Status,
-            $"SC → POS [outbound]: recalculation triggered. Current basket: {o.Amount} THB. Promo engine and tax calculation applied."));
+
+        var promotions = store.GetOrderPromotions(id);
+        var payload = PosRecalcPayload.Build(o, promotions);
+        var payloadJson = System.Text.Json.JsonSerializer.Serialize(payload);
+
+        foreach (var evt in adapterService.Dispatch(id, o.ChannelType, o.SubChannel, o.BusinessUnit,
+            "PosRecalculateEvent", payloadJson))
+            store.AppendEvent(id, evt);
+
         return Results.Accepted(null, new { orderId = id, adjustedAmount = o.Amount, recalcTriggeredAt = DateTime.UtcNow });
     }
 }

@@ -9,4 +9,4 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-I want to always add the "RecalcRequested"  outbox to the GW whenever the WMS or TMS is webhook into OMS. And I want to remove the booking context from OMS. because OMS doesn't handle booking
+I want to you recheck logic delivered, after TMS webhook in OMS. the OMS must to send delivered outbox to GW. but I think in sequence digram is incorrect.

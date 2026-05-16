@@ -16,7 +16,11 @@
       "PowerShell(Copy-Item *)",
       "PowerShell([System.IO.Directory]::GetFiles\\(\"D:\\\\workspace\\\\oms-claude\\\\memory\"\\))",
       "PowerShell(dotnet build *)",
-      "Bash(dir D:workspaceoms-claude *)"
+      "Bash(dir D:workspaceoms-claude *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\oms-claude\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(xargs ls)"
     ]
   }
 }

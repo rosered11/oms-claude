@@ -2,7 +2,7 @@ namespace OmsApi;
 
 public record PackageDeliveredRequest(string TrackingId, DateTime DeliveredAt, string RecipientName);
 
-public class PackageDeliveredHandler(InMemoryStore store)
+public class PackageDeliveredHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(PackageDeliveredRequest req)
     {
@@ -17,8 +17,14 @@ public class PackageDeliveredHandler(InMemoryStore store)
             o.Status = OrderStatus.Delivered;
             store.AppendEvent(o.Id, ApiResult.WebhookEvent("TMS", "PackageDelivered", OrderStatus.Delivered,
                 $"Delivered to {req.RecipientName} at {req.DeliveredAt:o}."));
-            store.AppendEvent(o.Id, ApiResult.OutboxEvent("GW", "DeliveredSentToGW",
-                $"SC → GW: Delivered. Package {req.TrackingId} signed by {req.RecipientName}."));
+
+            var payment = store.GetOrderPayment(o.Id);
+            var payloadJson = System.Text.Json.JsonSerializer.Serialize(
+                GwUpdateStatusPayload.Build(o, payment));
+
+            foreach (var evt in adapterService.Dispatch(o.Id, o.ChannelType, o.SubChannel, o.BusinessUnit,
+                "DeliveredEvent", payloadJson))
+                store.AppendEvent(o.Id, evt);
         }
 
         store.AddWebhookLog(o.Id, new WebhookLogDto

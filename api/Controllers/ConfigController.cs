@@ -8,7 +8,10 @@ public class ConfigController(
     GetRoutingRulesHandler getRoutingRules,
     CreateRoutingRuleHandler createRoutingRule,
     UpdateRoutingRuleHandler updateRoutingRule,
-    DeleteRoutingRuleHandler deleteRoutingRule) : ControllerBase
+    DeleteRoutingRuleHandler deleteRoutingRule,
+    GetEndpointConfigsHandler getEndpointConfigs,
+    UpsertEndpointConfigHandler upsertEndpointConfig,
+    DeleteEndpointConfigHandler deleteEndpointConfig) : ControllerBase
 {
     [HttpGet("outbox-routing-rules")]
     public IResult GetAll() => getRoutingRules.Handle();
@@ -24,4 +27,16 @@ public class ConfigController(
 
     [HttpDelete("outbox-routing-rules/{ruleId:long}")]
     public IResult Delete(long ruleId) => deleteRoutingRule.Handle(ruleId);
+
+    [HttpGet("outbox-endpoints")]
+    public IResult GetEndpoints() => getEndpointConfigs.Handle();
+
+    [HttpGet("outbox-endpoints/{key}")]
+    public IResult GetEndpoint(string key) => getEndpointConfigs.HandleOne(key);
+
+    [HttpPost("outbox-endpoints")]
+    public IResult UpsertEndpoint([FromBody] UpsertEndpointConfigRequest req) => upsertEndpointConfig.Handle(req);
+
+    [HttpDelete("outbox-endpoints/{key}")]
+    public IResult DeleteEndpoint(string key) => deleteEndpointConfig.Handle(key);
 }

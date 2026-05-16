@@ -8,7 +8,7 @@ public record AbbTaxInvoiceReceivedRequest(
     string? InvoiceLink,
     DateTime IssuedAt);
 
-public class AbbTaxInvoiceReceivedHandler(InMemoryStore store)
+public class AbbTaxInvoiceReceivedHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(AbbTaxInvoiceReceivedRequest req)
     {
@@ -20,7 +20,7 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store)
             return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, duplicate = true });
 
         var invoiceId = $"inv-{Guid.NewGuid():N}"[..10];
-        store.SetInvoice(req.OrderId, new InvoiceDto
+        var invoice = new InvoiceDto
         {
             InvoiceId = invoiceId,
             OrderId = req.OrderId,
@@ -33,7 +33,8 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store)
             SourceStsRef = req.InvoiceNumber,
             IssuedAt = req.IssuedAt,
             GeneratedAt = DateTime.UtcNow
-        });
+        };
+        store.SetInvoice(req.OrderId, invoice);
 
         store.AddWebhookLog(req.OrderId, new WebhookLogDto
         {
@@ -46,20 +47,25 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store)
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("STS", "ABBTaxInvoiceReceived", order.Status,
             $"Invoice {req.InvoiceNumber} · {req.InvoiceAmount} {req.Currency} received from STS."));
 
+        var invoicePayload = System.Text.Json.JsonSerializer.Serialize(
+            TmsWmsTaxInvoicePayload.Build(order, invoice, order.Lines));
+
         if (order.IsPrepaid)
         {
-            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("WMS", "ABBInvoiceSentToWMS",
-                $"Invoice {req.InvoiceNumber} dispatched to WMS (prepaid)."));
-            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "ABBInvoiceSentToGW",
-                $"Invoice {req.InvoiceNumber} dispatched to Gateway (prepaid)."));
+            foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
+                order.BusinessUnit, "ABBInvoiceSentToWMS", invoicePayload))
+                store.AppendEvent(req.OrderId, evt);
         }
         else
         {
-            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("TMS", "ABBTaxInvoiceSentToTMS",
-                $"Invoice {req.InvoiceNumber} dispatched to TMS (POD)."));
-            store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "ABBTaxInvoiceSentToGW",
-                $"Invoice {req.InvoiceNumber} dispatched to Gateway (POD)."));
+            foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
+                order.BusinessUnit, "ABBTaxInvoiceSentToTMS", invoicePayload))
+                store.AppendEvent(req.OrderId, evt);
         }
+
+        foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
+            order.BusinessUnit, "ABBInvoiceSentToGW", invoicePayload))
+            store.AppendEvent(req.OrderId, evt);
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId });
     }

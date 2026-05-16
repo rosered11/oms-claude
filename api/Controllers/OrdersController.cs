@@ -12,6 +12,9 @@ public class OrdersController(
     GetOrderWebhooksHandler getOrderWebhooks,
     GetOrderSubstitutionsHandler getOrderSubstitutions,
     GetOrderCreditNoteHandler getOrderCreditNote,
+    GetOrderPaymentHandler getOrderPayment,
+    GetOrderPromotionsHandler getOrderPromotions,
+    GetOrderFeesHandler getOrderFees,
     ApproveSubstitutionHandler approveSubstitution,
     RejectSubstitutionHandler rejectSubstitution,
     GetOrderTimelineHandler getOrderTimeline,
@@ -49,6 +52,15 @@ public class OrdersController(
 
     [HttpGet("{id}/credit-note")]
     public IResult GetCreditNote(string id) => getOrderCreditNote.Handle(id);
+
+    [HttpGet("{id}/payment")]
+    public IResult GetPayment(string id) => getOrderPayment.Handle(id);
+
+    [HttpGet("{id}/promotions")]
+    public IResult GetPromotions(string id) => getOrderPromotions.Handle(id);
+
+    [HttpGet("{id}/fees")]
+    public IResult GetFees(string id) => getOrderFees.Handle(id);
 
     [HttpPost("{id}/substitutions/{subId}/approve")]
     public IResult ApproveSubstitution(string id, string subId) => approveSubstitution.Handle(id, subId);

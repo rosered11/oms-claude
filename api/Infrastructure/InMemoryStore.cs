@@ -16,6 +16,52 @@ public class OutboxRoutingRule
     public bool IsActive { get; set; } = true;
 }
 
+public class OutboxEndpointConfig
+{
+    public string EndpointKey { get; set; } = "";
+    public string BaseUrl { get; set; } = "";
+    public Dictionary<string, string> Headers { get; set; } = new();           // → Base URL
+    public Dictionary<string, string> TokenRequestHeaders { get; set; } = new(); // → Token URL (OAuth2 only)
+    public string AuthType { get; set; } = "None"; // None | StaticToken | OAuth2ClientCredentials
+    public string? StaticToken { get; set; }
+    public string StaticTokenHeader { get; set; } = "Authorization";
+    public string? TokenUrl { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+    public string? Scope { get; set; }
+    public string GrantType { get; set; } = "client_credentials";
+    public Dictionary<string, string> AdditionalTokenParams { get; set; } = new();
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class OutboxDispatchLog
+{
+    public long LogId { get; set; }
+    public string OrderId { get; set; } = "";
+    public string EndpointKey { get; set; } = "";
+    public string TriggerEvent { get; set; } = "";
+    public string TargetSystem { get; set; } = "";
+    public string AuthType { get; set; } = "None";
+    public string Status { get; set; } = "Pending"; // Pending | Success | Failed | Retrying
+    // Phase 1 — Token Fetch (OAuth2 only)
+    public string? TokenUrl { get; set; }
+    public string? TokenRequestHeaders { get; set; }
+    public string? TokenRequestBody { get; set; }
+    public string? TokenResponsePayload { get; set; }
+    // Phase 2 — API Call
+    public string? BaseUrl { get; set; }
+    public string? ApiRequestHeaders { get; set; }
+    public string? RequestPayload { get; set; }
+    public string? ResponsePayload { get; set; }
+    public int HttpStatusCode { get; set; }
+    public int AttemptCount { get; set; } = 1;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAt { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
 public class InMemoryStore
 {
     private static readonly JsonSerializerOptions _json = new()
@@ -32,6 +78,10 @@ public class InMemoryStore
     public List<TimelineEventDto> OrderTimeline { get; private set; } = [];
     public List<TimelineEventDto> PrepaidTimeline { get; private set; } = [];
     public List<OutboxRoutingRule> RoutingRules { get; private set; } = [];
+    public List<OutboxEndpointConfig> EndpointConfigs { get; private set; } = [];
+    public List<OutboxDispatchLog> DispatchLogs { get; private set; } = [];
+
+    private long _nextDispatchLogId = 1;
 
     private readonly Dictionary<string, List<TimelineEventDto>> _orderEvents = [];
     private readonly Dictionary<string, List<SubstitutionDto>> _substitutions = [];
@@ -70,6 +120,8 @@ public class InMemoryStore
             _orderEvents["ORD-001"] = [.. OrderTimeline];
 
         SeedRoutingRules();
+        SeedEndpointConfigs();
+        SeedPaymentData();
     }
 
     private void SeedRoutingRules()
@@ -104,12 +156,223 @@ public class InMemoryStore
         Add("*", "*", "*", "PickConfirmedEvent",     "TMS",     "tms.pick-confirm",    1);
         Add("*", "*", "*", "PackedEvent",            "TMS",     "tms.pack-confirm",    1);
         Add("*", "*", "*", "OutForDeliveryEvent",    "GW",      "gw.out-for-delivery", 1);
+        Add("*", "*", "*", "DeliveredEvent",         "GW",      "gw.delivered",        1);
         Add("*", "*", "*", "ABBTaxInvoiceSentToTMS", "TMS",     "tms.abb-tax-invoice", 1);
         Add("*", "*", "*", "ABBInvoiceSentToGW",     "Gateway", "gateway.abb-invoice", 1);
         Add("*", "*", "*", "CreditNoteSentToGW",     "Gateway", "gateway.credit-note", 1);
         Add("*", "*", "*", "OrderCancelledEvent",    "WMS",     "wms.cancel-order",    1);
         Add("*", "*", "*", "OrderCancelledEvent",    "TMS",     "tms.cancel-booking",  2);
         Add("*", "*", "*", "OrderCancelledEvent",    "GW",      "gw.order-cancelled",  3);
+        Add("*", "*", "*", "PosRecalculateEvent",    "POS",     "pos.recalculate",     1);
+        Add("*", "*", "*", "ABBInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
+        Add("*", "*", "*", "CreditNoteSentToWMS",    "WMS",     "wms.credit-note",     1);
+    }
+
+    private void SeedEndpointConfigs()
+    {
+        static DateTime Utc() => DateTime.UtcNow;
+
+        void Add(string key, string baseUrl, string authType,
+            string? staticToken = null, string? tokenUrl = null,
+            string? clientId = null, string? clientSecret = null,
+            Dictionary<string, string>? headers = null) =>
+            EndpointConfigs.Add(new OutboxEndpointConfig
+            {
+                EndpointKey = key,
+                BaseUrl = baseUrl,
+                AuthType = authType,
+                StaticToken = staticToken,
+                TokenUrl = tokenUrl,
+                ClientId = clientId,
+                ClientSecret = clientSecret,
+                Headers = headers ?? new(),
+                IsActive = true,
+                CreatedAt = Utc(),
+                UpdatedAt = Utc()
+            });
+
+        Add("wms.create-order",    "https://wms.internal/api/orders",
+            "OAuth2ClientCredentials", tokenUrl: "https://wms.internal/oauth/token",
+            clientId: "oms-client", clientSecret: "***");
+        Add("tms.pick-confirm",    "https://tms.internal/api/picks",
+            "StaticToken", staticToken: "static-tms-token");
+        Add("tms.pack-confirm",    "https://tms.internal/api/packs",
+            "StaticToken", staticToken: "static-tms-token");
+        Add("tiktok.order-create", "https://api.tiktokshop.com/orders",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+            clientId: "oms-tiktok", clientSecret: "***");
+        Add("lazada.order-create", "https://api.lazada.com/orders",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+            clientId: "oms-lazada", clientSecret: "***");
+        Add("gw.out-for-delivery", "https://gw.internal/api/status-update",
+            "StaticToken", staticToken: "static-gw-token");
+        Add("gw.delivered",        "https://gw.internal/api/status-update",
+            "StaticToken", staticToken: "static-gw-token");
+        Add("tms.abb-tax-invoice", "https://tms.internal/api/invoices",
+            "StaticToken", staticToken: "static-tms-token");
+        Add("gateway.abb-invoice", "https://gw.internal/api/invoices",
+            "StaticToken", staticToken: "static-gw-token");
+        Add("gateway.credit-note", "https://gw.internal/api/credit-notes",
+            "StaticToken", staticToken: "static-gw-token");
+        Add("wms.cancel-order",    "https://wms.internal/api/orders/cancel",
+            "OAuth2ClientCredentials", tokenUrl: "https://wms.internal/oauth/token",
+            clientId: "oms-client", clientSecret: "***");
+        Add("tms.cancel-booking",  "https://tms.internal/api/bookings/cancel",
+            "StaticToken", staticToken: "static-tms-token");
+        Add("gw.order-cancelled",  "https://gw.internal/api/orders/cancel",
+            "StaticToken", staticToken: "static-gw-token");
+        Add("pos.recalculate",     "https://pos.internal/api/recalculate",
+            "StaticToken", staticToken: "static-pos-token",
+            headers: new() { ["accessToken"] = "pos-access-token", ["refId"] = "" });
+        Add("wms.tax-invoice",     "https://wms.internal/api/invoices",
+            "StaticToken", staticToken: "static-wms-token");
+        Add("wms.credit-note",     "https://wms.internal/api/credit-notes",
+            "StaticToken", staticToken: "static-wms-token");
+        Add("tiktok.pick-confirm", "https://api.tiktokshop.com/picks",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+            clientId: "oms-tiktok", clientSecret: "***");
+        Add("lazada.pick-confirm", "https://api.lazada.com/picks",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+            clientId: "oms-lazada", clientSecret: "***");
+        Add("lazada.pack-confirm", "https://api.lazada.com/packs",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+            clientId: "oms-lazada", clientSecret: "***");
+        Add("tiktok.awb-notify",   "https://api.tiktokshop.com/awb",
+            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+            clientId: "oms-tiktok", clientSecret: "***");
+    }
+
+    private void SeedPaymentData()
+    {
+        static DateTime Utc(int y, int mo, int d, int h, int mi, int s) =>
+            new(y, mo, d, h, mi, s, DateTimeKind.Utc);
+
+        // ORD-001 — 10% fresh produce coupon at order creation
+        AddOrderPromotion(new OrderPromotionDto
+        {
+            PromotionId = "promo-001-1", OrderId = "ORD-001",
+            SourcePromoId = "P-FRESH10", PromoCode = "FRESH10",
+            PromoName = "10% Fresh Produce Discount", PromoType = "PercentageDiscount",
+            DiscountAmount = 24500, DiscountPercentage = 0.10m,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 14, 2, 0)
+        });
+
+        // ORD-003 — 20% member discount + delivery fee
+        AddOrderPromotion(new OrderPromotionDto
+        {
+            PromotionId = "promo-003-1", OrderId = "ORD-003",
+            SourcePromoId = "P-MEMBER20", PromoCode = "MEMBER20",
+            PromoName = "20% Member Discount", PromoType = "PercentageDiscount",
+            DiscountAmount = 64000, DiscountPercentage = 0.20m,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 10, 30, 0)
+        });
+        AddOrderFee(new OrderFeeDto
+        {
+            FeeId = "fee-003-1", OrderId = "ORD-003", FeeCode = "DELIVERY_FEE",
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 10, 30, 0),
+            UpdatedAt = Utc(2024, 1, 15, 10, 30, 0)
+        });
+
+        // ORD-004 — delivery fee (PayOnDelivery)
+        AddOrderFee(new OrderFeeDto
+        {
+            FeeId = "fee-004-1", OrderId = "ORD-004", FeeCode = "DELIVERY_FEE",
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 9, 0, 0),
+            UpdatedAt = Utc(2024, 1, 15, 9, 0, 0)
+        });
+
+        // ORD-005 — CreditCard auth + capture
+        SetOrderPayment("ORD-005", new OrderPaymentDto
+        {
+            PaymentId = "pay-005", OrderId = "ORD-005",
+            PaymentMethod = "CreditCard", TotalAmount = 75000, Currency = "THB",
+            Status = "Captured",
+            CreatedAt = Utc(2024, 1, 14, 16, 2, 0), UpdatedAt = Utc(2024, 1, 14, 19, 31, 0)
+        });
+        AddPaymentTransaction(new PaymentTransactionDto
+        {
+            TransactionId = "txn-005-1", PaymentId = "pay-005",
+            Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
+            GatewayRef = "GW-AUTH-2024-005", CreatedAt = Utc(2024, 1, 14, 16, 2, 0)
+        });
+        AddPaymentTransaction(new PaymentTransactionDto
+        {
+            TransactionId = "txn-005-2", PaymentId = "pay-005",
+            Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
+            GatewayRef = "GW-CAP-2024-005", CreatedAt = Utc(2024, 1, 14, 19, 31, 0)
+        });
+
+        // ORD-009 — promo + delivery fee (PickConfirmed, recalc pending)
+        AddOrderPromotion(new OrderPromotionDto
+        {
+            PromotionId = "promo-009-1", OrderId = "ORD-009",
+            SourcePromoId = "P-SEA15", PromoCode = "SEAFOOD15",
+            PromoName = "15% Seafood Promotion", PromoType = "PercentageDiscount",
+            DiscountAmount = 46500, DiscountPercentage = 0.15m,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 13, 0, 0)
+        });
+        AddOrderFee(new OrderFeeDto
+        {
+            FeeId = "fee-009-1", OrderId = "ORD-009", FeeCode = "DELIVERY_FEE",
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 15, 13, 0, 0),
+            UpdatedAt = Utc(2024, 1, 15, 13, 0, 0)
+        });
+
+        // ORD-010 — BankTransfer capture + SUMMER15 coupon (Paid)
+        SetOrderPayment("ORD-010", new OrderPaymentDto
+        {
+            PaymentId = "pay-010", OrderId = "ORD-010",
+            PaymentMethod = "BankTransfer", TotalAmount = 140000, Currency = "THB",
+            Status = "Captured",
+            CreatedAt = Utc(2024, 1, 14, 11, 0, 0), UpdatedAt = Utc(2024, 1, 14, 13, 5, 0)
+        });
+        AddPaymentTransaction(new PaymentTransactionDto
+        {
+            TransactionId = "txn-010-1", PaymentId = "pay-010",
+            Amount = 140000, Currency = "THB", PaymentMethod = "BankTransfer",
+            GatewayRef = "GW-CAP-2024-010", CreatedAt = Utc(2024, 1, 14, 13, 5, 0)
+        });
+        AddOrderPromotion(new OrderPromotionDto
+        {
+            PromotionId = "promo-010-1", OrderId = "ORD-010",
+            SourcePromoId = "P-SUMMER15", PromoCode = "SUMMER15",
+            PromoName = "Summer Campaign 15% Off", PromoType = "PercentageDiscount",
+            DiscountAmount = 21000, DiscountPercentage = 0.15m,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 14, 11, 0, 0)
+        });
+
+        // ORD-014 — CreditCard capture + SNACK10 coupon + delivery fee (Paid)
+        SetOrderPayment("ORD-014", new OrderPaymentDto
+        {
+            PaymentId = "pay-014", OrderId = "ORD-014",
+            PaymentMethod = "CreditCard", TotalAmount = 210000, Currency = "THB",
+            Status = "Captured",
+            CreatedAt = Utc(2024, 1, 14, 9, 5, 0), UpdatedAt = Utc(2024, 1, 14, 17, 0, 0)
+        });
+        AddPaymentTransaction(new PaymentTransactionDto
+        {
+            TransactionId = "txn-014-1", PaymentId = "pay-014",
+            Amount = 210000, Currency = "THB", PaymentMethod = "CreditCard",
+            GatewayRef = "GW-CAP-2024-014", CreatedAt = Utc(2024, 1, 14, 9, 5, 0)
+        });
+        AddOrderPromotion(new OrderPromotionDto
+        {
+            PromotionId = "promo-014-1", OrderId = "ORD-014",
+            SourcePromoId = "P-SNACK10", PromoCode = "SNACK10",
+            PromoName = "Snack Party 10% Off", PromoType = "PercentageDiscount",
+            DiscountAmount = 23333, DiscountPercentage = 0.10m,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 14, 9, 0, 0)
+        });
+        AddOrderFee(new OrderFeeDto
+        {
+            FeeId = "fee-014-1", OrderId = "ORD-014", FeeCode = "DELIVERY_FEE",
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            Currency = "THB", CreatedAt = Utc(2024, 1, 14, 9, 0, 0),
+            UpdatedAt = Utc(2024, 1, 14, 9, 0, 0)
+        });
     }
 
     // ── Orders ────────────────────────────────────────────────────────────────
@@ -480,6 +743,59 @@ public class InMemoryStore
             Locations = locations
         };
     }
+
+    // ── Endpoint Configs ──────────────────────────────────────────────────────
+
+    public OutboxEndpointConfig? GetEndpointConfig(string key) =>
+        EndpointConfigs.FirstOrDefault(c => c.EndpointKey.Equals(key, StringComparison.OrdinalIgnoreCase));
+
+    public void UpsertEndpointConfig(OutboxEndpointConfig config)
+    {
+        var existing = GetEndpointConfig(config.EndpointKey);
+        if (existing is null)
+        {
+            EndpointConfigs.Add(config);
+        }
+        else
+        {
+            existing.BaseUrl = config.BaseUrl;
+            existing.Headers = config.Headers;
+            existing.AuthType = config.AuthType;
+            existing.StaticToken = config.StaticToken;
+            existing.TokenUrl = config.TokenUrl;
+            existing.ClientId = config.ClientId;
+            existing.ClientSecret = config.ClientSecret;
+            existing.Scope = config.Scope;
+            existing.IsActive = config.IsActive;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    public bool DeleteEndpointConfig(string key)
+    {
+        var existing = GetEndpointConfig(key);
+        if (existing is null) return false;
+        existing.IsActive = false;
+        existing.UpdatedAt = DateTime.UtcNow;
+        return true;
+    }
+
+    // ── Dispatch Logs ─────────────────────────────────────────────────────────
+
+    public long NextDispatchLogId() => _nextDispatchLogId++;
+
+    public void AddDispatchLog(OutboxDispatchLog log) => DispatchLogs.Add(log);
+
+    public OutboxDispatchLog? GetDispatchLog(long logId) =>
+        DispatchLogs.FirstOrDefault(l => l.LogId == logId);
+
+    public IEnumerable<OutboxDispatchLog> GetDispatchLogs(string? orderId = null) =>
+        orderId is null
+            ? DispatchLogs
+            : DispatchLogs.Where(l => l.OrderId.Equals(orderId, StringComparison.OrdinalIgnoreCase));
+
+    public IEnumerable<OutboxDispatchLog> GetFailedDispatchLogs() =>
+        DispatchLogs.Where(l => l.Status == "Failed");
 
     // ── Routing Rules ─────────────────────────────────────────────────────────
 

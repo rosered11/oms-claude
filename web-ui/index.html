@@ -1073,6 +1073,9 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
   const [tab, setTab] = React.useState('details');
   const [substitutions, setSubstitutions] = React.useState(null);
   const [creditNote, setCreditNote] = React.useState(null);
+  const [payment, setPayment] = React.useState(null);
+  const [promotions, setPromotions] = React.useState(null);
+  const [fees, setFees] = React.useState(null);
   const actions = ORDER_ACTIONS[order.status] || [];
 
   React.useEffect(() => {
@@ -1088,6 +1091,19 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
     fetch(`${apiBase}/orders/${order.id}/credit-note`, { headers: h })
       .then(r => r.ok ? r.json() : null)
       .then(d => setCreditNote(d));
+  }, [order.id]);
+
+  React.useEffect(() => {
+    const h = _token ? { 'Authorization': `Bearer ${_token}` } : {};
+    fetch(`${apiBase}/orders/${order.id}/payment`, { headers: h })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setPayment(d));
+    fetch(`${apiBase}/orders/${order.id}/promotions`, { headers: h })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setPromotions(d?.promotions?.length > 0 ? d : null));
+    fetch(`${apiBase}/orders/${order.id}/fees`, { headers: h })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setFees(d?.fees?.length > 0 ? d : null));
   }, [order.id]);
 
   function showToast(msg, type = 'success') {
@@ -1412,6 +1428,123 @@ function OrderDetailView({ order: initialOrder, onBack, onViewTimeline, onOrderU
                 className="text-xs text-blue-600 hover:text-blue-800 font-mono break-all">
                 {creditNote.creditNoteLink}
               </a>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Promotions & Coupons */}
+      {promotions && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+              Promotions & Coupons <span className="font-normal text-gray-300">({promotions.promotions.length})</span>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold text-emerald-700">−฿{fmtSatang(promotions.totalDiscount)}</div>
+              <div className="text-xs text-gray-400">total discount</div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {promotions.promotions.map(promo => (
+              <div key={promo.promotionId} className="flex items-start gap-3 bg-white rounded-xl border border-emerald-100 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {promo.promoCode}
+                    </span>
+                    <span className="text-xs text-gray-700">{promo.promoName}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                    <span>{promo.promoType}</span>
+                    {promo.discountPercentage > 0 && (
+                      <span className="text-emerald-600 font-medium">{(promo.discountPercentage * 100).toFixed(0)}% off</span>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-bold text-emerald-700">−฿{fmtSatang(promo.discountAmount)}</div>
+                  <div className="text-xs text-gray-400">{promo.currency}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fees */}
+      {fees && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+              Fees <span className="font-normal text-gray-300">({fees.fees.length})</span>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold text-amber-700">+฿{fmtSatang(fees.totalFees)}</div>
+              <div className="text-xs text-gray-400">total fees</div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {fees.fees.map(fee => (
+              <div key={fee.feeId} className="flex items-center gap-3 bg-white rounded-xl border border-amber-100 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      {fee.feeCode}
+                    </span>
+                    <span className="text-xs text-gray-700">{fee.feeName}</span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">{fee.feeType}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-bold text-amber-700">฿{fmtSatang(fee.amount)}</div>
+                  <div className="text-xs text-gray-400">{fee.currency}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Transactions */}
+      {payment && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">Payment</div>
+            <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+              payment.payment.status === 'Captured' ? 'bg-emerald-100 text-emerald-700' :
+              payment.payment.status === 'Authorised' ? 'bg-blue-100 text-blue-700' :
+              payment.payment.status === 'Refunded' ? 'bg-violet-100 text-violet-700' :
+              payment.payment.status === 'Failed' ? 'bg-red-100 text-red-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>{payment.payment.status}</span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-xs text-gray-500">
+            <span>Method: <strong className="text-gray-700">{payment.payment.paymentMethod}</strong></span>
+            <span>Total: <strong className="text-gray-700">฿{fmtSatang(payment.payment.totalAmount)}</strong></span>
+          </div>
+          {payment.transactions.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Transactions</div>
+              <div className="space-y-2">
+                {payment.transactions.map((txn, i) => (
+                  <div key={txn.transactionId} className="flex items-center gap-3 border border-gray-100 rounded-xl px-4 py-3 bg-gray-50">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-xs font-semibold text-gray-700">{txn.transactionId}</div>
+                      <div className="text-xs text-gray-400 font-mono mt-0.5">
+                        Ref: <span className="text-purple-600">{txn.gatewayRef || '—'}</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-gray-800">฿{fmtSatang(txn.amount)}</div>
+                      <div className="text-xs text-gray-400">{txn.paymentMethod}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -4126,6 +4259,656 @@ function RoutingRulesView() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// ENDPOINT CONFIG EDIT FORM
+// ─────────────────────────────────────────────────────────────
+
+const BLANK_CONFIG = {
+  endpointKey: '', baseUrl: '', authType: 'None',
+  staticToken: '', staticTokenHeader: 'Authorization',
+  tokenUrl: '', clientId: '', clientSecret: '',
+  scope: '', grantType: 'client_credentials',
+  additionalTokenParams: {}, tokenRequestHeaders: {},
+  headers: {}, isActive: true,
+};
+
+function KVEditor({ label, value, onChange }) {
+  const pairs = Object.entries(value || {});
+  const [newKey, setNewKey] = React.useState('');
+  const [newVal, setNewVal] = React.useState('');
+  function add() {
+    if (!newKey.trim()) return;
+    onChange({ ...value, [newKey.trim()]: newVal.trim() });
+    setNewKey(''); setNewVal('');
+  }
+  function remove(k) {
+    const next = { ...value }; delete next[k]; onChange(next);
+  }
+  return (
+    <div>
+      <div className="text-xs font-semibold text-gray-500 mb-1.5">{label}</div>
+      {pairs.length > 0 && (
+        <div className="mb-2 space-y-1">
+          {pairs.map(([k, v]) => (
+            <div key={k} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-1">
+              <span className="font-mono text-blue-700 font-medium">{k}</span>
+              <span className="text-gray-400">=</span>
+              <span className="font-mono text-gray-600 flex-1 truncate">{v || <em className="text-gray-300">empty</em>}</span>
+              <button onClick={() => remove(k)} className="text-red-400 hover:text-red-600 font-bold ml-1">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-1">
+        <input value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="key"
+          className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono w-32 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+        <input value={newVal} onChange={e => setNewVal(e.target.value)} placeholder="value"
+          className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono flex-1 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+        <button onClick={add} className="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700">+</button>
+      </div>
+    </div>
+  );
+}
+
+function EndpointEditModal({ initial, onSave, onClose }) {
+  const [form, setForm] = React.useState(initial);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const isOAuth2 = form.authType === 'OAuth2ClientCredentials';
+  const isStatic = form.authType === 'StaticToken';
+  const isNew    = !initial.endpointKey || initial._isNew;
+
+  function Field({ label, name, type = 'text', placeholder = '', mono = false, hint }) {
+    return (
+      <div>
+        <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+        <input type={type} value={form[name] || ''} onChange={e => set(name, e.target.value)}
+          placeholder={placeholder}
+          className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 ${mono ? 'font-mono' : ''}`} />
+        {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+          <div>
+            <h2 className="font-bold text-gray-900">{isNew ? 'New Endpoint Config' : `Edit — ${form.endpointKey}`}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Configure URL, authentication, and request headers</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg font-bold">✕</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Basic */}
+          <section>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">General</div>
+            <div className="space-y-3">
+              <Field label="Endpoint Key *" name="endpointKey" mono placeholder="e.g. wms.create-order"
+                hint={isNew ? 'Must match the endpointKey used in routing rules.' : undefined} />
+              <Field label="Base URL *" name="baseUrl" placeholder="https://api.example.com/endpoint" />
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Active</label>
+                <div className="flex items-center gap-3">
+                  {['true','false'].map(v => (
+                    <label key={v} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input type="radio" name="isActive" checked={String(form.isActive) === v}
+                        onChange={() => set('isActive', v === 'true')} className="accent-blue-600" />
+                      {v === 'true' ? 'Active' : 'Inactive'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Auth */}
+          <section>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Authentication</div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Auth Type</label>
+                <select value={form.authType} onChange={e => set('authType', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                  <option value="None">None</option>
+                  <option value="StaticToken">StaticToken</option>
+                  <option value="OAuth2ClientCredentials">OAuth2ClientCredentials</option>
+                </select>
+              </div>
+
+              {isStatic && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Header Name *</label>
+                    <div className="flex gap-2">
+                      {['Authorization', 'x-api-key', 'accessToken', 'x-auth-token'].map(opt => (
+                        <button key={opt} type="button"
+                          onClick={() => set('staticTokenHeader', opt)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors ${form.staticTokenHeader === opt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
+                          {opt}
+                        </button>
+                      ))}
+                      <input value={['Authorization','x-api-key','accessToken','x-auth-token'].includes(form.staticTokenHeader) ? '' : form.staticTokenHeader}
+                        onChange={e => set('staticTokenHeader', e.target.value)}
+                        placeholder="custom…"
+                        className="border border-gray-200 rounded-lg px-2.5 py-1 text-xs font-mono w-28 focus:outline-none focus:ring-1 focus:ring-blue-300" />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-400">The HTTP header that will carry the token value.</p>
+                  </div>
+                  <Field label="Token Value" name="staticToken" type="password" placeholder="your-token-value" />
+                  <div className="p-3 bg-gray-800 rounded-xl text-xs font-mono text-green-300">
+                    <span className="text-gray-400"># Header sent on every request:</span><br />
+                    <span className="text-blue-300">{form.staticTokenHeader || 'Authorization'}</span>
+                    <span className="text-gray-400">: </span>
+                    <span className="text-yellow-300">{form.staticToken ? '●●●●●●●●' : '<token>'}</span>
+                  </div>
+                </div>
+              )}
+
+              {isOAuth2 && (
+                <>
+                  <Field label="Token URL *" name="tokenUrl" placeholder="https://auth.example.com/oauth/token"
+                    hint="The OAuth2 token endpoint called before each request (or when token expires)." />
+                  <Field label="Client ID *" name="clientId" mono placeholder="my-client-id" />
+                  <Field label="Client Secret" name="clientSecret" type="password" placeholder="leave blank to keep existing"
+                    hint="Leave blank when editing to keep the stored secret." />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Grant Type</label>
+                      <select value={form.grantType || 'client_credentials'} onChange={e => set('grantType', e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <option value="client_credentials">client_credentials</option>
+                        <option value="password">password</option>
+                        <option value="authorization_code">authorization_code</option>
+                        <option value="urn:ietf:params:oauth:grant-type:jwt-bearer">jwt-bearer</option>
+                      </select>
+                      <p className="mt-1 text-xs text-gray-400">Sent as grant_type in the token request.</p>
+                    </div>
+                    <Field label="Scope" name="scope" placeholder="openid read write"
+                      hint="Space-separated list of OAuth2 scopes." />
+                  </div>
+                  <KVEditor label="Additional Token Params (audience, resource, etc.)"
+                    value={form.additionalTokenParams || {}}
+                    onChange={v => set('additionalTokenParams', v)} />
+                  <div className="border border-dashed border-violet-200 rounded-xl p-3 space-y-2">
+                    <div className="text-xs font-semibold text-violet-700">Token Request Headers → Token URL</div>
+                    <p className="text-xs text-gray-400">
+                      Extra HTTP headers sent only when calling <code className="font-mono bg-gray-100 px-1 rounded">{form.tokenUrl || 'Token URL'}</code> to fetch the access token.
+                      Use for <code className="font-mono bg-gray-100 px-1 rounded">x-tenant-id</code>,{' '}
+                      <code className="font-mono bg-gray-100 px-1 rounded">x-client-version</code>, or any header the auth server requires.
+                    </p>
+                    <KVEditor label="" value={form.tokenRequestHeaders || {}} onChange={v => set('tokenRequestHeaders', v)} />
+                  </div>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                    <strong>Token request body:</strong>{' '}
+                    <code className="font-mono">grant_type={form.grantType || 'client_credentials'}&amp;client_id=…&amp;client_secret=…
+                    {form.scope ? `&scope=${form.scope}` : ''}
+                    {Object.entries(form.additionalTokenParams || {}).map(([k,v]) => `&${k}=${v}`).join('')}</code>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* Request headers */}
+          <section>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">API Request Headers → Base URL</div>
+            <p className="text-xs text-gray-400 mb-3">
+              Sent on <strong>every call to <code className="font-mono bg-gray-100 px-1 rounded">{form.baseUrl || 'Base URL'}</code></strong>, merged with the auth header.
+              Use for fixed values the API always expects: <code className="font-mono bg-gray-100 px-1 rounded">x-channel: TWD</code>,{' '}
+              <code className="font-mono bg-gray-100 px-1 rounded">refId: ""</code>, <code className="font-mono bg-gray-100 px-1 rounded">x-tenant-id: 001</code>, etc.
+              These are <em>not</em> sent to the Token URL.
+            </p>
+            <KVEditor label="" value={form.headers || {}} onChange={v => set('headers', v)} />
+          </section>
+        </div>
+
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex justify-end gap-3 rounded-b-2xl">
+          <button onClick={onClose}
+            className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => onSave(form)}
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EndpointConfigTab({ apiBase, endpoints, onRefresh, onToast }) {
+  const [editing, setEditing] = React.useState(null);
+
+  async function save(form) {
+    try {
+      const headers = { ...(_token ? { Authorization: `Bearer ${_token}` } : {}), 'Content-Type': 'application/json' };
+      const body = {
+        endpointKey: form.endpointKey,
+        baseUrl: form.baseUrl,
+        authType: form.authType,
+        staticToken: form.staticToken || null,
+        staticTokenHeader: form.staticTokenHeader || 'Authorization',
+        tokenUrl: form.tokenUrl || null,
+        clientId: form.clientId || null,
+        clientSecret: form.clientSecret || null,
+        scope: form.scope || null,
+        grantType: form.grantType || 'client_credentials',
+        additionalTokenParams: form.additionalTokenParams || {},
+        tokenRequestHeaders: form.tokenRequestHeaders || {},
+        headers: form.headers || {},
+        isActive: form.isActive,
+      };
+      const r = await fetch(`${apiBase}/config/outbox-endpoints`, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.message || `${r.status}`); }
+      onToast(`Endpoint "${form.endpointKey}" saved`);
+      setEditing(null);
+      onRefresh();
+    } catch (e) { onToast('Save failed: ' + e.message, 'error'); }
+  }
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-gray-400">{endpoints.length} endpoint{endpoints.length !== 1 ? 's' : ''} configured</span>
+        <button
+          onClick={() => setEditing({ ...BLANK_CONFIG, _isNew: true })}
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          + New Endpoint
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {endpoints.length === 0 ? (
+          <div className="p-8 text-center text-sm text-gray-400">No endpoint configs loaded.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50">
+                {['Endpoint Key', 'Base URL', 'Auth Type', 'Token URL / Token', 'Grant Type', 'Scope', 'Extra Params', 'Headers', 'Active', ''].map(h => (
+                  <th key={h} className="py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {endpoints.map(ep => (
+                <tr key={ep.endpointKey} className="border-b border-gray-50 hover:bg-gray-50">
+                  <td className="py-2.5 px-3 font-mono text-xs font-medium text-blue-700">{ep.endpointKey}</td>
+                  <td className="py-2.5 px-3 font-mono text-xs text-gray-500 max-w-[160px] truncate">{ep.baseUrl}</td>
+                  <td className="py-2.5 px-3">
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${AUTH_BADGE[ep.authType] || 'bg-gray-100 text-gray-500'}`}>
+                      {ep.authType}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-xs text-gray-400 max-w-[140px] truncate">
+                    {ep.tokenUrl || (ep.staticToken ? '●●●●●●●●' : '—')}
+                  </td>
+                  <td className="py-2.5 px-3 font-mono text-xs text-gray-500">{ep.grantType || '—'}</td>
+                  <td className="py-2.5 px-3 text-xs text-gray-400">{ep.scope || '—'}</td>
+                  <td className="py-2.5 px-3 text-xs text-gray-400">
+                    {ep.additionalTokenParams && Object.keys(ep.additionalTokenParams).length > 0
+                      ? Object.keys(ep.additionalTokenParams).map(k => (
+                          <span key={k} className="inline-block bg-violet-50 text-violet-700 border border-violet-200 rounded px-1 mr-1 font-mono text-xs">{k}</span>
+                        ))
+                      : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-xs text-gray-400">
+                    {ep.headers && Object.keys(ep.headers).length > 0
+                      ? Object.keys(ep.headers).map(k => (
+                          <span key={k} className="inline-block bg-gray-100 text-gray-600 border border-gray-200 rounded px-1 mr-1 font-mono text-xs">{k}</span>
+                        ))
+                      : '—'}
+                  </td>
+                  <td className="py-2.5 px-3 text-xs">
+                    <span className={ep.isActive ? 'text-emerald-600 font-bold' : 'text-red-500'}>
+                      {ep.isActive ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <button
+                      onClick={() => setEditing({
+                        endpointKey: ep.endpointKey, baseUrl: ep.baseUrl,
+                        authType: ep.authType, staticToken: ep.staticToken || '',
+                        staticTokenHeader: ep.staticTokenHeader || 'Authorization',
+                        tokenUrl: ep.tokenUrl || '', clientId: ep.clientId || '',
+                        clientSecret: '', scope: ep.scope || '',
+                        grantType: ep.grantType || 'client_credentials',
+                        additionalTokenParams: ep.additionalTokenParams || {},
+                        tokenRequestHeaders: ep.tokenRequestHeaders || {},
+                        headers: ep.headers || {}, isActive: ep.isActive,
+                      })}
+                      className="text-xs px-2.5 py-1 border border-blue-200 text-blue-600 hover:bg-blue-50 font-medium rounded-lg transition-colors">
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {editing && <EndpointEditModal initial={editing} onSave={save} onClose={() => setEditing(null)} />}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// OUTBOX MONITOR VIEW
+// ─────────────────────────────────────────────────────────────
+
+const STATUS_BADGE_OUTBOX = {
+  Success:  'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  Failed:   'bg-red-100 text-red-700 border border-red-200',
+  Pending:  'bg-amber-100 text-amber-700 border border-amber-200',
+  Retrying: 'bg-sky-100 text-sky-700 border border-sky-200',
+};
+
+const AUTH_BADGE = {
+  OAuth2ClientCredentials: 'bg-violet-100 text-violet-800 border border-violet-200',
+  StaticToken:             'bg-blue-100 text-blue-700 border border-blue-200',
+  None:                    'bg-gray-100 text-gray-500 border border-gray-200',
+};
+
+function OutboxMonitorView() {
+  const { apiBase } = React.useContext(DataContext);
+  const [logs, setLogs]           = React.useState([]);
+  const [endpoints, setEndpoints] = React.useState([]);
+  const [loading, setLoading]     = React.useState(true);
+  const [tab, setTab]             = React.useState('logs');
+  const [filterStatus, setFilterStatus] = React.useState('');
+  const [filterOrder, setFilterOrder]   = React.useState('');
+  const [expanded, setExpanded]   = React.useState(null);
+  const [toast, setToast]         = React.useState(null);
+
+  function showToastMsg(msg, type = 'success') {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  async function fetchLogs() {
+    setLoading(true);
+    try {
+      const headers = _token ? { Authorization: `Bearer ${_token}` } : {};
+      const params = new URLSearchParams();
+      if (filterOrder)  params.set('orderId', filterOrder);
+      if (filterStatus) params.set('status',  filterStatus);
+      const qs = params.toString() ? `?${params}` : '';
+      const r = await fetch(`${apiBase}/outbox/dispatch-logs${qs}`, { headers });
+      if (!r.ok) throw new Error(`${r.status}`);
+      const d = await r.json();
+      setLogs(d.data ?? []);
+    } catch (e) { showToastMsg('Failed to load dispatch logs: ' + e.message, 'error'); }
+    finally { setLoading(false); }
+  }
+
+  async function fetchEndpoints() {
+    try {
+      const headers = _token ? { Authorization: `Bearer ${_token}` } : {};
+      const r = await fetch(`${apiBase}/config/outbox-endpoints`, { headers });
+      if (!r.ok) return;
+      const d = await r.json();
+      setEndpoints(d.data ?? []);
+    } catch {}
+  }
+
+  React.useEffect(() => { fetchLogs(); fetchEndpoints(); }, []);
+
+  async function retry(logId) {
+    try {
+      const headers = { ...(_token ? { Authorization: `Bearer ${_token}` } : {}), 'Content-Type': 'application/json' };
+      const r = await fetch(`${apiBase}/outbox/dispatch-logs/${logId}/retry`, { method: 'POST', headers });
+      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.message || `${r.status}`); }
+      showToastMsg(`Log #${logId} retried successfully`);
+      fetchLogs();
+    } catch (e) { showToastMsg('Retry failed: ' + e.message, 'error'); }
+  }
+
+  const stats = React.useMemo(() => {
+    const all = logs;
+    return {
+      total:   all.length,
+      success: all.filter(l => l.status === 'Success').length,
+      failed:  all.filter(l => l.status === 'Failed').length,
+      pending: all.filter(l => l.status === 'Pending').length,
+    };
+  }, [logs]);
+
+  const fmtTime = ts => ts ? new Date(ts).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' }) : '—';
+
+  return (
+    <div className="max-w-screen-xl mx-auto p-4 pb-16">
+      <div className="mb-5">
+        <h1 className="text-xl font-bold text-gray-900">Outbox Monitor</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Dispatch logs for all outbound adapter calls · endpoint config management</p>
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: 'Total Dispatches', value: stats.total,   cls: 'text-gray-900'    },
+          { label: 'Success',          value: stats.success, cls: 'text-emerald-700' },
+          { label: 'Failed',           value: stats.failed,  cls: 'text-red-600'     },
+          { label: 'Pending',          value: stats.pending, cls: 'text-amber-600'   },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">{label}</div>
+            <div className={`text-2xl font-bold ${cls}`}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
+        {[['logs', 'Dispatch Logs'], ['endpoints', 'Endpoint Config']].map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${tab === k ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* DISPATCH LOGS tab */}
+      {tab === 'logs' && (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+          {/* Filter bar */}
+          <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
+            <input value={filterOrder} onChange={e => setFilterOrder(e.target.value)} placeholder="Filter by Order ID…"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 w-48" />
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+              <option value="">All statuses</option>
+              <option value="Success">Success</option>
+              <option value="Failed">Failed</option>
+              <option value="Pending">Pending</option>
+            </select>
+            <button onClick={fetchLogs}
+              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              Search
+            </button>
+            <button onClick={() => { setFilterOrder(''); setFilterStatus(''); setTimeout(fetchLogs, 0); }}
+              className="px-3 py-1.5 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+              Reset
+            </button>
+            <span className="ml-auto text-xs text-gray-400">{logs.length} records</span>
+          </div>
+
+          {loading ? (
+            <div className="p-8 text-center text-sm text-gray-400">Loading dispatch logs…</div>
+          ) : logs.length === 0 ? (
+            <div className="p-8 text-center text-sm text-gray-400">
+              No dispatch logs yet. Trigger an order action (e.g. PackageDispatched, STS webhook) to generate outbox events.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    {['#', 'Order', 'Trigger Event', 'Target', 'Endpoint Key', 'HTTP', 'Attempts', 'Status', 'Dispatched At', 'Actions'].map(h => (
+                      <th key={h} className="py-2.5 px-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => {
+                    const isOpen = expanded === log.logId;
+                    return (
+                      <React.Fragment key={log.logId}>
+                        <tr
+                          onClick={() => setExpanded(isOpen ? null : log.logId)}
+                          className={`border-b border-gray-50 cursor-pointer transition-colors ${isOpen ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-400">{log.logId}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs font-medium text-gray-700">{log.orderId || '—'}</td>
+                          <td className="py-2.5 px-3 text-xs text-gray-700 max-w-xs truncate">{log.triggerEvent}</td>
+                          <td className="py-2.5 px-3">
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${SYS_COLOR_EXT[log.targetSystem] || 'bg-gray-100 text-gray-600'}`}>
+                              {log.targetSystem}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-500">{log.endpointKey}</td>
+                          <td className="py-2.5 px-3 font-mono text-xs text-gray-600">
+                            {log.httpStatusCode > 0 ? (
+                              <span className={log.httpStatusCode < 300 ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>{log.httpStatusCode}</span>
+                            ) : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-xs text-center text-gray-600">{log.attemptCount}</td>
+                          <td className="py-2.5 px-3">
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_BADGE_OUTBOX[log.status] || 'bg-gray-100 text-gray-600'}`}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-xs text-gray-400 whitespace-nowrap">{fmtTime(log.completedAt || log.createdAt)}</td>
+                          <td className="py-2.5 px-3">
+                            {log.status === 'Failed' && (
+                              <button
+                                onClick={e => { e.stopPropagation(); retry(log.logId); }}
+                                className="text-xs px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors">
+                                Retry
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="bg-slate-50">
+                            <td colSpan={10} className="px-4 pb-4 pt-2">
+                              {/* Phase 1 — Token Fetch (OAuth2 only) */}
+                              {log.tokenUrl && (
+                                <div className="mb-3 rounded-xl border border-violet-300 overflow-hidden">
+                                  <div className="bg-violet-50 px-4 py-2 border-b border-violet-200 flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">Phase 1 — Token Fetch</span>
+                                    <span className="text-xs bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded font-mono">OAuth2 Client Credentials</span>
+                                    <span className="text-xs font-mono text-violet-500 truncate max-w-sm">POST {log.tokenUrl}</span>
+                                    <span className="ml-auto text-xs font-bold text-emerald-600">HTTP 200</span>
+                                  </div>
+                                  <div className="bg-white p-3 grid grid-cols-3 gap-3">
+                                    <div>
+                                      <div className="text-xs font-semibold text-gray-500 mb-1.5">Headers → Token URL</div>
+                                      <pre className="bg-gray-900 text-violet-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                        {log.tokenRequestHeaders || '(none)'}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-semibold text-gray-500 mb-1.5">Request Body (form-encoded)</div>
+                                      <pre className="bg-gray-900 text-violet-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                        {log.tokenRequestBody
+                                          ? log.tokenRequestBody.split('&').join('\n')
+                                          : '(none)'}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <div className="text-xs font-semibold text-gray-500 mb-1.5">Token Response</div>
+                                      <pre className="bg-gray-900 text-violet-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                        {log.tokenResponsePayload
+                                          ? (() => { try { return JSON.stringify(JSON.parse(log.tokenResponsePayload), null, 2); } catch { return log.tokenResponsePayload; } })()
+                                          : '(none)'}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Phase 2 — API Call */}
+                              <div className="rounded-xl border border-blue-300 overflow-hidden">
+                                <div className="bg-blue-50 px-4 py-2 border-b border-blue-200 flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-blue-700 uppercase tracking-wide">
+                                    {log.tokenUrl ? 'Phase 2 — API Call' : 'API Call'}
+                                  </span>
+                                  {log.baseUrl && (
+                                    <span className="text-xs font-mono text-blue-500 truncate max-w-sm">POST {log.baseUrl}</span>
+                                  )}
+                                  {log.httpStatusCode > 0 && (
+                                    <span className={`ml-auto text-xs font-bold ${log.httpStatusCode < 300 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                      HTTP {log.httpStatusCode}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="bg-white p-3 grid grid-cols-3 gap-3">
+                                  <div>
+                                    <div className="text-xs font-semibold text-gray-500 mb-1.5">Headers → Base URL</div>
+                                    <pre className="bg-gray-900 text-blue-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                      {log.apiRequestHeaders || '(none)'}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-semibold text-gray-500 mb-1.5">Request Body</div>
+                                    <pre className="bg-gray-900 text-green-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                      {log.requestPayload
+                                        ? (() => { try { return JSON.stringify(JSON.parse(log.requestPayload), null, 2); } catch { return log.requestPayload; } })()
+                                        : '(none)'}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-semibold text-gray-500 mb-1.5">Response / Error</div>
+                                    <pre className="bg-gray-900 text-green-300 text-xs rounded-xl p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                      {log.errorMessage
+                                        ? `ERROR: ${log.errorMessage}`
+                                        : log.responsePayload
+                                          ? (() => { try { return JSON.stringify(JSON.parse(log.responsePayload), null, 2); } catch { return log.responsePayload; } })()
+                                          : '(none)'}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {log.errorMessage && (
+                                <div className="mt-3 flex items-center gap-3">
+                                  <span className="text-xs text-red-600 font-medium">Dispatch failed — retry to re-attempt this outbox call</span>
+                                  <button
+                                    onClick={() => retry(log.logId)}
+                                    className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors">
+                                    Retry Now
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ENDPOINT CONFIG tab */}
+      {tab === 'endpoints' && (
+        <EndpointConfigTab apiBase={apiBase} endpoints={endpoints} onRefresh={fetchEndpoints} onToast={showToastMsg} />
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-4 right-4 px-4 py-2.5 rounded-xl shadow-lg text-sm text-white z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-600'}`}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const NAV_TABS = [
   { key: 'kanban',    label: 'Orders'         },
   { key: 'buview',    label: 'By BU'          },
@@ -4134,6 +4917,7 @@ const NAV_TABS = [
   { key: 'usecases',  label: 'Use Cases'      },
   { key: 'stockflow', label: 'Stock Flow'     },
   { key: 'routing',   label: 'Routing Rules'  },
+  { key: 'outbox',    label: 'Outbox Monitor' },
   { key: 'apiref',    label: 'API Reference'  },
 ];
 
@@ -4198,6 +4982,7 @@ function App() {
         {view === 'usecases'  && <UseCaseExplorer />}
         {view === 'stockflow' && <StockFlowView />}
         {view === 'routing'   && <RoutingRulesView />}
+        {view === 'outbox'    && <OutboxMonitorView />}
         {view === 'apiref'    && <ApiReferenceView />}
       </main>
     </div>
