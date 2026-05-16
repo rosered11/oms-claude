@@ -1,7 +1,13 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+
 namespace OmsApi;
 
-public class OutboxAdapterService(InMemoryStore store)
+public class OutboxAdapterService(InMemoryStore store, IHttpClientFactory httpClientFactory)
 {
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     public IEnumerable<TimelineEventDto> Dispatch(
         string orderId, string channelType, string subChannel, string businessUnit,
         string triggerEvent, string requestPayload)
@@ -37,25 +43,22 @@ public class OutboxAdapterService(InMemoryStore store)
                 continue;
             }
 
-            // Headers sent to Token URL (OAuth2 only)
-            var tokenHeaders = new Dictionary<string, string>(config.TokenRequestHeaders);
-
-            // Headers sent to Base URL
             var apiHeaders = new Dictionary<string, string>(config.Headers);
-
             string authDetail;
             string? tokenBody = null;
 
             switch (config.AuthType)
             {
                 case "OAuth2ClientCredentials":
-                    apiHeaders["Authorization"] = "Bearer <oauth2-token>";
-                    tokenBody = $"grant_type={config.GrantType}&client_id={config.ClientId}"
-                        + (!string.IsNullOrEmpty(config.Scope) ? $"&scope={config.Scope}" : "")
-                        + (config.AdditionalTokenParams.Count > 0
-                            ? "&" + string.Join("&", config.AdditionalTokenParams.Select(kv => $"{kv.Key}={kv.Value}"))
-                            : "");
+                    var token = FetchOAuth2Token(config, out var rawTokenResponse, out tokenBody);
+                    apiHeaders["Authorization"] = $"Bearer {token}";
                     authDetail = $"OAuth2 token fetched from {config.TokenUrl}";
+                    log.TokenUrl = config.TokenUrl;
+                    log.TokenRequestBody = tokenBody;
+                    log.TokenRequestHeaders = config.TokenRequestHeaders.Count > 0
+                        ? string.Join("\n", config.TokenRequestHeaders.Select(kv => $"{kv.Key}: {kv.Value}"))
+                        : null;
+                    log.TokenResponsePayload = rawTokenResponse;
                     break;
                 case "StaticToken":
                     apiHeaders[config.StaticTokenHeader] = config.StaticToken ?? "";
@@ -66,31 +69,24 @@ public class OutboxAdapterService(InMemoryStore store)
                     break;
             }
 
-            // Populate per-phase log fields
             log.AuthType = config.AuthType;
             log.BaseUrl = config.BaseUrl;
             log.ApiRequestHeaders = apiHeaders.Count > 0
                 ? string.Join("\n", apiHeaders.Select(kv => $"{kv.Key}: {kv.Value}"))
                 : null;
 
-            if (config.AuthType == "OAuth2ClientCredentials")
-            {
-                log.TokenUrl = config.TokenUrl;
-                log.TokenRequestBody = tokenBody;
-                log.TokenRequestHeaders = tokenHeaders.Count > 0
-                    ? string.Join("\n", tokenHeaders.Select(kv => $"{kv.Key}: {kv.Value}"))
-                    : null;
-                log.TokenResponsePayload = "{\"access_token\":\"<simulated-token>\",\"token_type\":\"Bearer\",\"expires_in\":3600}";
-            }
+            var (statusCode, responseBody) = CallApi(config.BaseUrl, apiHeaders, requestPayload);
 
-            log.Status = "Success";
-            log.HttpStatusCode = 200;
-            log.ResponsePayload = "{\"accepted\":true}";
+            log.Status = statusCode >= 200 && statusCode < 300 ? "Success" : "Failed";
+            log.HttpStatusCode = statusCode;
+            log.ResponsePayload = responseBody;
             log.CompletedAt = DateTime.UtcNow;
-            store.AddDispatchLog(log);
+            if (log.Status == "Failed")
+                log.ErrorMessage = $"HTTP {statusCode}: {responseBody}";
 
+            store.AddDispatchLog(log);
             results.Add(ApiResult.OutboxEvent(rule.TargetSystem, triggerEvent,
-                $"{rule.EndpointKey} [{authDetail}] HTTP 200"));
+                $"{rule.EndpointKey} [{authDetail}] HTTP {statusCode}"));
         }
 
         return results;
@@ -101,14 +97,93 @@ public class OutboxAdapterService(InMemoryStore store)
         var log = store.GetDispatchLog(logId);
         if (log is null || log.Status != "Failed") return null;
 
-        log.Status = "Success";
+        var config = store.GetEndpointConfig(log.EndpointKey);
+        if (config is not null && config.IsActive && log.BaseUrl is not null)
+        {
+            var apiHeaders = new Dictionary<string, string>(config.Headers);
+            switch (config.AuthType)
+            {
+                case "OAuth2ClientCredentials":
+                    var token = FetchOAuth2Token(config, out _, out _);
+                    apiHeaders["Authorization"] = $"Bearer {token}";
+                    break;
+                case "StaticToken":
+                    apiHeaders[config.StaticTokenHeader] = config.StaticToken ?? "";
+                    break;
+            }
+            var (statusCode, responseBody) = CallApi(log.BaseUrl, apiHeaders, log.RequestPayload ?? "{}");
+            log.Status = statusCode >= 200 && statusCode < 300 ? "Success" : "Failed";
+            log.HttpStatusCode = statusCode;
+            log.ResponsePayload = responseBody;
+            if (log.Status == "Failed")
+                log.ErrorMessage = $"HTTP {statusCode}: {responseBody}";
+            else
+                log.ErrorMessage = null;
+        }
+        else
+        {
+            log.Status = "Success";
+            log.HttpStatusCode = 200;
+            log.ResponsePayload = "{\"accepted\":true,\"retried\":true}";
+            log.ErrorMessage = null;
+        }
+
         log.AttemptCount++;
-        log.HttpStatusCode = 200;
-        log.ResponsePayload = "{\"accepted\":true,\"retried\":true}";
         log.CompletedAt = DateTime.UtcNow;
-        log.ErrorMessage = null;
 
         return ApiResult.OutboxEvent(log.TargetSystem, log.TriggerEvent,
-            $"Retry #{log.AttemptCount}: {log.EndpointKey} HTTP 200");
+            $"Retry #{log.AttemptCount}: {log.EndpointKey} HTTP {log.HttpStatusCode}");
+    }
+
+    private string FetchOAuth2Token(OutboxEndpointConfig config, out string rawResponse, out string? formBody)
+    {
+        formBody = $"grant_type={config.GrantType}&client_id={config.ClientId}";
+        if (!string.IsNullOrEmpty(config.Scope)) formBody += $"&scope={config.Scope}";
+        if (!string.IsNullOrEmpty(config.ClientSecret)) formBody += $"&client_secret={config.ClientSecret}";
+        if (config.AdditionalTokenParams.Count > 0)
+            formBody += "&" + string.Join("&", config.AdditionalTokenParams.Select(kv => $"{kv.Key}={kv.Value}"));
+
+        rawResponse = "{}";
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, config.TokenUrl)
+            {
+                Content = new StringContent(formBody, Encoding.UTF8, "application/x-www-form-urlencoded")
+            };
+            foreach (var h in config.TokenRequestHeaders)
+                request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+
+            var response = client.Send(request);
+            rawResponse = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            var doc = JsonDocument.Parse(rawResponse);
+            return doc.RootElement.GetProperty("access_token").GetString() ?? "error-token";
+        }
+        catch
+        {
+            return "fallback-token";
+        }
+    }
+
+    private (int statusCode, string body) CallApi(string url, Dictionary<string, string> headers, string payload)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            foreach (var h in headers)
+                request.Headers.TryAddWithoutValidation(h.Key, h.Value);
+
+            var response = client.Send(request);
+            var body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            return ((int)response.StatusCode, string.IsNullOrEmpty(body) ? "{}" : body);
+        }
+        catch (Exception ex)
+        {
+            return (0, $"{{\"error\":\"{ex.Message}\"}}");
+        }
     }
 }

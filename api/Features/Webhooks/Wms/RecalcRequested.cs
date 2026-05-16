@@ -2,7 +2,7 @@ namespace OmsApi;
 
 public record RecalcRequestedRequest(string OrderId, string Reason, DateTime RequestedAt);
 
-public class RecalcRequestedHandler(InMemoryStore store)
+public class RecalcRequestedHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(RecalcRequestedRequest req)
     {
@@ -21,8 +21,14 @@ public class RecalcRequestedHandler(InMemoryStore store)
         });
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "RecalcRequested", o.Status,
             $"WMS requested POS recalculation. Reason: {req.Reason}."));
-        store.AppendEvent(req.OrderId, ApiResult.DomainEvent("PosRecalcCalled", o.Status,
-            $"SC → POS [outbound]: recalculation completed synchronously. Adjusted basket: {o.Amount} THB."));
+
+        var promotions = store.GetOrderPromotions(req.OrderId);
+        var payload = System.Text.Json.JsonSerializer.Serialize(PosRecalcPayload.Build(o, promotions));
+
+        foreach (var evt in adapterService.Dispatch(req.OrderId, o.ChannelType, o.SubChannel,
+            o.BusinessUnit, "PosRecalculateEvent", payload))
+            store.AppendEvent(req.OrderId, evt);
+
         store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("GW", "RecalcRequestedEvent",
             $"SC → GW: recalc triggered by RecalcRequested for order {req.OrderId} → gw.recalc-requested"));
 

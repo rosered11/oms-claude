@@ -2,7 +2,7 @@ namespace OmsApi;
 
 public record WaveStartedRequest(string OrderId, string WaveId, DateTime StartedAt);
 
-public class WaveStartedHandler(InMemoryStore store)
+public class WaveStartedHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(WaveStartedRequest req)
     {
@@ -24,8 +24,17 @@ public class WaveStartedHandler(InMemoryStore store)
         store.AppendEvent(req.OrderId, ApiResult.WebhookEvent("WMS", "WaveStarted", order.Status,
             $"Wave {req.WaveId} started."));
 
-        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "WaveStartedSentToGW",
-            "Dispatched to Gateway."));
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            orderId = req.OrderId,
+            waveId = req.WaveId,
+            startedAt = req.StartedAt
+        });
+
+        foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
+            order.BusinessUnit, "WaveStartedSentToGW", payload))
+            store.AppendEvent(req.OrderId, evt);
+
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, waveId = req.WaveId });
     }
 }

@@ -166,6 +166,7 @@ public class InMemoryStore
         Add("*", "*", "*", "PosRecalculateEvent",    "POS",     "pos.recalculate",     1);
         Add("*", "*", "*", "ABBInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
         Add("*", "*", "*", "CreditNoteSentToWMS",    "WMS",     "wms.credit-note",     1);
+        Add("Gateway", "*", "*", "WaveStartedSentToGW", "GW",  "gw.wave-started",     1);
     }
 
     private void SeedEndpointConfigs()
@@ -175,13 +176,15 @@ public class InMemoryStore
         void Add(string key, string baseUrl, string authType,
             string? staticToken = null, string? tokenUrl = null,
             string? clientId = null, string? clientSecret = null,
-            Dictionary<string, string>? headers = null) =>
+            Dictionary<string, string>? headers = null,
+            string staticTokenHeader = "Authorization") =>
             EndpointConfigs.Add(new OutboxEndpointConfig
             {
                 EndpointKey = key,
                 BaseUrl = baseUrl,
                 AuthType = authType,
                 StaticToken = staticToken,
+                StaticTokenHeader = staticTokenHeader,
                 TokenUrl = tokenUrl,
                 ClientId = clientId,
                 ClientSecret = clientSecret,
@@ -191,55 +194,84 @@ public class InMemoryStore
                 UpdatedAt = Utc()
             });
 
-        Add("wms.create-order",    "https://wms.internal/api/orders",
-            "OAuth2ClientCredentials", tokenUrl: "https://wms.internal/oauth/token",
+        const string mock = "http://localhost:3001";
+
+        Add("wms.create-order",    $"{mock}/wms/api/orders",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/wms/oauth/token",
             clientId: "oms-client", clientSecret: "***");
-        Add("tms.pick-confirm",    "https://tms.internal/api/picks",
-            "StaticToken", staticToken: "static-tms-token");
-        Add("tms.pack-confirm",    "https://tms.internal/api/packs",
-            "StaticToken", staticToken: "static-tms-token");
-        Add("tiktok.order-create", "https://api.tiktokshop.com/orders",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+        Add("tms.pick-confirm",    $"{mock}/tms/api/picks",
+            "StaticToken", staticToken: "static-tms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("tms.pack-confirm",    $"{mock}/tms/api/packs",
+            "StaticToken", staticToken: "static-tms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("tiktok.order-create", $"{mock}/tiktok/api/orders",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/tiktok/oauth/token",
             clientId: "oms-tiktok", clientSecret: "***");
-        Add("lazada.order-create", "https://api.lazada.com/orders",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+        Add("lazada.order-create", $"{mock}/lazada/api/orders",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/lazada/oauth/token",
             clientId: "oms-lazada", clientSecret: "***");
-        Add("gw.out-for-delivery", "https://gw.internal/api/status-update",
-            "StaticToken", staticToken: "static-gw-token");
-        Add("gw.delivered",        "https://gw.internal/api/status-update",
-            "StaticToken", staticToken: "static-gw-token");
-        Add("tms.abb-tax-invoice", "https://tms.internal/api/invoices",
-            "StaticToken", staticToken: "static-tms-token");
-        Add("gateway.abb-invoice", "https://gw.internal/api/invoices",
-            "StaticToken", staticToken: "static-gw-token");
-        Add("gateway.credit-note", "https://gw.internal/api/credit-notes",
-            "StaticToken", staticToken: "static-gw-token");
-        Add("wms.cancel-order",    "https://wms.internal/api/orders/cancel",
-            "OAuth2ClientCredentials", tokenUrl: "https://wms.internal/oauth/token",
+        Add("gw.out-for-delivery", $"{mock}/gw/api/status-update",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("gw.delivered",        $"{mock}/gw/api/status-update",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("tms.abb-tax-invoice", $"{mock}/tms/api/invoices",
+            "StaticToken", staticToken: "static-tms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("gateway.abb-invoice", $"{mock}/gw/api/invoices",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("gateway.credit-note", $"{mock}/gw/api/credit-notes",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("wms.cancel-order",    $"{mock}/wms/api/orders/cancel",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/wms/oauth/token",
             clientId: "oms-client", clientSecret: "***");
-        Add("tms.cancel-booking",  "https://tms.internal/api/bookings/cancel",
-            "StaticToken", staticToken: "static-tms-token");
-        Add("gw.order-cancelled",  "https://gw.internal/api/orders/cancel",
-            "StaticToken", staticToken: "static-gw-token");
-        Add("pos.recalculate",     "https://pos.internal/api/recalculate",
-            "StaticToken", staticToken: "static-pos-token",
-            headers: new() { ["accessToken"] = "pos-access-token", ["refId"] = "" });
-        Add("wms.tax-invoice",     "https://wms.internal/api/invoices",
-            "StaticToken", staticToken: "static-wms-token");
-        Add("wms.credit-note",     "https://wms.internal/api/credit-notes",
-            "StaticToken", staticToken: "static-wms-token");
-        Add("tiktok.pick-confirm", "https://api.tiktokshop.com/picks",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+        Add("tms.cancel-booking",  $"{mock}/tms/api/bookings/cancel",
+            "StaticToken", staticToken: "static-tms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("gw.order-cancelled",  $"{mock}/gw/api/orders/cancel",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("pos.recalculate",     $"{mock}/pos/api/recalculate",
+            "StaticToken", staticToken: "pos-access-token",
+            staticTokenHeader: "accessToken",
+            headers: new() { ["refId"] = "" });
+        Add("wms.tax-invoice",     $"{mock}/wms/api/invoices",
+            "StaticToken", staticToken: "static-wms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("wms.credit-note",     $"{mock}/wms/api/credit-notes",
+            "StaticToken", staticToken: "static-wms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("tiktok.pick-confirm", $"{mock}/tiktok/api/picks",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/tiktok/oauth/token",
             clientId: "oms-tiktok", clientSecret: "***");
-        Add("lazada.pick-confirm", "https://api.lazada.com/picks",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+        Add("lazada.pick-confirm", $"{mock}/lazada/api/picks",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/lazada/oauth/token",
             clientId: "oms-lazada", clientSecret: "***");
-        Add("lazada.pack-confirm", "https://api.lazada.com/packs",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.lazada.com/token",
+        Add("lazada.pack-confirm", $"{mock}/lazada/api/packs",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/lazada/oauth/token",
             clientId: "oms-lazada", clientSecret: "***");
-        Add("tiktok.awb-notify",   "https://api.tiktokshop.com/awb",
-            "OAuth2ClientCredentials", tokenUrl: "https://auth.tiktokshop.com/token",
+        Add("tiktok.awb-notify",   $"{mock}/tiktok/api/awb",
+            "OAuth2ClientCredentials", tokenUrl: $"{mock}/tiktok/oauth/token",
             clientId: "oms-tiktok", clientSecret: "***");
+        Add("gw.wave-started",     $"{mock}/gw/api/wave-started",
+            "StaticToken", staticToken: "static-gw-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
     }
 
     private void SeedPaymentData()
