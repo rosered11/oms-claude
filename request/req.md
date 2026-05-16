@@ -9,4 +9,4 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-In WaveStartedEvent, use endpoint same to OutForDelivery and Delivered.
+In WaveStartedEvent, request body not match with spec.
