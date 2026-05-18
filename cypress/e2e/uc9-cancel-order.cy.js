@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC9 — OMS operator cancels order via OMS Kanban UI
  *
  * Scenario A: OMS operator cancels a Pending order via the Kanban board.
@@ -6,7 +6,7 @@
  *   - OMS transitions → Cancelled and dispatches three outbox events:
  *       OrderCancelledSentToWMS  — reverse stock reservation
  *       OrderCancelledSentToTMS  — cancel delivery booking
- *       OrderCancelledSentToGW   — notify customer
+ *       OrderCancelledSentToGateway   — notify customer
  *   - GET /orders/{id}/timeline verifies all four events appear
  *
  * Scenario B: Cancel from PickStarted → 409 invalid_transition.
@@ -41,7 +41,7 @@ describe('UC9 — OMS operator cancels order via OMS UI', () => {
     });
   });
 
-  it('Step 3 — Timeline contains OrderCancelled domain event and outbox events to WMS, TMS, GW', () => {
+  it('Step 3 — Timeline contains OrderCancelled domain event and outbox events to WMS, TMS, Gateway', () => {
     cy.omsApi('GET', `/orders/${orderId1}/timeline`).then((res) => {
       expect(res.status).to.eq(200);
       const events = res.body.events;
@@ -60,10 +60,10 @@ describe('UC9 — OMS operator cancels order via OMS UI', () => {
       expect(toTms.system).to.eq('TMS');
       expect(toTms.type).to.eq('outbox');
 
-      const toGw = events.find(e => e.event === 'OrderCancelledSentToGW');
-      expect(toGw, 'OrderCancelledSentToGW outbox event').to.exist;
-      expect(toGw.system).to.eq('GW');
-      expect(toGw.type).to.eq('outbox');
+      const toGateway = events.find(e => e.event === 'OrderCancelledSentToGateway');
+      expect(toGateway, 'OrderCancelledSentToGateway outbox event').to.exist;
+      expect(toGateway.system).to.eq('Gateway');
+      expect(toGateway.type).to.eq('outbox');
     });
   });
 

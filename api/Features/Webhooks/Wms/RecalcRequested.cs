@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record RecalcRequestedRequest(string OrderId, string Reason, DateTime RequestedAt);
 
@@ -29,8 +29,8 @@ public class RecalcRequestedHandler(InMemoryStore store, OutboxAdapterService ad
             o.BusinessUnit, "PosRecalculateEvent", payload))
             store.AppendEvent(req.OrderId, evt);
 
-        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("GW", "RecalcRequestedEvent",
-            $"SC → GW: recalc triggered by RecalcRequested for order {req.OrderId} → gw.recalc-requested"));
+        store.AppendEvent(req.OrderId, ApiResult.OutboxEvent("Gateway", "RecalcRequestedEvent",
+            $"SC → Gateway: recalc triggered by RecalcRequested for order {req.OrderId} → Gateway.recalc-requested"));
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, adjustedAmount = o.Amount });
     }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC8 — Customer postpones delivery date
  *
  * Scenario: Customer reschedules delivery slot before dispatch,
@@ -74,7 +74,7 @@ describe('UC8 — Customer postpones delivery date', () => {
     });
   });
 
-  it('Step 5b — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 5b — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC8-${Date.now()}`,
@@ -110,7 +110,7 @@ describe('UC8 — Customer postpones delivery date', () => {
     });
   });
 
-  it('Step 5e — STS ABB/Tax Invoice received; OMS dispatches to WMS + GW', () => {
+  it('Step 5e — STS ABB/Tax Invoice received; OMS dispatches to WMS + Gateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC8-${Date.now()}`,

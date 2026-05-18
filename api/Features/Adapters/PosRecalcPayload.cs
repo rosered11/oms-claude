@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public static class PosRecalcPayload
 {
@@ -27,7 +27,7 @@ public static class PosRecalcPayload
             SK_CODE = line.Sku,
             QNT = line.RequestedAmount,
             WeightItemFlag = line.Uom == "KG",
-            AvgWeight = (decimal?)null,
+            AvGatewayeight = (decimal?)null,
             QNTItem = (decimal?)null,
             itemUnit = line.Uom,
             AMT = line.UnitPrice * line.RequestedAmount / 100m,

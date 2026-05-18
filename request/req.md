@@ -1,4 +1,4 @@
-@@ -1,40 +0,0 @@
+﻿@@ -1,40 +0,0 @@
 # OMS
 
 ## Context
@@ -9,4 +9,6 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-In WaveStartedEvent, request body not match with spec.
+I want you to review the sequence diagram
+    - Gateway can't call api get the order to OMS, but I see in the sequence diagram in the final step.
+    - In the sequence diagram, what is the internal POS call?

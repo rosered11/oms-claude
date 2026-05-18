@@ -1,4 +1,4 @@
----
+﻿---
 name: OMS Channel Types & Dynamic Outbox Routing
 description: Allowed channel_type values, dynamic outbox routing per marketplace/BU, multi-BU workflow requirements, and BU data isolation rules
 type: project
@@ -37,23 +37,23 @@ The `MarketplaceAdapter` ACL resolves `endpoint_key` to a real URL and handles m
 
 | Gateway | Event | Opted In | Notes |
 |---|---|---|---|
-| GatewayA | `WaveStartedSentToGW` | Yes | Has a row in `outbox_routing_rules` — wave start events forwarded |
-| GatewayB | `WaveStartedSentToGW` | No | No matching row — outbox worker skips dispatch silently |
+| GatewayA | `WaveStartedSentToGateway` | Yes | Has a row in `outbox_routing_rules` — wave start events forwarded |
+| GatewayB | `WaveStartedSentToGateway` | No | No matching row — outbox worker skips dispatch silently |
 
 Opt-in/opt-out is controlled entirely by the presence or absence of a row in `outbox_routing_rules`. This is the canonical pattern for per-Gateway feature flags.
 
-**Implementation verified 2026-05-16.** Requirement: "After receiving WaveStarted webhook from WMS, OMS must send outbox to GW."
-- `api/Features/Webhooks/Wms/WaveStarted.cs` — handler calls `adapterService.Dispatch(... "WaveStartedSentToGW" ...)` after validating `order.Status == OrderStatus.PickStarted`.
-- `InMemoryStore.SeedRoutingRules()` — routing rule seeded: `("Gateway", "*", "*", "WaveStartedSentToGW", "GW", "gw.wave-started", 1)`.
-- `InMemoryStore.SeedEndpointConfigs()` — endpoint config seeded: `"gw.wave-started"` → `{mock}/gw/api/status-update` (same endpoint as OutForDelivery and Delivered), auth: StaticToken via `x-api-key` header.
+**Implementation verified 2026-05-16.** Requirement: "After receiving WaveStarted webhook from WMS, OMS must send outbox to Gateway."
+- `api/Features/Webhooks/Wms/WaveStarted.cs` — handler calls `adapterService.Dispatch(... "WaveStartedSentToGateway" ...)` after validating `order.Status == OrderStatus.PickStarted`.
+- `InMemoryStore.SeedRoutingRules()` — routing rule seeded: `("Gateway", "*", "*", "WaveStartedSentToGateway", "Gateway", "Gateway.wave-started", 1)`.
+- `InMemoryStore.SeedEndpointConfigs()` — endpoint config seeded: `"Gateway.wave-started"` → `{mock}/Gateway/api/status-update` (same endpoint as OutForDelivery and Delivered), auth: StaticToken via `x-api-key` header.
 - State machine guard is correct: `WaveStarted` is rejected unless `order.Status == OrderStatus.PickStarted`.
 
 **Payload fix 2026-05-16.** Requirement: "In WaveStartedEvent, request body not match with spec."
-- Root cause: WaveStarted handler was forwarding raw inbound fields `{orderId, waveId, startedAt}` to GW instead of the standard GW status update format.
-- Fix: `WaveStarted.cs` now calls `GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same payload builder as OutForDelivery and Delivered, with `order_status = "WAVE_STARTED"`.
-- Fix: `GwUpdateStatusPayload.Build()` now accepts `orderStatus` parameter (default `"DELIVERED"`) to support reuse across multiple status transitions.
-- Outbound payload to GW: `{order_id, sale_channel, sale_source, order_status: "WAVE_STARTED", updated_at, updated_by: "OMS", payments[]}` — identical shape to Integration 2 (OutForDelivery/Delivered).
-- Routing rule scope is `"*"` (wildcard) — all channel types dispatch `WaveStartedSentToGW`, consistent with `OutForDelivery` and `Delivered`. The `"Gateway"` channel type restriction was incorrect; it confused `channelType = "Gateway"` (an OMS channel value) with the GW external system.
+- Root cause: WaveStarted handler was forwarding raw inbound fields `{orderId, waveId, startedAt}` to Gateway instead of the standard Gateway status update format.
+- Fix: `WaveStarted.cs` now calls `GatewayUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same payload builder as OutForDelivery and Delivered, with `order_status = "WAVE_STARTED"`.
+- Fix: `GatewayUpdateStatusPayload.Build()` now accepts `orderStatus` parameter (default `"DELIVERED"`) to support reuse across multiple status transitions.
+- Outbound payload to Gateway: `{order_id, sale_channel, sale_source, order_status: "WAVE_STARTED", updated_at, updated_by: "OMS", payments[]}` — identical shape to Integration 2 (OutForDelivery/Delivered).
+- Routing rule scope is `"*"` (wildcard) — all channel types dispatch `WaveStartedSentToGateway`, consistent with `OutForDelivery` and `Delivered`. The `"Gateway"` channel type restriction was incorrect; it confused `channelType = "Gateway"` (an OMS channel value) with the Gateway external system.
 
 ---
 
@@ -85,7 +85,7 @@ POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing
 
 | Event | Prepaid Target | POD Target |
 |---|---|---|
-| ABB/Tax Invoice from STS | WMS (`ABBInvoiceSentToWMS`) | TMS + GW (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGW`) |
+| ABB/Tax Invoice from STS | WMS (`ABBInvoiceSentToWMS`) | TMS + Gateway (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGateway`) |
 | Credit Note from STS | WMS (`CreditNoteSentToWMS`) | TMS (`CreditNoteSentToTMS`) |
 | Invoice trigger | At PickConfirmed (pre-dispatch) | At Delivered (`DeliveredSentToPOS`) |
 | PickStarted outbox | (no TMS event) | `PickStartedSentToTMS` → TMS |
@@ -93,7 +93,7 @@ POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing
 ### STS Invoice Forwarding (POD)
 - Invoice link (URL to PDF) is forwarded — not just amount
 - `ABBTaxInvoiceSentToTMS` carries `invoiceLink`
-- `ABBTaxInvoiceSentToGW` carries `invoiceLink`
+- `ABBTaxInvoiceSentToGateway` carries `invoiceLink`
 
 ### No WaveStarted in POD
 POD flow does not include a WaveStarted step. GatewayA's WaveStarted opt-in routing rule does not apply to POD orders.
@@ -157,5 +157,5 @@ Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. T
 | Return Order | Post-delivery return with full refund |
 | Reschedule | Change delivery slot before OutForDelivery via Rescheduler capability |
 | Customer keeps only part of order (e.g. chicken yes, beef no because not fresh) | Partial Item Return — customer rejects specific lines, OMS voids them, POS recalculates |
-| Wave Start forwarding | WMS sends WaveStarted; OMS records in order_wave_events; dispatches WaveStartedSentToGW for opted-in Gateways |
-| POD Order flow | payment_method='POD'; invoice triggered at Delivered not PickConfirmed; STS invoice/credit note routed to TMS+GW instead of WMS |
+| Wave Start forwarding | WMS sends WaveStarted; OMS records in order_wave_events; dispatches WaveStartedSentToGateway for opted-in Gateways |
+| POD Order flow | payment_method='POD'; invoice triggered at Delivered not PickConfirmed; STS invoice/credit note routed to TMS+Gateway instead of WMS |

@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record PackageDispatchedRequest(string TrackingId, DateTime DispatchedAt);
 
@@ -20,7 +20,7 @@ public class PackageDispatchedHandler(InMemoryStore store, OutboxAdapterService 
 
             var payment = store.GetOrderPayment(o.Id);
             var payloadJson = System.Text.Json.JsonSerializer.Serialize(
-                GwUpdateStatusPayload.Build(o, payment));
+                GatewayUpdateStatusPayload.Build(o, payment));
 
             foreach (var evt in adapterService.Dispatch(o.Id, o.ChannelType, o.SubChannel, o.BusinessUnit,
                 "OutForDeliveryEvent", payloadJson))

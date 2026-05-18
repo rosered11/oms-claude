@@ -1,4 +1,4 @@
-@@ -1,40 +0,0 @@
+﻿@@ -1,40 +0,0 @@
 # Order Management System
 
 ## Context
@@ -15,15 +15,15 @@ I want you to apply new business logic to the document OMS. You must change or i
 
 - This is sequence flow of pre-paid Steps:
     - Time Slot Request
-    Customer → GW → PS → TMS
+    Customer → Gateway → PS → TMS
     Available delivery windows are queried before any order is created.
 
     - Booking Created
-    Customer → GW → PS → TMS
+    Customer → Gateway → PS → TMS
     Delivery slot is locked.
 
     - Order Created → Pending
-    Customer → GW → PS → SC (OMS)
+    Customer → Gateway → PS → SC (OMS)
     POST /orders is called. OMS creates the order in Pending status.
 
     - OMS notifies TMS and WMS (Outbox)
@@ -38,7 +38,7 @@ I want you to apply new business logic to the document OMS. You must change or i
     WMS → SC (webhook)
 
     - OMS notifies (Outbox)
-    SC → GW: WaveStartedSentToGW
+    SC → Gateway: WaveStartedSentToGateway
 
     - POS Recalculation
     WMS → SC → POS → SC → WMS
@@ -51,7 +51,7 @@ I want you to apply new business logic to the document OMS. You must change or i
     
     - OMS notifies (Outbox)
     SC → TMS: PickConfirmedSentToTMS
-    SC → GW: PickConfirmedSentToGW
+    SC → Gateway: PickConfirmedSentToGateway
 
     - ABB/Tax Invoice receive webhook from STS
     STS → SC (webhook)
@@ -75,14 +75,14 @@ I want you to apply new business logic to the document OMS. You must change or i
     Status → OutForDelivery.
 
     - OMS notifies (Outbox)
-    SC → GW: OutForDeliverySentToGW (outbox)
+    SC → Gateway: OutForDeliverySentToGateway (outbox)
 
     - Package Delivered → Delivered
     TMS → SC (webhook: /webhooks/tms/package-delivered)
     Status → Delivered.
 
     - OMS notifies (Outbox)
-    SC → GW: DeliveredSentToGW (outbox)
+    SC → Gateway: DeliveredSentToGateway (outbox)
 
 - Feature OMS must to support
     - Create Order

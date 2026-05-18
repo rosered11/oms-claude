@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC10 — Short-pick: dish soap out of stock; only water delivered
  *
  * Scenario (Thai): สั่งน้ำ 2 packs กับน้ำยาล้างจาน แต่น้ำยาล้างจานไม่มี เลยเอาแค่น้ำ
@@ -70,7 +70,7 @@ describe('UC10 — Short-pick: dish soap out of stock, only water delivered', ()
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC10-${Date.now()}`,

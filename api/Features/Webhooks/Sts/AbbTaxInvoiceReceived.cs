@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record AbbTaxInvoiceReceivedRequest(
     string OrderId,
@@ -64,7 +64,7 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store, OutboxAdapterServ
         }
 
         foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
-            order.BusinessUnit, "ABBInvoiceSentToGW", invoicePayload))
+            order.BusinessUnit, "ABBInvoiceSentToGateway", invoicePayload))
             store.AppendEvent(req.OrderId, evt);
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId });

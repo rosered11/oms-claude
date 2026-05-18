@@ -1,8 +1,8 @@
-const express = require('express');
+﻿const express = require('express');
 
 const wmsRoutes = require('./routes/wms');
 const tmsRoutes = require('./routes/tms');
-const gwRoutes = require('./routes/gw');
+const GatewayRoutes = require('./routes/Gateway');
 const posRoutes = require('./routes/pos');
 const tiktokRoutes = require('./routes/tiktok');
 const lazadaRoutes = require('./routes/lazada');
@@ -29,7 +29,7 @@ app.get('/health', (req, res) => {
 // Mount routes
 app.use('/wms', wmsRoutes);
 app.use('/tms', tmsRoutes);
-app.use('/gw', gwRoutes);
+app.use('/Gateway', GatewayRoutes);
 app.use('/pos', posRoutes);
 app.use('/tiktok', tiktokRoutes);
 app.use('/lazada', lazadaRoutes);

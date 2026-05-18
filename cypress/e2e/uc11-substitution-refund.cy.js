@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC11 — Substitution with refund: fabric softener → dish soap (cheaper)
  *
  * Scenario (Thai): สั่งน้ำ 2 packs กับน้ำยาปรับผ้านุ่ม แต่น้ำยาปรับผ้านุ่มไม่มี
@@ -75,7 +75,7 @@ describe('UC11 — Substitution: fabric softener → dish soap, credit note for 
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC11-${Date.now()}`,

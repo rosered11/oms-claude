@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public class PrepaidInvoiceHandler(InMemoryStore store)
 {
@@ -13,8 +13,8 @@ public class PrepaidInvoiceHandler(InMemoryStore store)
         var now = DateTime.UtcNow;
         store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "ABBInvoiceSentToWMS",
             $"SC → WMS: ABB/Tax Invoice {invoiceNumber} · {o.Amount} THB. Invoice issued before TMS dispatch."));
-        store.AppendEvent(id, ApiResult.OutboxEvent("GW", "TaxInvoiceForwarded",
-            $"SC → GW: ABB/Tax Invoice {invoiceNumber} forwarded to customer. Prepaid transaction complete."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("Gateway", "TaxInvoiceForwarded",
+            $"SC → Gateway: ABB/Tax Invoice {invoiceNumber} forwarded to customer. Prepaid transaction complete."));
         return Results.Accepted(null, new { orderId = id, invoiceNumber, invoicedAt = now });
     }
 }

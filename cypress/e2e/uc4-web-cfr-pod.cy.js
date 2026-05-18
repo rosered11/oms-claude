@@ -1,18 +1,18 @@
-/**
+﻿/**
  * UC4 — Customer places a POD (Pay on Delivery) order via Web (BU: CFR)
  *
  * POD sequence (docs/oms-overview.md §2.3):
  *   Pending → PickStarted → POS Recalc → PickConfirmed → Packed →
  *   OutForDelivery → RecalcRequested → Delivered →
- *   STS ABB/Tax Invoice (issued after Delivered; → TMS + GW)
- *   [Optional Credit Note → TMS + GW]
+ *   STS ABB/Tax Invoice (issued after Delivered; → TMS + Gateway)
+ *   [Optional Credit Note → TMS + Gateway]
  *
  * Terminal state: Delivered (no POS invoiced/payment-confirmed steps in POD).
  * Customer pays the TMS driver at the door; POS is not involved post-delivery.
  *
  * Key differences from Prepaid (UC1/UC2):
  *   - isPrepaid: false, paymentMethod: 'POD'
- *   - STS ABB/Tax Invoice issued AFTER Delivered, forwarded to TMS + GW (not WMS + GW)
+ *   - STS ABB/Tax Invoice issued AFTER Delivered, forwarded to TMS + Gateway (not WMS + Gateway)
  *   - Order stays at Delivered — no Invoiced or Paid transitions
  */
 
@@ -50,7 +50,7 @@ describe('UC4 — Web / CFR / POD full order flow', () => {
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC4-${Date.now()}`,
@@ -141,9 +141,9 @@ describe('UC4 — Web / CFR / POD full order flow', () => {
     });
   });
 
-  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + GW
+  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + Gateway
   // No POS invoiced/payment-confirmed steps — POD terminal state is Delivered.
-  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGW', () => {
+  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC4-${Date.now()}`,
@@ -160,12 +160,12 @@ describe('UC4 — Web / CFR / POD full order flow', () => {
       expect(res.body.status).to.eq('Delivered');
     });
 
-    // POD routing: ABB/Tax Invoice forwarded to TMS + GW (not WMS + GW as in Prepaid)
+    // POD routing: ABB/Tax Invoice forwarded to TMS + Gateway (not WMS + Gateway as in Prepaid)
     cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBTaxInvoiceSentToTMS');
-      expect(names).to.include('ABBTaxInvoiceSentToGW');
+      expect(names).to.include('ABBTaxInvoiceSentToGateway');
     });
   });
 

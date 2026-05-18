@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC13 — Order with coupon discount (FRESH10 — 10% off)
  *
  * Scenario (Thai): Customer place order แต่มีใช้ส่วนลดคูปองในการจ่ายเงินด้วย
@@ -57,7 +57,7 @@ describe('UC13 — Web / CFR / Prepaid order with coupon FRESH10 (10% discount)'
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC13-${Date.now()}`,

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace OmsApi;
@@ -154,19 +154,20 @@ public class InMemoryStore
         // Wildcard fallback — all other channels / sub-channels / BUs
         Add("*", "*", "*", "OrderCreatedEvent",      "WMS",     "wms.create-order",    1);
         Add("*", "*", "*", "PickConfirmedEvent",     "TMS",     "tms.pick-confirm",    1);
+        Add("*", "*", "*", "PickConfirmedEvent",     "Gateway",      "Gateway.pick-confirm",     2);
         Add("*", "*", "*", "PackedEvent",            "TMS",     "tms.pack-confirm",    1);
-        Add("*", "*", "*", "OutForDeliveryEvent",    "GW",      "gw.out-for-delivery", 1);
-        Add("*", "*", "*", "DeliveredEvent",         "GW",      "gw.delivered",        1);
+        Add("*", "*", "*", "OutForDeliveryEvent",    "Gateway",      "Gateway.out-for-delivery", 1);
+        Add("*", "*", "*", "DeliveredEvent",         "Gateway",      "Gateway.delivered",        1);
         Add("*", "*", "*", "ABBTaxInvoiceSentToTMS", "TMS",     "tms.abb-tax-invoice", 1);
-        Add("*", "*", "*", "ABBInvoiceSentToGW",     "Gateway", "gateway.abb-invoice", 1);
-        Add("*", "*", "*", "CreditNoteSentToGW",     "Gateway", "gateway.credit-note", 1);
+        Add("*", "*", "*", "ABBInvoiceSentToGateway",     "Gateway", "gateway.abb-invoice", 1);
+        Add("*", "*", "*", "CreditNoteSentToGateway",     "Gateway", "gateway.credit-note", 1);
         Add("*", "*", "*", "OrderCancelledEvent",    "WMS",     "wms.cancel-order",    1);
         Add("*", "*", "*", "OrderCancelledEvent",    "TMS",     "tms.cancel-booking",  2);
-        Add("*", "*", "*", "OrderCancelledEvent",    "GW",      "gw.order-cancelled",  3);
+        Add("*", "*", "*", "OrderCancelledEvent",    "Gateway",      "Gateway.order-cancelled",  3);
         Add("*", "*", "*", "PosRecalculateEvent",    "POS",     "pos.recalculate",     1);
         Add("*", "*", "*", "ABBInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
         Add("*", "*", "*", "CreditNoteSentToWMS",    "WMS",     "wms.credit-note",     1);
-        Add("*",       "*", "*", "WaveStartedSentToGW", "GW",  "gw.wave-started",     1);
+        Add("*",       "*", "*", "WaveStartedSentToGateway", "Gateway",  "Gateway.wave-started",     1);
     }
 
     private void SeedEndpointConfigs()
@@ -213,24 +214,28 @@ public class InMemoryStore
         Add("lazada.order-create", $"{mock}/lazada/api/orders",
             "OAuth2ClientCredentials", tokenUrl: $"{mock}/lazada/oauth/token",
             clientId: "oms-lazada", clientSecret: "***");
-        Add("gw.out-for-delivery", $"{mock}/gw/api/status-update",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("Gateway.pick-confirm",     $"{mock}/Gateway/api/status-update",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
-        Add("gw.delivered",        $"{mock}/gw/api/status-update",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("Gateway.out-for-delivery", $"{mock}/Gateway/api/status-update",
+            "StaticToken", staticToken: "static-Gateway-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
+        Add("Gateway.delivered",        $"{mock}/Gateway/api/status-update",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
         Add("tms.abb-tax-invoice", $"{mock}/tms/api/invoices",
             "StaticToken", staticToken: "static-tms-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
-        Add("gateway.abb-invoice", $"{mock}/gw/api/invoices",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("gateway.abb-invoice", $"{mock}/Gateway/api/invoices",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
-        Add("gateway.credit-note", $"{mock}/gw/api/credit-notes",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("gateway.credit-note", $"{mock}/Gateway/api/credit-notes",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
         Add("wms.cancel-order",    $"{mock}/wms/api/orders/cancel",
@@ -240,8 +245,8 @@ public class InMemoryStore
             "StaticToken", staticToken: "static-tms-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
-        Add("gw.order-cancelled",  $"{mock}/gw/api/orders/cancel",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("Gateway.order-cancelled",  $"{mock}/Gateway/api/orders/cancel",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
         Add("pos.recalculate",     $"{mock}/pos/api/recalculate",
@@ -268,8 +273,8 @@ public class InMemoryStore
         Add("tiktok.awb-notify",   $"{mock}/tiktok/api/awb",
             "OAuth2ClientCredentials", tokenUrl: $"{mock}/tiktok/oauth/token",
             clientId: "oms-tiktok", clientSecret: "***");
-        Add("gw.wave-started",     $"{mock}/gw/api/status-update",
-            "StaticToken", staticToken: "static-gw-token",
+        Add("Gateway.wave-started",     $"{mock}/Gateway/api/status-update",
+            "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
     }
@@ -327,13 +332,13 @@ public class InMemoryStore
         {
             TransactionId = "txn-005-1", PaymentId = "pay-005",
             Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
-            GatewayRef = "GW-AUTH-2024-005", CreatedAt = Utc(2024, 1, 14, 16, 2, 0)
+            GatewayRef = "Gateway-AUTH-2024-005", CreatedAt = Utc(2024, 1, 14, 16, 2, 0)
         });
         AddPaymentTransaction(new PaymentTransactionDto
         {
             TransactionId = "txn-005-2", PaymentId = "pay-005",
             Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
-            GatewayRef = "GW-CAP-2024-005", CreatedAt = Utc(2024, 1, 14, 19, 31, 0)
+            GatewayRef = "Gateway-CAP-2024-005", CreatedAt = Utc(2024, 1, 14, 19, 31, 0)
         });
 
         // ORD-009 — promo + delivery fee (PickConfirmed, recalc pending)
@@ -365,7 +370,7 @@ public class InMemoryStore
         {
             TransactionId = "txn-010-1", PaymentId = "pay-010",
             Amount = 140000, Currency = "THB", PaymentMethod = "BankTransfer",
-            GatewayRef = "GW-CAP-2024-010", CreatedAt = Utc(2024, 1, 14, 13, 5, 0)
+            GatewayRef = "Gateway-CAP-2024-010", CreatedAt = Utc(2024, 1, 14, 13, 5, 0)
         });
         AddOrderPromotion(new OrderPromotionDto
         {
@@ -388,7 +393,7 @@ public class InMemoryStore
         {
             TransactionId = "txn-014-1", PaymentId = "pay-014",
             Amount = 210000, Currency = "THB", PaymentMethod = "CreditCard",
-            GatewayRef = "GW-CAP-2024-014", CreatedAt = Utc(2024, 1, 14, 9, 5, 0)
+            GatewayRef = "Gateway-CAP-2024-014", CreatedAt = Utc(2024, 1, 14, 9, 5, 0)
         });
         AddOrderPromotion(new OrderPromotionDto
         {

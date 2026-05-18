@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC3 — Customer places a Prepaid order via TikTok Marketplace (BU: CMG)
  *        TikTok retrieves the AWB (Air Waybill / tracking number) after OutForDelivery
  *
@@ -9,7 +9,7 @@
  *
  * Prepaid sequence:
  *   Pending → PickStarted → POS Recalc → PickConfirmed →
- *   STS ABB/Tax Invoice (→ WMS + GW) → Packed → OutForDelivery
+ *   STS ABB/Tax Invoice (→ WMS + Gateway) → Packed → OutForDelivery
  *   [TikTok fetches AWB] → Delivered
  *
  * POS recalculation is an outbound OMS → POS call; POS does not webhook OMS.
@@ -47,7 +47,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC3-${Date.now()}`,
@@ -82,7 +82,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGW', () => {
+  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC3-${Date.now()}`,
@@ -99,7 +99,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBInvoiceSentToWMS');
-      expect(names).to.include('ABBInvoiceSentToGW');
+      expect(names).to.include('ABBInvoiceSentToGateway');
     });
   });
 

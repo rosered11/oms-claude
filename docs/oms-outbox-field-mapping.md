@@ -1,4 +1,4 @@
-# Sprint Connect OMS — Outbox Field Mapping
+﻿# Sprint Connect OMS — Outbox Field Mapping
 
 **Version:** 1.0  
 **Last updated:** 2026-05-16  
@@ -40,9 +40,9 @@ This document provides field-level traceability from every OMS database column t
 | `OrderItems` | array | M | `OrderDto.Lines` | `order_lines` (all rows for this order) | One element per order line; see child fields below |
 | `OrderItems[].SEQ` | int | M | — | — | Computed: 1-based index position (`idx + 1`) within the lines list; not stored in DB |
 | `OrderItems[].SK_CODE` | string | M | `OrderLineDto.Sku` | `order_lines.sku` | Direct mapping |
-| `OrderItems[].QNT` | decimal | M | `OrderLineDto.RequestedAmount` | `order_lines.requested_amount` | Direct mapping. For weight items: `QNT = QNTItem * AvgWeight` per spec; OMS sends raw `requested_amount` |
+| `OrderItems[].QNT` | decimal | M | `OrderLineDto.RequestedAmount` | `order_lines.requested_amount` | Direct mapping. For weight items: `QNT = QNTItem * AvGatewayeight` per spec; OMS sends raw `requested_amount` |
 | `OrderItems[].WeightItemFlag` | boolean | M | `OrderLineDto.Uom` | `order_lines.unit_of_measure` | Computed: `true` if `Uom == "KG"`, otherwise `false` |
-| `OrderItems[].AvgWeight` | decimal | O | — | — | Hardcoded: `null` — average weight not tracked at the OMS order-line level |
+| `OrderItems[].AvGatewayeight` | decimal | O | — | — | Hardcoded: `null` — average weight not tracked at the OMS order-line level |
 | `OrderItems[].QNTItem` | decimal | O | — | — | Hardcoded: `null` — unit item count not tracked separately from `requested_amount` |
 | `OrderItems[].itemUnit` | string | M | `OrderLineDto.Uom` | `order_lines.unit_of_measure` | Direct mapping. Expected values: `Each`, `KG` |
 | `OrderItems[].AMT` | decimal | M | `OrderLineDto.UnitPrice * OrderLineDto.RequestedAmount` | `order_lines.original_unit_price`, `order_lines.requested_amount` | Computed: `UnitPrice * RequestedAmount / 100`. Converts satang to THB. Represents gross amount before discount |
@@ -59,16 +59,16 @@ This document provides field-level traceability from every OMS database column t
 ## Integration 2 — Gateway Update Status
 
 **Trigger event:** `OutForDeliveryEvent` raised when TMS fires `PackageDispatched` webhook  
-**Endpoint key:** `gw.out-for-delivery`  
-**Target URL:** `https://gw.internal/api/status-update`  
-**Auth:** StaticToken (`static-gw-token`)  
-**Payload builder:** `GwUpdateStatusPayload.Build(OrderDto order, OrderPaymentDto? payment)`
+**Endpoint key:** `Gateway.out-for-delivery`  
+**Target URL:** `https://Gateway.internal/api/status-update`  
+**Auth:** StaticToken (`static-Gateway-token`)  
+**Payload builder:** `GatewayUpdateStatusPayload.Build(OrderDto order, OrderPaymentDto? payment)`
 
 ### Request Header Fields
 
 | External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
 |---|---|---|---|---|---|
-| `x-api-key` | string | M | — | — | Hardcoded: `static-gw-token` from endpoint config `StaticToken` |
+| `x-api-key` | string | M | — | — | Hardcoded: `static-Gateway-token` from endpoint config `StaticToken` |
 | `x-channel` | string | M | — | — | Hardcoded: `"TWD"` (per spec) |
 
 ### Request Body Fields
@@ -79,12 +79,12 @@ This document provides field-level traceability from every OMS database column t
 | `sale_channel` | string | M | `OrderDto.ChannelType` | `orders.channel_type` | Mapped: `Gateway`→`CFW`, `App`→`CHEF`, `POS`→`CHO`, all others→`CFW` |
 | `sale_source` | string | M | `OrderDto.SubChannel` | `orders.sub_channel` | Mapped: `WA`→`WA`, `XB`→`XB`, `CF`→`CF`, `CO`→`CO`, all others→`WA` |
 | `order_status` | string | M | — | — | Hardcoded: `"DELIVERED"` — this payload is only ever sent on the OutForDelivery→Delivered transition |
-| `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time — reflects the moment OMS is notifying GW |
+| `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time — reflects the moment OMS is notifying Gateway |
 | `updated_by` | string | M | — | — | Hardcoded: `"OMS"` |
 | `payments` | array | O | `OrderPaymentDto` (if present) | `payment.order_payments` | Empty array `[]` when no payment record exists; one element when payment is present; see child fields below |
 | `payments[].payment_type` | string | M | `OrderDto.IsPrepaid` | `orders.is_prepaid` | Mapped: `true`→`"PRE_PAID"`, `false`→`"POST_PAID"` |
 | `payments[].payment_method` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Mapped: `CreditCard`→`CREDIT_CARD`, `QRCode`→`QR_CODE`, `PayOnDelivery`→`POD`, all others→`POD` |
-| `payments[].payment_jd` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Direct mapping of raw OMS payment method string (e.g. `"CreditCard"`). Used by GW as Payment ID reference for PaymentLink flows |
+| `payments[].payment_jd` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Direct mapping of raw OMS payment method string (e.g. `"CreditCard"`). Used by Gateway as Payment ID reference for PaymentLink flows |
 | `payments[].payment_amount` | decimal | M | `OrderPaymentDto.TotalAmount` | `payment.order_payments.total_amount` | Computed: `TotalAmount / 100`. Converts satang to THB |
 | `payments[].tendor` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Mapped: `CreditCard`→`WCRD`, `QRCode`→`QRPP`, `PayOnDelivery`→`WCOD`, all others→`WCOD` |
 | `payments[].payment_datetime` | datetime nullable | O | `OrderPaymentDto.CreatedAt` | `payment.order_payments.created_at` | Direct mapping; `null` if no payment record |
@@ -110,23 +110,23 @@ This document provides field-level traceability from every OMS database column t
 
 ## Integration 2b — WaveStarted Forwarding to Gateway
 
-**Trigger event:** `WaveStartedSentToGW` — fired when WMS sends `POST /api/webhooks/wms/wave-started` and the order is in `PickStarted` status  
-**Endpoint key:** `gw.wave-started`  
-**Target URL:** `https://gw.internal/api/status-update`  
-**Auth:** StaticToken (`x-api-key: static-gw-token`)  
-**Channel scope:** All channel types (`"*"` wildcard rule) — consistent with `OutForDelivery` and `Delivered` GW dispatch  
+**Trigger event:** `WaveStartedSentToGateway` — fired when WMS sends `POST /api/webhooks/wms/wave-started` and the order is in `PickStarted` status  
+**Endpoint key:** `Gateway.wave-started`  
+**Target URL:** `https://Gateway.internal/api/status-update`  
+**Auth:** StaticToken (`x-api-key: static-Gateway-token`)  
+**Channel scope:** All channel types (`"*"` wildcard rule) — consistent with `OutForDelivery` and `Delivered` Gateway dispatch  
 **Payload builder:** Inline in `WaveStartedHandler.Handle()` — no dedicated builder class
 
 ### Request Header Fields
 
 | External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
 |---|---|---|---|---|---|
-| `x-api-key` | string | M | — | — | Hardcoded: `static-gw-token` from endpoint config `StaticToken` |
+| `x-api-key` | string | M | — | — | Hardcoded: `static-Gateway-token` from endpoint config `StaticToken` |
 | `x-channel` | string | M | — | — | Hardcoded: `"TWD"` from endpoint config `Headers` |
 
 ### Request Body Fields
 
-Uses `GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same builder and field mapping as Integration 2, with `order_status` set to `"WAVE_STARTED"`. See Integration 2 for the full field-level mapping.
+Uses `GatewayUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same builder and field mapping as Integration 2, with `order_status` set to `"WAVE_STARTED"`. See Integration 2 for the full field-level mapping.
 
 | External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
 |---|---|---|---|---|---|
@@ -134,6 +134,38 @@ Uses `GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED")` — same buil
 | `sale_channel` | string | M | `OrderDto.ChannelType` | `orders.channel_type` | Mapped: `Gateway`→`CFW`, `App`→`CHEF`, `POS`→`CHO`, all others→`CFW` |
 | `sale_source` | string | M | `OrderDto.SubChannel` | `orders.sub_channel` | Mapped: `WA`→`WA`, `XB`→`XB`, `CF`→`CF`, `CO`→`CO`, all others→`WA` |
 | `order_status` | string | M | — | — | Hardcoded: `"WAVE_STARTED"` |
+| `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time |
+| `updated_by` | string | M | — | — | Hardcoded: `"OMS"` |
+| `payments` | array | O | `OrderPaymentDto` (if present) | `payment.order_payments` | Same mapping as Integration 2 — empty `[]` when no payment record exists |
+
+---
+
+## Integration 2c — PickConfirmed Forwarding to Gateway
+
+**Trigger event:** `PickConfirmedEvent` — fired when WMS sends `POST /api/webhooks/wms/pick-confirmed` and the order transitions to `PickConfirmed` status  
+**Endpoint key:** `Gateway.pick-confirm`  
+**Target URL:** `https://Gateway.internal/api/status-update`  
+**Auth:** StaticToken (`x-api-key: static-Gateway-token`)  
+**Channel scope:** All channel types (`"*"` wildcard rule)  
+**Payload builder:** `GatewayUpdateStatusPayload.Build(order, payment, "PICK_CONFIRMED")`
+
+### Request Header Fields
+
+| External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
+|---|---|---|---|---|---|
+| `x-api-key` | string | M | — | — | Hardcoded: `static-Gateway-token` from endpoint config `StaticToken` |
+| `x-channel` | string | M | — | — | Hardcoded: `"TWD"` from endpoint config `Headers` |
+
+### Request Body Fields
+
+Uses `GatewayUpdateStatusPayload.Build(order, payment, "PICK_CONFIRMED")` — same builder and field mapping as Integration 2, with `order_status` set to `"PICK_CONFIRMED"`. See Integration 2 for the full field-level mapping.
+
+| External Field | Data Type | Mandatory | OMS Source (DTO Field) | OMS DB Column | Transform / Notes |
+|---|---|---|---|---|---|
+| `order_id` | string | M | `OrderDto.OrderNumber` | `orders.order_number` | Direct mapping |
+| `sale_channel` | string | M | `OrderDto.ChannelType` | `orders.channel_type` | Mapped: `Gateway`→`CFW`, `App`→`CHEF`, `POS`→`CHO`, all others→`CFW` |
+| `sale_source` | string | M | `OrderDto.SubChannel` | `orders.sub_channel` | Mapped: `WA`→`WA`, `XB`→`XB`, `CF`→`CF`, `CO`→`CO`, all others→`WA` |
+| `order_status` | string | M | — | — | Hardcoded: `"PICK_CONFIRMED"` |
 | `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time |
 | `updated_by` | string | M | — | — | Hardcoded: `"OMS"` |
 | `payments` | array | O | `OrderPaymentDto` (if present) | `payment.order_payments` | Same mapping as Integration 2 — empty `[]` when no payment record exists |
@@ -267,19 +299,19 @@ The following endpoint keys are seeded in `InMemoryStore.SeedEndpointConfigs()`.
 | Endpoint Key | Target URL | Auth Type | Auth Detail | Used By Integration |
 |---|---|---|---|---|
 | `pos.recalculate` | `https://pos.internal/api/recalculate` | StaticToken | Header: `accessToken: pos-access-token`; `refId: ""` | Integration 1 — POS Recalculation |
-| `gw.out-for-delivery` | `https://gw.internal/api/status-update` | StaticToken | `static-gw-token` | Integration 2 — Gateway Update Status |
-| `gw.wave-started` | `https://gw.internal/api/status-update` | StaticToken | `static-gw-token` (header: `x-api-key`); `x-channel: TWD` | Integration 2b — WaveStarted Forwarding to Gateway |
+| `Gateway.out-for-delivery` | `https://Gateway.internal/api/status-update` | StaticToken | `static-Gateway-token` | Integration 2 — Gateway Update Status |
+| `Gateway.wave-started` | `https://Gateway.internal/api/status-update` | StaticToken | `static-Gateway-token` (header: `x-api-key`); `x-channel: TWD` | Integration 2b — WaveStarted Forwarding to Gateway |
 | `tms.abb-tax-invoice` | `https://tms.internal/api/invoices` | StaticToken | `static-tms-token` | Integration 3 — Tax Invoice (POD flow) |
 | `wms.tax-invoice` | `https://wms.internal/api/invoices` | StaticToken | `static-wms-token` | Integration 3 — Tax Invoice (Prepaid flow) |
 | `wms.credit-note` | `https://wms.internal/api/credit-notes` | StaticToken | `static-wms-token` | Integration 4 — Credit Note (Prepaid flow) |
-| `gateway.abb-invoice` | `https://gw.internal/api/invoices` | StaticToken | `static-gw-token` | Invoice forwarding to Gateway (all channels) |
-| `gateway.credit-note` | `https://gw.internal/api/credit-notes` | StaticToken | `static-gw-token` | Credit note forwarding to Gateway (all channels) |
+| `gateway.abb-invoice` | `https://Gateway.internal/api/invoices` | StaticToken | `static-Gateway-token` | Invoice forwarding to Gateway (all channels) |
+| `gateway.credit-note` | `https://Gateway.internal/api/credit-notes` | StaticToken | `static-Gateway-token` | Credit note forwarding to Gateway (all channels) |
 | `wms.create-order` | `https://wms.internal/api/orders` | OAuth2ClientCredentials | Token URL: `https://wms.internal/oauth/token`; Client ID: `oms-client` | Order creation (not covered by this document) |
 | `tms.pick-confirm` | `https://tms.internal/api/picks` | StaticToken | `static-tms-token` | Pick confirmation (not covered by this document) |
 | `tms.pack-confirm` | `https://tms.internal/api/packs` | StaticToken | `static-tms-token` | Pack confirmation (not covered by this document) |
 | `wms.cancel-order` | `https://wms.internal/api/orders/cancel` | OAuth2ClientCredentials | Token URL: `https://wms.internal/oauth/token`; Client ID: `oms-client` | Order cancellation (not covered by this document) |
 | `tms.cancel-booking` | `https://tms.internal/api/bookings/cancel` | StaticToken | `static-tms-token` | Booking cancellation (not covered by this document) |
-| `gw.order-cancelled` | `https://gw.internal/api/orders/cancel` | StaticToken | `static-gw-token` | Order cancellation notification (not covered by this document) |
+| `Gateway.order-cancelled` | `https://Gateway.internal/api/orders/cancel` | StaticToken | `static-Gateway-token` | Order cancellation notification (not covered by this document) |
 | `tiktok.order-create` | `https://api.tiktokshop.com/orders` | OAuth2ClientCredentials | Token URL: `https://auth.tiktokshop.com/token`; Client ID: `oms-tiktok` | TikTok marketplace (not covered by this document) |
 | `tiktok.pick-confirm` | `https://api.tiktokshop.com/picks` | OAuth2ClientCredentials | Token URL: `https://auth.tiktokshop.com/token`; Client ID: `oms-tiktok` | TikTok marketplace (not covered by this document) |
 | `tiktok.awb-notify` | `https://api.tiktokshop.com/awb` | OAuth2ClientCredentials | Token URL: `https://auth.tiktokshop.com/token`; Client ID: `oms-tiktok` | TikTok marketplace (not covered by this document) |

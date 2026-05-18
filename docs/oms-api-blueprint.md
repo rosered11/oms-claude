@@ -1,4 +1,4 @@
-# Sprint Connect OMS — API Blueprint
+﻿# Sprint Connect OMS — API Blueprint
 
 **Version:** 2.0  
 **Format:** REST / JSON  
@@ -137,8 +137,8 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
 ```
 
 **`paymentMethod`** field values:
-- `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and GW
-- `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + GW
+- `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and Gateway
+- `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + Gateway
 
 **Outbox events dispatched on order creation:**
 
@@ -444,9 +444,9 @@ Cancel order. Allowed from `Pending`, `BookingConfirmed`, `OnHold` only. (UC9)
 |---|---|---|
 | `OrderCancelledSentToWMS` | WMS | Reverse stock reservation |
 | `OrderCancelledSentToTMS` | TMS | Cancel delivery booking |
-| `OrderCancelledSentToGW` | GW | Notify customer of cancellation |
+| `OrderCancelledSentToGateway` | Gateway | Notify customer of cancellation |
 
-All three events appear on `GET /orders/{id}/timeline` with `type: "outbox"` and the respective `system` values (`"WMS"`, `"TMS"`, `"GW"`).
+All three events appear on `GET /orders/{id}/timeline` with `type: "outbox"` and the respective `system` values (`"WMS"`, `"TMS"`, `"Gateway"`).
 
 **Response 409:**
 ```json
@@ -956,7 +956,7 @@ Valid only when order is in `PickStarted` status.
 
 **Response 202 Accepted**
 
-**Outbox event dispatched:** `WaveStartedSentToGW` → Gateway
+**Outbox event dispatched:** `WaveStartedSentToGateway` → Gateway
 
 ---
 
@@ -1180,7 +1180,7 @@ TMS driver collected the package. Transitions order to `OutForDelivery`. (UC7)
 
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newOrderStatus": "OutForDelivery", "newPackageStatus": "OutForDelivery" }`
 
-**Outbox event dispatched:** `OutForDeliverySentToGW` → Gateway
+**Outbox event dispatched:** `OutForDeliverySentToGateway` → Gateway
 
 ---
 
@@ -1201,7 +1201,7 @@ TMS confirms delivery to customer. Triggers invoice generation. → `Delivered`.
 **Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Delivered", "invoiceTriggered": true }`
 
 **Outbox events dispatched:**
-- `DeliveredSentToGW` → Gateway (all payment methods)
+- `DeliveredSentToGateway` → Gateway (all payment methods)
 
 ---
 
@@ -1250,19 +1250,19 @@ Inbound callbacks from the Settlement & Tax System (STS). STS generates official
 
 **How STS is triggered (external to OMS):**
 
-OMS dispatches outbox events to GW at key status transitions. GW handles payment and tax processing outside OMS. Once GW's processing is complete, STS sends the ABB/Tax Invoice (and optionally a Credit Note) back to OMS.
+OMS dispatches outbox events to Gateway at key status transitions. Gateway handles payment and tax processing outside OMS. Once Gateway's processing is complete, STS sends the ABB/Tax Invoice (and optionally a Credit Note) back to OMS.
 
-| Flow | OMS outbox event that triggers GW | GW processing | STS sends to OMS |
+| Flow | OMS outbox event that triggers Gateway | Gateway processing | STS sends to OMS |
 |---|---|---|---|
-| **Prepaid** | `PickConfirmedSentToGW` (after `PickConfirmed`) | GW handles payment settlement externally | ABB/Tax Invoice or Credit Note |
-| **POD** | `DeliveredSentToGW` (after `Delivered`) | GW handles COD/payment collection externally | ABB/Tax Invoice or Credit Note |
+| **Prepaid** | `PickConfirmedSentToGateway` (after `PickConfirmed`) | Gateway handles payment settlement externally | ABB/Tax Invoice or Credit Note |
+| **POD** | `DeliveredSentToGateway` (after `Delivered`) | Gateway handles COD/payment collection externally | ABB/Tax Invoice or Credit Note |
 
 OMS routes the received STS documents to downstream systems based on `orders.is_prepaid`:
 
 | Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
 |---|---|---|---|
-| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + GW | WMS + GW |
-| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + GW | TMS + GW |
+| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + Gateway | WMS + Gateway |
+| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + Gateway | TMS + Gateway |
 
 **Shared STS webhook headers:**
 
@@ -1307,7 +1307,7 @@ STS sends the ABB/Tax Invoice document link. Timing and forwarding targets diffe
 
 ### POST /webhooks/sts/credit-note
 
-STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS and GW. POD: forwards to TMS and GW.
+STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS and Gateway. POD: forwards to TMS and Gateway.
 
 **Request:**
 ```json
@@ -1353,13 +1353,13 @@ STS sends the official ABB/Tax Invoice to OMS. Timing and forwarding targets dif
 }
 ```
 
-Note: `invoiceLink` is required for POD (the link is forwarded to TMS and GW). For Prepaid, only `invoiceAmount` and `invoiceNumber` are forwarded to WMS.
+Note: `invoiceLink` is required for POD (the link is forwarded to TMS and Gateway). For Prepaid, only `invoiceAmount` and `invoiceNumber` are forwarded to WMS.
 
 **Response 202 Accepted**
 
 **Routing by payment method:**
-- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBInvoiceSentToGW` → Gateway
-- `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGW` → Gateway
+- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBInvoiceSentToGateway` → Gateway
+- `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGateway` → Gateway
 
 ---
 
@@ -1386,8 +1386,8 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
 **Response 202 Accepted**
 
 **Routing by payment method:**
-- `paymentMethod = 'Prepaid'`: dispatches `CreditNoteSentToWMS` → WMS and `CreditNoteSentToGW` → Gateway
-- `paymentMethod = 'POD'`: dispatches `CreditNoteSentToTMS` → TMS and `CreditNoteSentToGW` → Gateway
+- `paymentMethod = 'Prepaid'`: dispatches `CreditNoteSentToWMS` → WMS and `CreditNoteSentToGateway` → Gateway
+- `paymentMethod = 'POD'`: dispatches `CreditNoteSentToTMS` → TMS and `CreditNoteSentToGateway` → Gateway
 
 ---
 

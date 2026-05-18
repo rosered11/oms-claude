@@ -1,4 +1,4 @@
-@@ -1,40 +0,0 @@
+﻿@@ -1,40 +0,0 @@
 # OMS
 
 ## Context
@@ -18,6 +18,6 @@ And I need you to create a document that maps fields to all external specificati
 ## Outbox relation to Spec
 
 - In case OMS call POS to Recalculation use spec on path spec-external/pos-recalc.md
-- In case OMS update status to GW like: ware start, out for delivery and etc.. use spec on path the spec-external/gw-update-status.md
+- In case OMS update status to Gateway like: ware start, out for delivery and etc.. use spec on path the spec-external/Gateway-update-status.md
 - In case when receive webhook in from STS, OMS must to send Tax Invoice to WMS or TMS. use spec on path the spec-external/tms-wms-tax-invoice.md
 - In case when receive webhook in from STS, OMS must to send Credit Note to WMS or TMS. use spec on path the spec-external/tws-wms-credit-note.md

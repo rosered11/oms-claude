@@ -1,4 +1,4 @@
----
+﻿---
 name: POS Integration Architecture — OMS Calls POS; POS Never Webhooks OMS
 type: adr
 date: 2026-05-14
@@ -77,7 +77,7 @@ The POD order lifecycle ends at status `Delivered`. There is no transition to
 
 ```
 TMS → SC: Delivered [inbound webhook /tms/package-delivered]
-SC → GW: Delivered
+SC → Gateway: Delivered
 Order status → Delivered   ← terminal state for POD
 ```
 
@@ -94,27 +94,27 @@ The phrase "Pick Confirm" here refers to the broader POD delivery confirmation
 (package delivered), not the WMS PickConfirmed event. The routing table in the
 API blueprint confirms the trigger point: "After `Delivered`" for POD.
 
-### 3. ABB/Tax Invoice routing for POD: TMS + GW (NOT WMS + GW)
+### 3. ABB/Tax Invoice routing for POD: TMS + Gateway (NOT WMS + Gateway)
 
 When STS sends the ABB/Tax Invoice for a POD order, OMS forwards it to:
 
 - TMS (Transport Management System)
-- GW (CFW Gateway)
+- Gateway (CFW Gateway)
 
-It is NOT forwarded to WMS. This differs from Prepaid, which routes to WMS + GW.
+It is NOT forwarded to WMS. This differs from Prepaid, which routes to WMS + Gateway.
 
 Domain events dispatched for POD ABB/Tax Invoice:
 - `ABBTaxInvoiceSentToTMS` → TMS
-- `ABBTaxInvoiceSentToGW` → Gateway
+- `ABBTaxInvoiceSentToGateway` → Gateway
 
-### 4. Credit Note routing for POD (optional step): TMS + GW
+### 4. Credit Note routing for POD (optional step): TMS + Gateway
 
 If a credit note exists (e.g. price adjustment after partial pick), STS sends a
-separate Credit Note webhook. For POD orders this is also forwarded to TMS + GW only.
+separate Credit Note webhook. For POD orders this is also forwarded to TMS + Gateway only.
 
 Domain events dispatched for POD Credit Note:
 - `CreditNoteSentToTMS` → TMS
-- `CreditNoteSentToGW` → Gateway
+- `CreditNoteSentToGateway` → Gateway
 
 ### 5. `POST /webhooks/pos/invoiced` and `POST /webhooks/pos/payment-confirmed` are NOT called in the POD flow
 
@@ -130,17 +130,17 @@ payment collection (e.g. Click & Collect, Kiosk, in-store).
 
 ```
 TMS → SC:  Delivered [/webhooks/tms/package-delivered]
-SC  → GW:  Delivered notification (outbox)
+SC  → Gateway:  Delivered notification (outbox)
             Order status = Delivered  ← terminal
 
 STS → SC:  POST /webhooks/sts/abb-tax-invoice   (after Delivered)
 SC  → TMS: Send ABB/Tax Invoice link (outbox: ABBTaxInvoiceSentToTMS)
-SC  → GW:  Send ABB/Tax Invoice link (outbox: ABBTaxInvoiceSentToGW)
+SC  → Gateway:  Send ABB/Tax Invoice link (outbox: ABBTaxInvoiceSentToGateway)
 
 [Optional — only if credit note exists]
 STS → SC:  POST /webhooks/sts/credit-note
 SC  → TMS: Send Credit Note link (outbox: CreditNoteSentToTMS)
-SC  → GW:  Send Credit Note link (outbox: CreditNoteSentToGW)
+SC  → Gateway:  Send Credit Note link (outbox: CreditNoteSentToGateway)
 ```
 
 ## Contrast: What the API Blueprint §2.3 Shows vs. Reality
@@ -151,7 +151,7 @@ SC  → GW:  Send Credit Note link (outbox: CreditNoteSentToGW)
 | POS invoiced webhook used? | Listed as UC12 (general) | NOT called for POD |
 | POS payment-confirmed used? | Listed as UC13 (general) | NOT called for POD |
 | STS trigger for ABB invoice | After `Delivered` (correct in STS section) | After `Delivered` |
-| ABB invoice routing | TMS + GW (correct in STS section) | TMS + GW |
+| ABB invoice routing | TMS + Gateway (correct in STS section) | TMS + Gateway |
 
 The STS webhooks section of the blueprint is internally consistent with the sequence
 diagram. The ambiguity is in the general state machine description which does not

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC12 — Full order return after delivery
  *
  * Scenario (Thai): Customer สั่งสินค้า ได้รับสินค้าแล้ว แต่ต้องการขอคืนสินค้า
@@ -46,7 +46,7 @@ describe('UC12 — Full return after delivery (CustomerRequest)', () => {
     });
   });
 
-  it('Step 2b — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 2b — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC12-${Date.now()}`,

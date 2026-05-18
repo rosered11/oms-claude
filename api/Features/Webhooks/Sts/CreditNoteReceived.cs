@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record CreditNoteReceivedRequest(
     string OrderId,
@@ -67,7 +67,7 @@ public class CreditNoteReceivedHandler(InMemoryStore store, OutboxAdapterService
         }
 
         foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
-            order.BusinessUnit, "CreditNoteSentToGW", cnPayload))
+            order.BusinessUnit, "CreditNoteSentToGateway", cnPayload))
             store.AppendEvent(req.OrderId, evt);
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId });

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC6 — Customer places an order for beef + chicken via Web (BU: CFR);
  *        beef is not fresh at delivery → partial return with refund
  *
@@ -15,7 +15,7 @@
  * POD sequence (docs/oms-overview.md §2.3):
  *   Pending → PickStarted → POS Recalc → PickConfirmed → Packed →
  *   OutForDelivery → RecalcRequested → Delivered →
- *   STS ABB/Tax Invoice (→ TMS + GW) →
+ *   STS ABB/Tax Invoice (→ TMS + Gateway) →
  *   [customer rejects beef at door]
  *   POST /returns (returnType=PartialItem, items=[beef line only]) → ReturnRequested
  *
@@ -79,7 +79,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC6-${Date.now()}`,
@@ -177,9 +177,9 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
     });
   });
 
-  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + GW
+  // POD-specific: STS issues ABB/Tax Invoice AFTER Delivered; forwarded to TMS + Gateway
   // No POS invoiced/payment-confirmed steps — POD terminal order state is Delivered.
-  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGW', () => {
+  it('Step 8 — STS ABB/Tax Invoice received after Delivered; OMS dispatches ABBTaxInvoiceSentToTMS + ABBTaxInvoiceSentToGateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC6-${Date.now()}`,
@@ -196,12 +196,12 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
       expect(res.body.status).to.eq('Delivered');
     });
 
-    // POD routing: ABB/Tax Invoice forwarded to TMS + GW (not WMS + GW as in Prepaid)
+    // POD routing: ABB/Tax Invoice forwarded to TMS + Gateway (not WMS + Gateway as in Prepaid)
     cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBTaxInvoiceSentToTMS');
-      expect(names).to.include('ABBTaxInvoiceSentToGW');
+      expect(names).to.include('ABBTaxInvoiceSentToGateway');
     });
   });
 

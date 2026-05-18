@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 
 // POST /pos/api/recalculate
@@ -35,7 +35,7 @@ router.post('/api/recalculate', (req, res) => {
     PR_CODE: `${item.SK_CODE}-PR`,
     QNT: item.QNT,
     WeightItemFlag: item.WeightItemFlag,
-    AvgWeight: item.AvgWeight || 0,
+    AvGatewayeight: item.AvGatewayeight || 0,
     QNTItem: item.QNTItem || item.QNT,
     itemUnit: item.itemUnit,
     AMT: item.AMT,

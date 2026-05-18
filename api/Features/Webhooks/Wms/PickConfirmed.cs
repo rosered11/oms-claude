@@ -1,9 +1,9 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record PickLineDto(string OrderLineId, string Sku, decimal PickedQty, bool Substituted);
 public record PickConfirmedRequest(string OrderId, List<PickLineDto> Lines, DateTime PickedAt);
 
-public class PickConfirmedHandler(InMemoryStore store)
+public class PickConfirmedHandler(InMemoryStore store, OutboxAdapterService adapterService)
 {
     public IResult Handle(PickConfirmedRequest req)
     {
@@ -34,8 +34,11 @@ public class PickConfirmedHandler(InMemoryStore store)
             Detail = $"{req.Lines.Count} lines picked.",
             ReceivedAt = DateTime.UtcNow
         });
-        foreach (var evt in ApiResult.DispatchOutbox(store, o.ChannelType, o.SubChannel, o.BusinessUnit,
-            "PickConfirmedEvent", $"SC → {{target}}: Pick Confirmed for {req.OrderId}"))
+        var payment = store.GetOrderPayment(req.OrderId);
+        var payload = System.Text.Json.JsonSerializer.Serialize(
+            GatewayUpdateStatusPayload.Build(o, payment, "PICK_CONFIRMED"));
+        foreach (var evt in adapterService.Dispatch(req.OrderId, o.ChannelType, o.SubChannel, o.BusinessUnit,
+            "PickConfirmedEvent", payload))
             store.AppendEvent(req.OrderId, evt);
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, newStatus = OrderStatus.PickConfirmed });
     }

@@ -1,6 +1,6 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
-public static class GwUpdateStatusPayload
+public static class GatewayUpdateStatusPayload
 {
     public static object Build(OrderDto order, OrderPaymentDto? payment, string orderStatus = "DELIVERED")
     {

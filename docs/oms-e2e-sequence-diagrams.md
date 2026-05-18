@@ -1,13 +1,13 @@
-# OMS E2E Use Case Sequence Diagrams
+﻿# OMS E2E Use Case Sequence Diagrams
 
-This document contains one Mermaid sequence diagram per end-to-end use case defined in `cypress/e2e/`. Each diagram title matches the Cypress `describe()` label exactly. Actors are consistent across all diagrams: `Customer` (end customer), `GW` (CFW Gateway), `OMS` (Sprint Connect OMS), `WMS` (Warehouse System), `TMS` (Transport System), `POS` (Point of Sale), `STS` (Settlement Tax System). All monetary values are in satang (smallest THB unit).
+This document contains one Mermaid sequence diagram per end-to-end use case defined in `cypress/e2e/`. Each diagram title matches the Cypress `describe()` label exactly. Actors are consistent across all diagrams: `Customer` (end customer), `Gateway` (CFW Gateway), `OMS` (Sprint Connect OMS), `WMS` (Warehouse System), `TMS` (Transport System), `POS` (Point of Sale), `STS` (Settlement Tax System). All monetary values are in satang (smallest THB unit).
 
 **Key API changes reflected in this document:**
-- `PATCH /orders/{id}/cancel` dispatches three outbox events: `OrderCancelledSentToWMS`, `OrderCancelledSentToTMS`, `OrderCancelledSentToGW` (UC9)
+- `PATCH /orders/{id}/cancel` dispatches three outbox events: `OrderCancelledSentToWMS`, `OrderCancelledSentToTMS`, `OrderCancelledSentToGateway` (UC9)
 - `POST /webhooks/wms/put-away-confirmed` transitions the linked **order** to `Returned` in addition to transitioning the return record to `PutAway` (UC12)
 - `POST /webhooks/sts/credit-note-received` request field is `amount` (not `creditAmount`) (UC11)
 - `GET /orders/{id}/credit-note` — new endpoint returning `CreditNoteDto` for an order (UC11)
-- `POST /webhooks/tms/package-delivered` dispatches `DeliveredEvent → GW` via outbox on every delivery (routing rule: `("*", "*", "*", "DeliveredEvent", "GW", "gw.delivered", 1)`) (UC1–UC6, UC10–UC13)
+- `POST /webhooks/tms/package-delivered` dispatches `DeliveredEvent → Gateway` via outbox on every delivery (routing rule: `("*", "*", "*", "DeliveredEvent", "Gateway", "Gateway.delivered", 1)`) (UC1–UC6, UC10–UC13)
 
 ---
 
@@ -18,16 +18,16 @@ sequenceDiagram
   title: UC1 — Web / CMG / Prepaid full order flow
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (channelType=Web, BU=CMG)
-  GW->>OMS: POST /orders
-  OMS-->>GW: 201 { orderId, status: "Pending", paymentMethod: "Prepaid", businessUnit: "CMG" }
+  Customer->>Gateway: Place Prepaid order (channelType=Web, BU=CMG)
+  Gateway->>OMS: POST /orders
+  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "Prepaid", businessUnit: "CMG" }
   Note over OMS: State: Pending (Prepaid skips BookingConfirmed)
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -36,7 +36,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -44,15 +44,16 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines[{orderLineId, sku, pickedQty}] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed — invoice does not advance state machine
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -65,10 +66,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", businessUnit: "CMG" }
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 ```
 
 ---
@@ -80,16 +78,16 @@ sequenceDiagram
   title: UC2 — Web / CFR / Prepaid full order flow
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (channelType=Web, BU=CFR)
-  GW->>OMS: POST /orders
-  OMS-->>GW: 201 { orderId, status: "Pending", paymentMethod: "Prepaid", businessUnit: "CFR" }
+  Customer->>Gateway: Place Prepaid order (channelType=Web, BU=CFR)
+  Gateway->>OMS: POST /orders
+  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "Prepaid", businessUnit: "CFR" }
   Note over OMS: State: Pending (Prepaid skips BookingConfirmed)
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -98,7 +96,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -106,15 +104,16 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines[{orderLineId, sku, pickedQty}] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -127,11 +126,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR" }
-  Note over OMS,GW: BU isolation invariant: CMG operators cannot access CFR orders (403)
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 ```
 
 ---
@@ -143,16 +138,16 @@ sequenceDiagram
   title: UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after OutForDelivery
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (channelType=Marketplace, subChannel=TikTok, BU=CMG)
-  GW->>OMS: POST /orders
-  OMS-->>GW: 201 { orderId, status: "Pending", channelType: "Marketplace", businessUnit: "CMG", paymentMethod: "Prepaid" }
+  Customer->>Gateway: Place Prepaid order (channelType=Marketplace, subChannel=TikTok, BU=CMG)
+  Gateway->>OMS: POST /orders
+  OMS-->>Gateway: 201 { orderId, status: "Pending", channelType: "Marketplace", businessUnit: "CMG", paymentMethod: "Prepaid" }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -161,7 +156,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -169,14 +164,15 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines[{orderLineId, sku, pickedQty}] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { newStatus: "Packed" }
@@ -185,22 +181,19 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-dispatched { trackingId, dispatchedAt }
   OMS-->>TMS: 202 { newOrderStatus: "OutForDelivery" }
   Note over OMS: State: OutForDelivery
-  Note over OMS,GW: Outbox: OutForDeliveryEvent → Marketplace (TikTok AWB-notify)
+  Note over OMS,Gateway: Outbox: OutForDeliveryEvent → Marketplace (TikTok AWB-notify)
 
   rect rgb(220, 235, 255)
-    Note over GW,OMS: TikTok-specific: marketplace fetches AWB for parcel tracking
-    GW->>OMS: GET /orders/{orderId}/packages
-    OMS-->>GW: 200 [ { trackingId, vehicleType, weight, lineIds } ]
-    Note over GW: AWB = packages[0].trackingId
+    Note over Gateway,OMS: TikTok-specific: marketplace fetches AWB for parcel tracking
+    Gateway->>OMS: GET /orders/{orderId}/packages
+    OMS-->>Gateway: 200 [ { trackingId, vehicleType, weight, lineIds } ]
+    Note over Gateway: AWB = packages[0].trackingId
   end
 
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered" }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", channelType: "Marketplace", businessUnit: "CMG" }
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 ```
 
 ---
@@ -212,16 +205,16 @@ sequenceDiagram
   title: UC4 — Web / CFR / POD full order flow
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place POD order (channelType=Web, BU=CFR, paymentMethod=POD)
-  GW->>OMS: POST /orders { isPrepaid: false, paymentMethod: "POD" }
-  OMS-->>GW: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", isPrepaid: false }
+  Customer->>Gateway: Place POD order (channelType=Web, BU=CFR, paymentMethod=POD)
+  Gateway->>OMS: POST /orders { isPrepaid: false, paymentMethod: "POD" }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", isPrepaid: false }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -230,7 +223,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -238,9 +231,10 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines[{orderLineId, sku, pickedQty}] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed (no STS invoice yet — POD invoices after Delivered)
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -262,16 +256,13 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { accepted: true, newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (customer pays driver at door)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains Delivered — invoice does not advance state machine
-  Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS (POD routing: TMS+GW, not WMS+GW)
-  Note over OMS,GW: Outbox: ABBTaxInvoiceSentToGW → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR", paymentMethod: "POD" }
+  Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS (POD routing: TMS+Gateway, not WMS+Gateway)
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 ```
 
 ---
@@ -283,16 +274,16 @@ sequenceDiagram
   title: UC5 — Web / CFR / POD — weight-based fresh products (pork 841.23 g + duck 1.23 kg)
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place POD order with weight-based lines (BU=CFR)
-  GW->>OMS: POST /orders { paymentMethod: "POD", lines: [PORK-KG @ 12700 sat/kg × 0.84123 kg, DUCK-KG @ 3960 sat/kg × 1.23 kg] }
-  OMS-->>GW: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", lines: [porkLine, duckLine] }
+  Customer->>Gateway: Place POD order with weight-based lines (BU=CFR)
+  Gateway->>OMS: POST /orders { paymentMethod: "POD", lines: [PORK-KG @ 12700 sat/kg × 0.84123 kg, DUCK-KG @ 3960 sat/kg × 1.23 kg] }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", lines: [porkLine, duckLine] }
   Note over OMS: State: Pending — pork: 10684 sat, duck: 4871 sat, total: 15555 sat
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -301,7 +292,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "ActualWeightDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous) — actual weights confirmed
@@ -309,9 +300,10 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [porkLine pickedQty=0.84123, duckLine pickedQty=1.23] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, weight: 2.07123, lineIds: [porkLine, duckLine]}] }
   OMS-->>WMS: 202 { newStatus: "Packed" }
@@ -333,16 +325,13 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (customer pays driver at door)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 15555, currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains Delivered
-  Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS (POD routing: TMS+GW)
-  Note over OMS,GW: Outbox: ABBTaxInvoiceSentToGW → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR", paymentMethod: "POD" }
+  Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS (POD routing: TMS+Gateway)
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 ```
 
 ---
@@ -354,16 +343,16 @@ sequenceDiagram
   title: UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → partial return
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place POD order (BU=CFR, lines: BEEF-KG 0.5 kg @ 35000 sat/kg, CHICKEN-KG 0.5 kg @ 15000 sat/kg)
-  GW->>OMS: POST /orders { paymentMethod: "POD", lines: [beefLine, chickenLine] }
-  OMS-->>GW: 201 { orderId, status: "Pending", lines: [beefLine, chickenLine] }
+  Customer->>Gateway: Place POD order (BU=CFR, lines: BEEF-KG 0.5 kg @ 35000 sat/kg, CHICKEN-KG 0.5 kg @ 15000 sat/kg)
+  Gateway->>OMS: POST /orders { paymentMethod: "POD", lines: [beefLine, chickenLine] }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", lines: [beefLine, chickenLine] }
   Note over OMS: State: Pending — beef: 17500 sat, chicken: 7500 sat, total: 25000 sat
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -372,7 +361,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -380,9 +369,10 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [beefLine pickedQty=0.5, chickenLine pickedQty=0.5] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, weight: 1.0, lineIds: [beefLine, chickenLine]}] }
   OMS-->>WMS: 202 { newStatus: "Packed" }
@@ -404,26 +394,26 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 25000, currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains Delivered
   Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS
-  Note over OMS,GW: Outbox: ABBTaxInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   rect rgb(255, 220, 220)
     Note over Customer,OMS: Customer rejects beef at the door (not fresh) — keeps chicken
-    Customer->>GW: Initiate partial return for beef only
-    GW->>OMS: POST /returns { orderId, returnType: "PartialItem", returnReason: "ItemNotFresh", items: [{ orderLineId: beefLineId, sku: "BEEF-KG", quantity: 0.5 }] }
-    OMS-->>GW: 201 { returnId, orderId, status: "Requested", items: [beefLine] }
+    Customer->>Gateway: Initiate partial return for beef only
+    Gateway->>OMS: POST /returns { orderId, returnType: "PartialItem", returnReason: "ItemNotFresh", items: [{ orderLineId: beefLineId, sku: "BEEF-KG", quantity: 0.5 }] }
+    OMS-->>Gateway: 201 { returnId, orderId, status: "Requested", items: [beefLine] }
     Note over OMS: Return status: Requested — only beefLine, chickenLine not returned
 
-    GW->>OMS: GET /returns/{returnId}
-    OMS-->>GW: 200 { orderId, returnReason: "ItemNotFresh", status: "Requested" }
+    Gateway->>OMS: GET /returns/{returnId}
+    OMS-->>Gateway: 200 { orderId, returnReason: "ItemNotFresh", status: "Requested" }
 
-    GW->>OMS: GET /returns/{returnId}/items
-    OMS-->>GW: 200 [ { sku: "BEEF-KG" } ] (CHICKEN-KG absent)
+    Gateway->>OMS: GET /returns/{returnId}/items
+    OMS-->>Gateway: 200 [ { sku: "BEEF-KG" } ] (CHICKEN-KG absent)
   end
 ```
 
@@ -435,16 +425,16 @@ sequenceDiagram
 sequenceDiagram
   title: UC7 — Stock transfer from Store A to Store B
 
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
 
-  GW->>OMS: POST /inbound/transfer-orders { sourceStoreId: "STORE-A", destStoreId: "STORE-B", lines: [{ sku: "WATER-1L", requestedQty: 6 }] }
-  OMS-->>GW: 201 { transferOrderId, status: "Created" }
+  Gateway->>OMS: POST /inbound/transfer-orders { sourceStoreId: "STORE-A", destStoreId: "STORE-B", lines: [{ sku: "WATER-1L", requestedQty: 6 }] }
+  OMS-->>Gateway: 201 { transferOrderId, status: "Created" }
   Note over OMS: Transfer state: Created
 
-  GW->>OMS: GET /inbound/transfer-orders/{transferOrderId}
-  OMS-->>GW: 200 { status: "Created", lines: [{ sku: "WATER-1L", requestedQty: 6 }] }
+  Gateway->>OMS: GET /inbound/transfer-orders/{transferOrderId}
+  OMS-->>Gateway: 200 { status: "Created", lines: [{ sku: "WATER-1L", requestedQty: 6 }] }
 
   WMS->>OMS: POST /webhooks/wms/transfer-pick-confirmed { transferOrderId, lines: [{ sku: "WATER-1L", transferredQty: 6 }], confirmedAt }
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
@@ -454,8 +444,8 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, newStatus: "Completed" }
   Note over OMS: Transfer state: Completed (terminal)
 
-  GW->>OMS: GET /inbound/transfer-orders/{transferOrderId}
-  OMS-->>GW: 200 { status: "Completed" }
+  Gateway->>OMS: GET /inbound/transfer-orders/{transferOrderId}
+  OMS-->>Gateway: 200 { status: "Completed" }
 ```
 
 ---
@@ -467,31 +457,31 @@ sequenceDiagram
   title: UC8 — Customer postpones delivery date
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (BU=CFR, channelType=Web)
-  GW->>OMS: POST /orders
-  OMS-->>GW: 201 { orderId, status: "Pending" }
+  Customer->>Gateway: Place Prepaid order (BU=CFR, channelType=Web)
+  Gateway->>OMS: POST /orders
+  OMS-->>Gateway: 201 { orderId, status: "Pending" }
   Note over OMS: State: Pending
 
-  GW->>OMS: GET /orders/{orderId}/delivery-slot
-  OMS-->>GW: 200 { deliverySlot: { scheduledStart, scheduledEnd } }
+  Gateway->>OMS: GET /orders/{orderId}/delivery-slot
+  OMS-->>Gateway: 200 { deliverySlot: { scheduledStart, scheduledEnd } }
 
   rect rgb(220, 255, 220)
     Note over Customer,OMS: Slot reschedule allowed while order is Pending
-    Customer->>GW: Reschedule delivery to +5 hours
-    GW->>TMS: Reschedule request
+    Customer->>Gateway: Reschedule delivery to +5 hours
+    Gateway->>TMS: Reschedule request
     TMS->>OMS: POST /webhooks/tms/slot-rescheduled { orderId, newScheduledStart: +5h, newScheduledEnd: +6h, bookingRef, reason: "CustomerRequest" }
     OMS-->>TMS: 202 { accepted: true, orderId, deliverySlot: { scheduledStart } }
     Note over OMS,WMS: Outbox: DeliverySlotRescheduledEvent → WMS
 
-    GW->>OMS: GET /orders/{orderId}/delivery-slot
-    OMS-->>GW: 200 { deliverySlot: { scheduledStart } }
+    Gateway->>OMS: GET /orders/{orderId}/delivery-slot
+    OMS-->>Gateway: 200 { deliverySlot: { scheduledStart } }
   end
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -500,7 +490,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -510,11 +500,12 @@ sequenceDiagram
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines[{orderLineId, sku, pickedQty}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -526,8 +517,8 @@ sequenceDiagram
 
   rect rgb(255, 210, 210)
     Note over Customer,OMS: Reschedule attempt rejected once OutForDelivery
-    Customer->>GW: Attempt to reschedule slot again (+7 hours)
-    GW->>TMS: Reschedule request
+    Customer->>Gateway: Attempt to reschedule slot again (+7 hours)
+    Gateway->>TMS: Reschedule request
     TMS->>OMS: POST /webhooks/tms/slot-rescheduled { orderId, newScheduledStart: +7h, newScheduledEnd: +8h, reason: "CustomerRequest" }
     OMS-->>TMS: 409 { error: "slot_change_not_allowed" }
   end
@@ -542,46 +533,46 @@ sequenceDiagram
   title: UC9 — OMS operator cancels order via OMS UI
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
 
   rect rgb(220, 255, 220)
     Note over Customer,OMS: Scenario A — Cancel from Pending via Kanban UI (allowed)
-    Customer->>GW: Place order
-    GW->>OMS: POST /orders
-    OMS-->>GW: 201 { orderId1, status: "Pending" }
+    Customer->>Gateway: Place order
+    Gateway->>OMS: POST /orders
+    OMS-->>Gateway: 201 { orderId1, status: "Pending" }
     Note over OMS: State: Pending
 
     Note over OMS: OMS operator clicks "Cancel Order" on Kanban card (window.confirm → true)
-    GW->>OMS: PATCH /orders/{orderId1}/cancel { reason: "CustomerRequest", cancelledBy }
-    OMS-->>GW: 200 { id: orderId1, newStatus: "Cancelled" }
+    Gateway->>OMS: PATCH /orders/{orderId1}/cancel { reason: "CustomerRequest", cancelledBy }
+    OMS-->>Gateway: 200 { id: orderId1, newStatus: "Cancelled" }
     Note over OMS: State: Cancelled (terminal)
     Note over OMS,WMS: Outbox: OrderCancelledSentToWMS → WMS (reverse stock reservation)
     Note over OMS,TMS: Outbox: OrderCancelledSentToTMS → TMS (cancel delivery booking)
-    Note over OMS,GW: Outbox: OrderCancelledSentToGW → GW (notify customer)
+    Note over OMS,Gateway: Outbox: OrderCancelledSentToGateway → Gateway (notify customer)
 
-    GW->>OMS: GET /orders/{orderId1}/timeline
-    OMS-->>GW: 200 { events: [ OrderCancelled (domain), OrderCancelledSentToWMS (outbox), OrderCancelledSentToTMS (outbox), OrderCancelledSentToGW (outbox) ] }
+    Gateway->>OMS: GET /orders/{orderId1}/timeline
+    OMS-->>Gateway: 200 { events: [ OrderCancelled (domain), OrderCancelledSentToWMS (outbox), OrderCancelledSentToTMS (outbox), OrderCancelledSentToGateway (outbox) ] }
 
-    GW->>OMS: GET /orders/{orderId1}
-    OMS-->>GW: 200 { status: "Cancelled" }
+    Gateway->>OMS: GET /orders/{orderId1}
+    OMS-->>Gateway: 200 { status: "Cancelled" }
   end
 
   rect rgb(255, 210, 210)
     Note over Customer,OMS: Scenario B — Cancel from PickStarted (rejected)
-    Customer->>GW: Place second order
-    GW->>OMS: POST /orders
-    OMS-->>GW: 201 { orderId2, status: "Pending" }
+    Customer->>Gateway: Place second order
+    Gateway->>OMS: POST /orders
+    OMS-->>Gateway: 201 { orderId2, status: "Pending" }
     Note over OMS: State: Pending
 
     WMS->>OMS: POST /webhooks/wms/pick-started { orderId2, pickerId }
     OMS-->>WMS: 202 { accepted: true, newStatus: "PickStarted" }
     Note over OMS: State: PickStarted
 
-    GW->>OMS: PATCH /orders/{orderId2}/cancel { reason: "CustomerRequest", cancelledBy }
-    OMS-->>GW: 409 { error: "invalid_transition" }
+    Gateway->>OMS: PATCH /orders/{orderId2}/cancel { reason: "CustomerRequest", cancelledBy }
+    OMS-->>Gateway: 409 { error: "invalid_transition" }
     Note over OMS: State unchanged: PickStarted — cancel invariant enforced
   end
 ```
@@ -595,16 +586,16 @@ sequenceDiagram
   title: UC10 — Short-pick: dish soap out of stock, only water delivered
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (BU=CFR, lines: WATER-500ML ×2 @ 1500 sat, DISH-SOAP-500ML ×1 @ 4500 sat)
-  GW->>OMS: POST /orders { paymentMethod: "Prepaid", lines: [waterLine, soapLine] }
-  OMS-->>GW: 201 { orderId, status: "Pending", lines: [waterLine, soapLine] }
+  Customer->>Gateway: Place Prepaid order (BU=CFR, lines: WATER-500ML ×2 @ 1500 sat, DISH-SOAP-500ML ×1 @ 4500 sat)
+  Gateway->>OMS: POST /orders { paymentMethod: "Prepaid", lines: [waterLine, soapLine] }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", lines: [waterLine, soapLine] }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -613,7 +604,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "OutOfStock" }
   OMS->>POS: Outbound recalculation call (synchronous) — soap excluded
@@ -627,14 +618,15 @@ sequenceDiagram
   end
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [waterLine pickedQty=2, soapLine pickedQty=0] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed — soap line shortfall recorded
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 3000 (water only), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{ trackingId, lineIds: [waterLine only] }] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -647,10 +639,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", lines: [waterLine pickedQty=2, soapLine pickedQty=0] }
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 ```
 
 ---
@@ -662,16 +651,16 @@ sequenceDiagram
   title: UC11 — Substitution: fabric softener → dish soap, credit note for price difference
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (BU=CFR, lines: WATER-500ML ×2 @ 1500 sat, FABRIC-SOFTENER-500ML ×1 @ 8900 sat)
-  GW->>OMS: POST /orders { paymentMethod: "Prepaid", lines: [waterLine, softenerLine] }
-  OMS-->>GW: 201 { orderId, status: "Pending", lines: [waterLine, softenerLine] }
+  Customer->>Gateway: Place Prepaid order (BU=CFR, lines: WATER-500ML ×2 @ 1500 sat, FABRIC-SOFTENER-500ML ×1 @ 8900 sat)
+  Gateway->>OMS: POST /orders { paymentMethod: "Prepaid", lines: [waterLine, softenerLine] }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", lines: [waterLine, softenerLine] }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -680,7 +669,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   rect rgb(255, 240, 210)
     Note over WMS,OMS: Fabric softener unavailable — substitution offered
@@ -688,12 +677,12 @@ sequenceDiagram
     OMS-->>WMS: 202 { accepted: true, substitutionId, customerNotified: true }
     Note over OMS: Substitution record created — customerApproved: null
 
-    GW->>OMS: GET /orders/{orderId}/substitutions
-    OMS-->>GW: 200 [ { substitutionId, originalSku: "FABRIC-SOFTENER-500ML", substituteSku: "DISH-SOAP-500ML", customerApproved: null } ]
+    Gateway->>OMS: GET /orders/{orderId}/substitutions
+    OMS-->>Gateway: 200 [ { substitutionId, originalSku: "FABRIC-SOFTENER-500ML", substituteSku: "DISH-SOAP-500ML", customerApproved: null } ]
 
-    Customer->>GW: Approve substitution
-    GW->>OMS: POST /orders/{orderId}/substitutions/{substitutionId}/approve
-    OMS-->>GW: 200 { substitutionId, customerApproved: true }
+    Customer->>Gateway: Approve substitution
+    Gateway->>OMS: POST /orders/{orderId}/substitutions/{substitutionId}/approve
+    OMS-->>Gateway: 200 { substitutionId, customerApproved: true }
     Note over OMS: customerApproved: true
   end
 
@@ -703,14 +692,15 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [waterLine pickedQty=2 substituted=false, softenerLine pickedQty=1 substituted=true] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 7500 (2×1500 water + 4500 dish soap) }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   rect rgb(220, 235, 255)
     Note over STS,OMS: Credit note issued — substitute cheaper than original (8900 − 4500 = 4400 sat refund)
@@ -729,10 +719,10 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
-  GW->>OMS: GET /orders/{orderId}/substitutions
-  OMS-->>GW: 200 [ { substitutionId, customerApproved: true } ]
+  Gateway->>OMS: GET /orders/{orderId}/substitutions
+  OMS-->>Gateway: 200 [ { substitutionId, customerApproved: true } ]
 ```
 
 ---
@@ -744,16 +734,16 @@ sequenceDiagram
   title: UC12 — Full return after delivery (CustomerRequest)
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order (BU=CFR)
-  GW->>OMS: POST /orders
-  OMS-->>GW: 201 { orderId, status: "Pending" }
+  Customer->>Gateway: Place Prepaid order (BU=CFR)
+  Gateway->>OMS: POST /orders
+  OMS-->>Gateway: 201 { orderId, status: "Pending" }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -762,7 +752,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers" }
   OMS->>POS: Outbound recalculation call (synchronous)
@@ -770,14 +760,15 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [{ orderLineId, sku: "APPLE-1KG", pickedQty: 2 }] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -790,35 +781,28 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered" }
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
   rect rgb(255, 220, 220)
     Note over Customer,OMS: Full return initiated after delivery
-    Customer->>GW: Initiate full return (CustomerRequest)
-    GW->>OMS: POST /returns { orderId, returnReason: "CustomerRequest", items: [{ orderLineId, sku: "APPLE-1KG", quantity: 2, itemReason: "CustomerRequest" }] }
-    OMS-->>GW: 201 { returnId, orderId, status: "Requested" }
+    Customer->>Gateway: Initiate full return (CustomerRequest)
+    Gateway->>OMS: POST /returns { orderId, returnReason: "CustomerRequest", items: [{ orderLineId, sku: "APPLE-1KG", quantity: 2, itemReason: "CustomerRequest" }] }
+    OMS-->>Gateway: 201 { returnId, orderId, status: "Requested" }
     Note over OMS: Return status: Requested
 
-    GW->>OMS: GET /returns/{returnId}
-    OMS-->>GW: 200 { orderId, status: "Requested" }
+    Gateway->>OMS: GET /returns/{returnId}
+    OMS-->>Gateway: 200 { orderId, status: "Requested" }
 
-    GW->>OMS: GET /returns/{returnId}/items
-    OMS-->>GW: 200 [ { sku: "APPLE-1KG", quantity: 2 } ]
+    Gateway->>OMS: GET /returns/{returnId}/items
+    OMS-->>Gateway: 200 [ { sku: "APPLE-1KG", quantity: 2 } ]
 
     WMS->>OMS: POST /webhooks/wms/put-away-confirmed { returnId, items: [{ sku: "APPLE-1KG", condition: "Resellable", sloc: "B-05", quantity: 2, performedBy }], putAwayAt }
     OMS-->>WMS: 202 { accepted: true, returnId, newReturnStatus: "PutAway", refundInitiated: true }
     Note over OMS: Return status → PutAway AND Order status → Returned (both change atomically)
     Note over OMS: Refund initiated automatically
 
-    GW->>OMS: GET /returns/{returnId}
-    OMS-->>GW: 200 { status: "PutAway" }
-
-    GW->>OMS: GET /orders/{orderId}
-    OMS-->>GW: 200 { status: "Returned" }
-    Note over OMS: Order status is now Returned — terminal state
+    Gateway->>OMS: GET /returns/{returnId}
+    OMS-->>Gateway: 200 { status: "PutAway" }
   end
 ```
 
@@ -831,16 +815,16 @@ sequenceDiagram
   title: UC13 — Web / CFR / Prepaid order with coupon FRESH10 (10% discount)
 
   participant Customer
-  participant GW
+  participant Gateway
   participant OMS
   participant WMS
   participant TMS
   participant POS
   participant STS
 
-  Customer->>GW: Place Prepaid order with coupon FRESH10 (channelType=Web, BU=CFR)
-  GW->>OMS: POST /orders { paymentMethod: "Prepaid", promotions: [{ promoCode: "FRESH10", promoType: "PercentageDiscount", discountPercentage: 0.10 }] }
-  OMS-->>GW: 201 { orderId, status: "Pending", businessUnit: "CFR" }
+  Customer->>Gateway: Place Prepaid order with coupon FRESH10 (channelType=Web, BU=CFR)
+  Gateway->>OMS: POST /orders { paymentMethod: "Prepaid", promotions: [{ promoCode: "FRESH10", promoType: "PercentageDiscount", discountPercentage: 0.10 }] }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", businessUnit: "CFR" }
   Note over OMS: State: Pending — coupon FRESH10 attached (10% off)
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -849,7 +833,7 @@ sequenceDiagram
 
   WMS->>OMS: POST /webhooks/wms/wave-started { orderId, waveId }
   OMS-->>WMS: 202 { accepted: true, orderId }
-  Note over OMS,GW: Outbox: WaveStartedSentToGW → GW
+  Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/recalculation-requested { orderId, reason: "PickQuantityDiffers", promoCode: "FRESH10" }
   OMS->>POS: Outbound recalculation call (synchronous) — POS applies FRESH10 coupon
@@ -858,14 +842,15 @@ sequenceDiagram
   Note over OMS: Timeline event: recalculation event recorded
 
   WMS->>OMS: POST /webhooks/wms/pick-confirmed { orderId, lines: [{ orderLineId, sku: "APPLE-1KG", pickedQty: 2 }] }
-  OMS->>POS: Internal POS call
+  OMS->>POS: Outbound confirmed-pick call (POST /pos/recalc — final confirmed quantities)
   OMS-->>WMS: 202 { accepted: true, newStatus: "PickConfirmed" }
   Note over OMS: State: PickConfirmed
+  Note over OMS,Gateway: Outbox: PickConfirmedSentToGateway → Gateway
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 17820 (discounted), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,GW: Outbox: ABBInvoiceSentToGW → GW
+  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -878,10 +863,7 @@ sequenceDiagram
   TMS->>OMS: POST /webhooks/tms/package-delivered { trackingId, deliveredAt, recipientName }
   OMS-->>TMS: 202 { newStatus: "Delivered", invoiceTriggered: true }
   Note over OMS: State: Delivered (terminal)
-  Note over OMS,GW: Outbox: DeliveredEvent → GW
-
-  GW->>OMS: GET /orders/{orderId}
-  OMS-->>GW: 200 { status: "Delivered", businessUnit: "CFR" }
+  Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 ```
 
 ---

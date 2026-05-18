@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record WaveStartedRequest(string OrderId, string WaveId, DateTime StartedAt);
 
@@ -26,10 +26,10 @@ public class WaveStartedHandler(InMemoryStore store, OutboxAdapterService adapte
 
         var payment = store.GetOrderPayment(req.OrderId);
         var payload = System.Text.Json.JsonSerializer.Serialize(
-            GwUpdateStatusPayload.Build(order, payment, "WAVE_STARTED"));
+            GatewayUpdateStatusPayload.Build(order, payment, "WAVE_STARTED"));
 
         foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
-            order.BusinessUnit, "WaveStartedSentToGW", payload))
+            order.BusinessUnit, "WaveStartedSentToGateway", payload))
             store.AppendEvent(req.OrderId, evt);
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId, waveId = req.WaveId });

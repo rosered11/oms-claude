@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UC2 — Customer places a Prepaid order via Web (BU: CFR)
  *
  * Same prepaid sequence as UC1 but for the CFR business unit.
@@ -7,7 +7,7 @@
  *
  * Prepaid sequence (docs/oms-overview.md §2.2):
  *   Pending → PickStarted → POS Recalc → PickConfirmed →
- *   STS ABB/Tax Invoice (→ WMS + GW) → Packed → OutForDelivery → Delivered
+ *   STS ABB/Tax Invoice (→ WMS + Gateway) → Packed → OutForDelivery → Delivered
  *
  * POS recalculation is an outbound OMS → POS call; POS does not webhook OMS.
  */
@@ -40,7 +40,7 @@ describe('UC2 — Web / CFR / Prepaid full order flow', () => {
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC2-${Date.now()}`,
@@ -76,7 +76,7 @@ describe('UC2 — Web / CFR / Prepaid full order flow', () => {
     });
   });
 
-  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGW', () => {
+  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC2-${Date.now()}`,
@@ -97,7 +97,7 @@ describe('UC2 — Web / CFR / Prepaid full order flow', () => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBInvoiceSentToWMS');
-      expect(names).to.include('ABBInvoiceSentToGW');
+      expect(names).to.include('ABBInvoiceSentToGateway');
     });
   });
 

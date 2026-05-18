@@ -1,13 +1,13 @@
-/**
+﻿/**
  * UC1 — Customer places a Prepaid order via Web (BU: CMG)
  *
  * Prepaid sequence (docs/oms-overview.md §2.2):
  *   Pending → PickStarted → POS Recalc → PickConfirmed →
- *   STS ABB/Tax Invoice (→ WMS + GW) → Packed → OutForDelivery → Delivered
+ *   STS ABB/Tax Invoice (→ WMS + Gateway) → Packed → OutForDelivery → Delivered
  *
  * Key invariants exercised:
  *   - WMS pick can start directly from Pending (no BookingConfirmed step)
- *   - STS ABB/Tax Invoice issued after PickConfirmed, forwarded to WMS + GW
+ *   - STS ABB/Tax Invoice issued after PickConfirmed, forwarded to WMS + Gateway
  *   - BU isolation: order carries businessUnit = CMG
  *   - POS recalculation is an outbound OMS → POS call; POS does not webhook OMS
  */
@@ -40,7 +40,7 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
     });
   });
 
-  it('Step 3 — WMS wave-started fires WaveStartedSentToGW outbox event', () => {
+  it('Step 3 — WMS wave-started fires WaveStartedSentToGateway outbox event', () => {
     cy.omsApi('POST', '/webhooks/wms/wave-started', {
       orderId,
       waveId:    `WAVE-UC1-${Date.now()}`,
@@ -54,7 +54,7 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
     cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
-      expect(names).to.include('WaveStartedSentToGW');
+      expect(names).to.include('WaveStartedSentToGateway');
     });
   });
 
@@ -82,8 +82,8 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
     });
   });
 
-  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGW', () => {
-    // STS webhook must arrive before OMS can dispatch to WMS/GW — the outbox
+  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGateway', () => {
+    // STS webhook must arrive before OMS can dispatch to WMS/Gateway — the outbox
     // events are only created as a direct consequence of this webhook.
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
@@ -107,7 +107,7 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBInvoiceSentToWMS');
-      expect(names).to.include('ABBInvoiceSentToGW');
+      expect(names).to.include('ABBInvoiceSentToGateway');
     });
   });
 

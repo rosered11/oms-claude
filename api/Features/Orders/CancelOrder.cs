@@ -1,4 +1,4 @@
-namespace OmsApi;
+﻿namespace OmsApi;
 
 public record CancelOrderRequest(string Reason, string CancelledBy);
 
@@ -21,8 +21,8 @@ public class CancelOrderHandler(InMemoryStore store)
             $"SC → WMS: OrderCancelled. Reverse stock reservation for order {id}."));
         store.AppendEvent(id, ApiResult.OutboxEvent("TMS", "OrderCancelledSentToTMS",
             $"SC → TMS: OrderCancelled. Cancel delivery booking for order {id}."));
-        store.AppendEvent(id, ApiResult.OutboxEvent("GW", "OrderCancelledSentToGW",
-            $"SC → GW: OrderCancelled. Notify customer of cancellation for order {id}."));
+        store.AppendEvent(id, ApiResult.OutboxEvent("Gateway", "OrderCancelledSentToGateway",
+            $"SC → Gateway: OrderCancelled. Notify customer of cancellation for order {id}."));
 
         return Results.Ok(new { id, newStatus = OrderStatus.Cancelled });
     }
