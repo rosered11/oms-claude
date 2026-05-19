@@ -54,7 +54,7 @@ List orders (paginated). Used by the Kanban Board. (UC17)
       "store": "Central DC",
       "storeId": "store-central-dc",
       "lineCount": 3,
-      "totalAmount": 2380,
+      "totalAmount": 23.80,
       "currency": "THB",
       "customer": { "name": "Alice Johnson", "phone": "0812345678" },
       "deliverySlot": {
@@ -88,7 +88,7 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
   "storeId": "store-central-dc",
   "fulfillmentType": "Delivery",
   "paymentMethod": "Prepaid",
-  "isPrepaid": true,
+  "PaymentFlow": "PRE_PAID",
   "customer": {
     "name": "Alice Johnson",
     "phone": "0812345678",
@@ -119,7 +119,7 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
       "productName": "Apple (1 kg bag)",
       "barcode": "8851234567890",
       "requestedQty": 4,
-      "unitPrice": 120,
+      "unitPrice": 1.20,
       "unitOfMeasure": "Each"
     }
   ]
@@ -139,6 +139,8 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
 **`paymentMethod`** field values:
 - `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and Gateway
 - `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + Gateway
+
+**`PaymentFlow`** field: string — payment flow type indicator. Allowed values: `"PRE_PAID"` | `"PAY_ON_DELIVERY"`. The field is extensible for future payment flow types. Stored as `VARCHAR(50)` in `orders.payment_flow`.
 
 **Outbox events dispatched on order creation:**
 
@@ -191,8 +193,8 @@ Get full order detail. (UC16)
       "unitOfMeasure": "Each",
       "requestedQty": 4,
       "pickedQty": 4,
-      "unitPrice": 120,
-      "recalculatedUnitPrice": 108,
+      "unitPrice": 1.20,
+      "recalculatedUnitPrice": 1.08,
       "currency": "THB",
       "status": "Active"
     }
@@ -207,7 +209,7 @@ Get full order detail. (UC16)
       "lineIds": ["line-001"]
     }
   ],
-  "totalAmount": 2380,
+  "totalAmount": 23.80,
   "currency": "THB",
   "createdAt": "2024-01-15T14:00:00Z",
   "updatedAt": "2024-01-15T15:31:00Z"
@@ -266,7 +268,7 @@ Returns `404` if no credit note exists for the order.
   "creditNoteId": "CN-001",
   "creditNoteNumber": "CN-UC11-1716000000000",
   "invoiceId": "inv-001",
-  "amount": 4400,
+  "amount": 44.00,
   "currency": "THB",
   "reason": "PriceAdjustment",
   "status": "Issued",
@@ -286,7 +288,7 @@ Returns `404` if no credit note exists for the order.
 | `creditNoteId` | string | OMS internal credit note ID |
 | `creditNoteNumber` | string | Fiscal credit note number from STS |
 | `invoiceId` | string | The invoice being partially reversed |
-| `amount` | number | Credit amount in satang (smallest THB unit) |
+| `amount` | number | Credit amount in baht (e.g. `44.00`) |
 | `currency` | string | Currency code — `THB` |
 | `reason` | string | Why the credit note was issued — e.g. `PriceAdjustment`, `CustomerRejection` |
 | `status` | string | `Issued`, `Applied`, or `Cancelled` |
@@ -312,7 +314,7 @@ List substitutions offered by WMS. (UC5)
       "originalProductName": "Whole Milk (1L)",
       "substituteSku": "MILK-2L",
       "substituteProductName": "Whole Milk (2L)",
-      "substituteUnitPrice": 55,
+      "substituteUnitPrice": 0.55,
       "substitutedAmount": 1,
       "customerApproved": null,
       "approvedAt": null,
@@ -432,7 +434,7 @@ Release hold; restores `pre_hold_status`. (UC6)
 
 ### PATCH /orders/{id}/cancel
 
-Cancel order. Allowed from `Pending`, `BookingConfirmed`, `OnHold` only. (UC9)
+Cancel order. Allowed from `Pending` or `OnHold` only. (UC9)
 
 **Request:** `{ "reason": "CustomerRequest", "cancelledBy": "ops-agent-01" }`
 
@@ -461,7 +463,7 @@ Manually trigger a POS recalculation. OMS calls POS API outbound synchronously a
 
 **Response 202:**
 ```json
-{ "orderId": "ORD-009", "adjustedAmount": 19800, "recalcTriggeredAt": "2024-01-15T15:30:00Z" }
+{ "orderId": "ORD-009", "adjustedAmount": 198.00, "recalcTriggeredAt": "2024-01-15T15:30:00Z" }
 ```
 
 ---
@@ -606,7 +608,7 @@ Initiate a return for a delivered or paid order. (UC14)
 
 **Response 422:**
 ```json
-{ "error": "unprocessable", "detail": "Order ORD-005 is in status Cancelled. Returns are only allowed from Delivered, Invoiced, or Paid." }
+{ "error": "unprocessable", "detail": "Order ORD-005 is in status Cancelled. Returns are only allowed from Delivered." }
 ```
 
 #### Partial Item Return
@@ -687,7 +689,7 @@ List items in a return, including condition and put-away location. (UC14)
       "barcode": "8851234567890",
       "quantity": 2,
       "unitOfMeasure": "Each",
-      "unitPrice": 120,
+      "unitPrice": 1.20,
       "currency": "THB",
       "itemReason": "WrongItem",
       "condition": "Resellable",
@@ -722,7 +724,7 @@ Get refund and credit note for a completed return. (UC14)
   "returnId": "RET-001",
   "refund": {
     "refundId": "ref-001",
-    "refundAmount": 240,
+    "refundAmount": 2.40,
     "currency": "THB",
     "refundMethod": "CreditCard",
     "status": "Processed",
@@ -733,7 +735,7 @@ Get refund and credit note for a completed return. (UC14)
     "creditNoteId": "CN-RET-001",
     "creditNoteNumber": "CN-RET-001",
     "invoiceId": "inv-001",
-    "amount": 240,
+    "amount": 2.40,
     "currency": "THB",
     "reason": "Return",
     "status": "Issued"
@@ -764,7 +766,7 @@ Create a Purchase Order. Triggers `PurchaseOrderCreatedEvent` → WMS. (UC21)
   "supplierId": "sup-fresh-foods",
   "storeId": "store-central-dc",
   "lines": [
-    { "sku": "APPLE-1KG", "orderedQty": 20, "unitCost": 45, "currency": "THB" }
+    { "sku": "APPLE-1KG", "orderedQty": 20, "unitCost": 0.45, "currency": "THB" }
   ]
 }
 ```
@@ -786,7 +788,7 @@ Get PO detail including all lines with received quantities and conditions. (UC21
   "store": "Central DC",
   "storeId": "store-central-dc",
   "status": "Closed",
-  "value": 45000,
+  "value": 450.00,
   "goodsReceiveNo": "GRN-2024-001",
   "lines": [
     {
@@ -795,7 +797,7 @@ Get PO detail including all lines with received quantities and conditions. (UC21
       "productName": "Apple (1 kg bag)",
       "orderedQty": 10,
       "receivedQty": 10,
-      "unitCost": 45,
+      "unitCost": 0.45,
       "currency": "THB",
       "condition": "Resellable",
       "sloc": "A-12",
@@ -881,7 +883,7 @@ Per-SKU stock movement ledger across locations. OMS does not own inventory count
 {
   "sku": "APPLE-1KG",
   "skuName": "Apple (1 kg bag)",
-  "unitPrice": 120,
+  "unitPrice": 1.20,
   "currency": "THB",
   "locations": [
     {
@@ -911,16 +913,6 @@ All webhook endpoints return `202 Accepted`. Duplicate `X-Idempotency-Key` value
 | `X-Source-System` | `WMS`, `TMS`, or `POS` |
 | `X-Idempotency-Key` | UUID |
 | `X-Webhook-Signature` | HMAC-SHA256 of body using shared secret |
-
----
-
-### POST /webhooks/wms/booking-confirmed
-
-WMS confirms stock reserved. → `BookingConfirmed`. (UC2)
-
-**Request:** `{ "orderId": "ORD-001", "wmsBookingRef": "WMS-BK-001", "confirmedAt": "..." }`
-
-**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "BookingConfirmed" }`
 
 ---
 
@@ -1005,7 +997,7 @@ WMS offers alternative SKU for unfulfillable line. Sets `substitution_flag = tru
   "orderLineId": "line-003",
   "substituteSku": "MILK-2L",
   "substituteProductName": "Whole Milk (2L)",
-  "substituteUnitPrice": 55,
+  "substituteUnitPrice": 0.55,
   "substitutedAmount": 1,
   "offeredAt": "2024-01-15T15:10:00Z"
 }
@@ -1186,7 +1178,7 @@ TMS driver collected the package. Transitions order to `OutForDelivery`. (UC7)
 
 ### POST /webhooks/tms/package-delivered
 
-TMS confirms delivery to customer. Triggers invoice generation. → `Delivered`. (UC8)
+TMS confirms delivery to customer. Terminal state for home delivery. For POD orders, triggers the STS ABB/Tax Invoice flow via Gateway. → `Delivered`. (UC8)
 
 **Request:**
 ```json
@@ -1237,7 +1229,7 @@ TMS driver requests a POS recalculation at the customer's door (POD only). Used 
 }
 ```
 
-**Response 202:** `{ "accepted": true, "orderId": "ORD-005", "adjustedAmount": 10684 }`
+**Response 202:** `{ "accepted": true, "orderId": "ORD-005", "adjustedAmount": 106.84 }`
 
 **Error 404:** `tracking_not_found`
 **Error 422:** Invalid transition — order is not `OutForDelivery`
@@ -1257,12 +1249,12 @@ OMS dispatches outbox events to Gateway at key status transitions. Gateway handl
 | **Prepaid** | `PickConfirmedSentToGateway` (after `PickConfirmed`) | Gateway handles payment settlement externally | ABB/Tax Invoice or Credit Note |
 | **POD** | `DeliveredSentToGateway` (after `Delivered`) | Gateway handles COD/payment collection externally | ABB/Tax Invoice or Credit Note |
 
-OMS routes the received STS documents to downstream systems based on `orders.is_prepaid`:
+OMS routes the received STS documents to downstream systems based on `orders.payment_flow`:
 
 | Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
 |---|---|---|---|
-| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + Gateway | WMS + Gateway |
-| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + Gateway | TMS + Gateway |
+| **Pre-paid** (`payment_flow = "PRE_PAID"`) | After `PickConfirmed`, before TMS dispatch | WMS + Gateway | WMS + Gateway |
+| **POD** — Pay On Delivery (`payment_flow = "PAY_ON_DELIVERY"`) | After `Delivered` | TMS + Gateway | TMS + Gateway |
 
 **Shared STS webhook headers:**
 
@@ -1284,7 +1276,7 @@ STS sends the ABB/Tax Invoice document link. Timing and forwarding targets diffe
   "orderId": "ORD-001",
   "invoiceNumber": "ABB-2024-001",
   "invoiceLink": "https://sts.example.com/invoices/ABB-2024-001.pdf",
-  "amount": 2380,
+  "amount": 23.80,
   "currency": "THB",
   "issuedAt": "2024-01-15T16:00:00Z"
 }
@@ -1346,7 +1338,7 @@ STS sends the official ABB/Tax Invoice to OMS. Timing and forwarding targets dif
 {
   "orderId": "ORD-001",
   "invoiceNumber": "INV-STS-001",
-  "invoiceAmount": 238000,
+  "invoiceAmount": 2380.00,
   "currency": "THB",
   "invoiceLink": "https://sts.example.com/invoices/INV-STS-001.pdf",
   "issuedAt": "2024-01-15T16:00:00Z"
@@ -1358,7 +1350,7 @@ Note: `invoiceLink` is required for POD (the link is forwarded to TMS and Gatewa
 **Response 202 Accepted**
 
 **Routing by payment method:**
-- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBInvoiceSentToGateway` → Gateway
+- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBTaxInvoiceSentToGateway` → Gateway
 - `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGateway` → Gateway
 
 ---
@@ -1374,7 +1366,7 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
 {
   "orderId": "ORD-001",
   "creditNoteNumber": "CN-001",
-  "amount": 4400,
+  "amount": 44.00,
   "currency": "THB",
   "creditNoteLink": "https://sts.example.com/credit-notes/CN-001.pdf",
   "issuedAt": "2024-01-15T16:05:00Z"
@@ -1388,35 +1380,6 @@ STS issues a credit note to OMS. Optional — only dispatched when a credit note
 **Routing by payment method:**
 - `paymentMethod = 'Prepaid'`: dispatches `CreditNoteSentToWMS` → WMS and `CreditNoteSentToGateway` → Gateway
 - `paymentMethod = 'POD'`: dispatches `CreditNoteSentToTMS` → TMS and `CreditNoteSentToGateway` → Gateway
-
----
-
-## Group: Branches
-
-### GET /branches/nearby
-
-Returns branches near a given location. Used as the first step in the POD customer journey — customer selects a branch before requesting a delivery time slot.
-
-**Query parameters:** `lat` (required), `lng` (required), `radius` (km, default 10), `limit` (default 20)
-
-**Response 200:**
-```json
-{
-  "branches": [
-    {
-      "branchId": "store-central-dc",
-      "name": "Central DC",
-      "address": "123 Main St, Bangkok",
-      "lat": 13.7563,
-      "lng": 100.5018,
-      "distanceKm": 2.3,
-      "availableSlots": true
-    }
-  ]
-}
-```
-
-**Error 400:** `missing_coordinates` — lat or lng not provided
 
 ---
 

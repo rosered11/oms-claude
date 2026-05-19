@@ -26,7 +26,8 @@
       "Bash(Get-ChildItem -Path \"D:\\\\workspace\\\\oms-claude\" -Directory)",
       "Bash(Select-Object Name)",
       "Bash(xargs grep -l \"PickConfirmed\")",
-      "PowerShell(Rename-Item *)"
+      "PowerShell(Rename-Item *)",
+      "Bash(python3 *)"
     ]
   }
 }

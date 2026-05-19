@@ -12,7 +12,7 @@
  * Scenario B: Cancel from PickStarted → 409 invalid_transition.
  *
  * Cancel invariants (docs/oms-overview.md):
- *   - PATCH /orders/{id}/cancel valid from Pending, BookingConfirmed, OnHold only
+ *   - PATCH /orders/{id}/cancel valid from Pending, OnHold only
  *   - Cancelled is a terminal state
  */
 

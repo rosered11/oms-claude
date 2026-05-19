@@ -1,4 +1,4 @@
-# Sprint Connect OMS — API Field Mapping
+﻿# Sprint Connect OMS — API Field Mapping
 
 **Version:** 2.0
 
@@ -39,8 +39,7 @@ Maps every API request and response field to its source or target database table
 29. [POST /inbound/transfer-orders — Create TO](#29-post-inboundtransfer-orders--create-transfer-order)
 30. [GET /inbound/transfer-orders/{id}/confirmations](#30-get-inboundtransfer-ordersidconfirmations)
 31. [GET /stock/{sku}/ledger — Stock Ledger](#31-get-stockskuledger--stock-ledger)
-32. [Webhooks — WMS: booking-confirmed](#32-post-webhookswmsbooking-confirmed)
-33. [Webhooks — WMS: pick-started](#33-post-webhookswmspick-started)
+32. [Webhooks — WMS: pick-started](#32-post-webhookswmspick-started)
 34. [Webhooks — WMS: pick-confirmed](#34-post-webhookswmspick-confirmed)
 35. [Webhooks — WMS: packed](#35-post-webhookswmspacked)
 36. [Webhooks — WMS: substitution-offered](#36-post-webhookswmssubstitution-offered)
@@ -56,13 +55,11 @@ Maps every API request and response field to its source or target database table
 46. [Webhooks — TMS: package-damage-reported](#46-post-webhookstmspackage-damage-reported)
 47. [Webhooks — POS: pos-collection-ready](#47-post-webhookspospos-collection-ready)
 48. [Webhooks — POS: collected](#48-post-webhooksposcollected)
-49. [Webhooks — POS: invoiced](#49-post-webhooksposinvoiced)
-50. [Webhooks — POS: payment-confirmed](#50-post-webhookspospayment-confirmed)
-51. [Webhooks — POS: recalculation-result](#51-post-webhooksposrecalculation-result)
-52. [Webhooks — POS: pos-recalc-completed](#52-post-webhookspospos-recalc-completed)
-53. [Cross-reference: which tables each read API touches](#53-cross-reference-read-api-table-usage)
-54. [POST /webhooks/sts/abb-tax-invoice](#54-post-webhooksstsabb-tax-invoice)
-55. [POST /webhooks/sts/credit-note](#55-post-webhooksstscredit-note)
+49. [Webhooks — POS: recalculation-result](#49-post-webhooksposrecalculation-result)
+50. [Webhooks — POS: pos-recalc-completed](#50-post-webhookspospos-recalc-completed)
+51. [Cross-reference: which tables each read API touches](#51-cross-reference-read-api-table-usage)
+52. [POST /webhooks/sts/abb-tax-invoice](#52-post-webhooksstsabb-tax-invoice)
+53. [POST /webhooks/sts/credit-note](#53-post-webhooksstscredit-note)
 
 ---
 
@@ -659,19 +656,7 @@ Root fields identical to list above. Additional `lines[]`:
 
 ---
 
-## 32. POST /webhooks/wms/booking-confirmed
-
-| Request Field | Table Written | Column | Action |
-|---|---|---|---|
-| `orderId` | `orders.orders` | `status → 'BookingConfirmed'`, `updated_at` | UPDATE |
-| `orderId` | `orders.order_status_history` | `to_status = 'BookingConfirmed'`, `changed_at` | INSERT |
-| `orderId` | `orders.order_webhook_logs` | `source_system = 'WMS'`, `event_type = 'BookingConfirmed'`, `received_at` | INSERT |
-| `wmsBookingRef` | `orders.order_webhook_logs` | Part of `detail` | |
-| *(derived)* | `orders.order_outbox` | `event_type = 'OrderBookedEvent'` | INSERT |
-
----
-
-## 33. POST /webhooks/wms/pick-started
+## 32. POST /webhooks/wms/pick-started
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
@@ -873,34 +858,7 @@ Root fields identical to list above. Additional `lines[]`:
 
 ---
 
-## 49. POST /webhooks/pos/invoiced
-
-| Request Field | Table Written | Column | Action |
-|---|---|---|---|
-| `orderId` | `orders.orders` | `status → 'Invoiced'`, `updated_at` | UPDATE |
-| `orderId` | `orders.order_status_history` | `to_status = 'Invoiced'`, `changed_at` | INSERT |
-| `invoiceNumber` | `payment.invoices` | `invoice_number`, `status = 'Issued'` | UPDATE — matches existing Generated invoice |
-| `totalAmount` | `payment.invoices` | `total_amount` | UPDATE |
-| `invoicedAt` | `orders.order_webhook_logs` | `received_at`; `event_type = 'Invoiced'` | INSERT |
-| *(derived)* | `orders.order_outbox` | `event_type = 'OrderInvoicedEvent'` | INSERT |
-
----
-
-## 50. POST /webhooks/pos/payment-confirmed
-
-| Request Field | Table Written | Column | Action |
-|---|---|---|---|
-| `orderId` | `orders.orders` | `status → 'Paid'`, `updated_at` | UPDATE |
-| `orderId` | `orders.order_status_history` | `to_status = 'Paid'`, `changed_at` | INSERT |
-| `paidAmount` | `payment.payment_transactions` | `amount` | INSERT new transaction |
-| `paymentMethod` | `payment.payment_transactions` | `payment_method` | INSERT |
-| `currency` | `payment.payment_transactions` | `currency` | INSERT |
-| `paidAt` | `orders.order_webhook_logs` | `received_at`; `event_type = 'PaymentConfirmed'` | INSERT |
-| *(derived)* | `orders.order_outbox` | `event_type = 'OrderPaidEvent'` | INSERT |
-
----
-
-## 51. POST /webhooks/pos/recalculation-result
+## 49. POST /webhooks/pos/recalculation-result
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
@@ -914,7 +872,7 @@ Root fields identical to list above. Additional `lines[]`:
 
 ---
 
-## 52. POST /webhooks/pos/pos-recalc-completed
+## 50. POST /webhooks/pos/pos-recalc-completed
 
 | Request Field | Table Written | Column | Action |
 |---|---|---|---|
@@ -924,7 +882,7 @@ Root fields identical to list above. Additional `lines[]`:
 
 ---
 
-## 53. Cross-Reference: Read API Table Usage
+## 51. Cross-Reference: Read API Table Usage
 
 `R` = table is read by this endpoint. `R(ct)` = only the count is used.
 
@@ -954,9 +912,9 @@ Root fields identical to list above. Additional `lines[]`:
 
 ---
 
-## 54. POST /webhooks/sts/abb-tax-invoice
+## 52. POST /webhooks/sts/abb-tax-invoice
 
-**Trigger:** STS sends the ABB/Tax Invoice document link. Pre-paid: fires after `PickConfirmed`, OMS forwards to WMS + Gateway. POD: fires after `Delivered`, OMS forwards to TMS + Gateway. Routing decided by `orders.is_prepaid`.
+**Trigger:** STS sends the ABB/Tax Invoice document link. Pre-paid: fires after `PickConfirmed`, OMS forwards to WMS + Gateway. POD: fires after `Delivered`, OMS forwards to TMS + Gateway. Routing decided by `orders.payment_flow` (`"PRE_PAID"` or `"PAY_ON_DELIVERY"`).
 
 ### Request body → DB writes
 
@@ -969,15 +927,15 @@ Root fields identical to list above. Additional `lines[]`:
 | `currency` | `payment.invoices` | `currency` | UPDATE |
 | `issuedAt` | `payment.invoices` | `generated_at` | UPDATE |
 | *(X-Idempotency-Key)* | `payment.invoices` | `source_sts_ref` | UPDATE |
-| *(if is_prepaid = true)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToWmsEvent'`, payload includes `invoiceLink` | INSERT → WMS for printing before dispatch |
-| *(if is_prepaid = false)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToTmsEvent'`, payload includes `invoiceLink` | INSERT → TMS driver receipt after delivery |
+| *(if payment_flow = "PRE_PAID")* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToWmsEvent'`, payload includes `invoiceLink` | INSERT → WMS for printing before dispatch |
+| *(if payment_flow = "PAY_ON_DELIVERY")* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToTmsEvent'`, payload includes `invoiceLink` | INSERT → TMS driver receipt after delivery |
 | *(always)* | `orders.order_outbox` | `event_type = 'AbbTaxInvoiceSentToGatewayEvent'`, payload includes `invoiceLink` | INSERT → CFW Gateway for customer |
 
 ---
 
-## 55. POST /webhooks/sts/credit-note
+## 53. POST /webhooks/sts/credit-note
 
-**Trigger:** STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS. POD: forwards to TMS. Routing decided by `orders.is_prepaid`.
+**Trigger:** STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS. POD: forwards to TMS. Routing decided by `orders.payment_flow` (`"PRE_PAID"` or `"PAY_ON_DELIVERY"`).
 
 ### Request body → DB writes
 
@@ -989,8 +947,8 @@ Root fields identical to list above. Additional `lines[]`:
 | `amount` | `payment.credit_notes` | `amount` | UPDATE |
 | `currency` | `payment.credit_notes` | `currency` | UPDATE |
 | *(X-Idempotency-Key)* | `payment.credit_notes` | `source_sts_ref` | UPDATE |
-| *(if is_prepaid = true)* | `orders.order_outbox` | `event_type = 'CreditNoteSentToWmsEvent'`, payload includes `creditNoteLink` | INSERT → WMS |
-| *(if is_prepaid = false)* | `orders.order_outbox` | `event_type = 'CreditNoteSentToTmsEvent'`, payload includes `creditNoteLink` | INSERT → TMS |
+| *(if payment_flow = "PRE_PAID")* | `orders.order_outbox` | `event_type = 'CreditNoteSentToWmsEvent'`, payload includes `creditNoteLink` | INSERT → WMS |
+| *(if payment_flow = "PAY_ON_DELIVERY")* | `orders.order_outbox` | `event_type = 'CreditNoteSentToTmsEvent'`, payload includes `creditNoteLink` | INSERT → TMS |
 
 ---
 

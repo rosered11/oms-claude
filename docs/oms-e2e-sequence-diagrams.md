@@ -53,7 +53,7 @@ sequenceDiagram
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed — invoice does not advance state machine
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -113,7 +113,7 @@ sequenceDiagram
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -172,7 +172,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { newStatus: "Packed" }
@@ -183,7 +183,7 @@ sequenceDiagram
   Note over OMS: State: OutForDelivery
   Note over OMS,Gateway: Outbox: OutForDeliveryEvent → Marketplace (TikTok AWB-notify)
 
-  rect rgb(220, 235, 255)
+  rect rgb(88, 130, 180)
     Note over Gateway,OMS: TikTok-specific: marketplace fetches AWB for parcel tracking
     Gateway->>OMS: GET /orders/{orderId}/packages
     OMS-->>Gateway: 200 [ { trackingId, vehicleType, weight, lineIds } ]
@@ -213,8 +213,8 @@ sequenceDiagram
   participant STS
 
   Customer->>Gateway: Place POD order (channelType=Web, BU=CFR, paymentMethod=POD)
-  Gateway->>OMS: POST /orders { isPrepaid: false, paymentMethod: "POD" }
-  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", isPrepaid: false }
+  Gateway->>OMS: POST /orders { PaymentFlow: false, paymentMethod: "POD" }
+  OMS-->>Gateway: 201 { orderId, status: "Pending", paymentMethod: "POD", businessUnit: "CFR", PaymentFlow: false }
   Note over OMS: State: Pending
 
   WMS->>OMS: POST /webhooks/wms/pick-started { orderId, pickerId }
@@ -244,7 +244,7 @@ sequenceDiagram
   OMS-->>TMS: 202 { newOrderStatus: "OutForDelivery" }
   Note over OMS: State: OutForDelivery
 
-  rect rgb(255, 240, 210)
+  rect rgb(175, 135, 55)
     Note over TMS,OMS: POD-specific Step 6a — pre-delivery recalculation before driver collects payment
     TMS->>OMS: POST /webhooks/tms/recalculation-requested { trackingId, reason: "PickQuantityDiffers" }
     OMS->>POS: Outbound recalculation call (synchronous)
@@ -313,7 +313,7 @@ sequenceDiagram
   OMS-->>TMS: 202 { newOrderStatus: "OutForDelivery" }
   Note over OMS: State: OutForDelivery
 
-  rect rgb(255, 240, 210)
+  rect rgb(175, 135, 55)
     Note over TMS,OMS: POD-specific Step 6a — driver confirms final weight before collecting payment
     TMS->>OMS: POST /webhooks/tms/recalculation-requested { trackingId, reason: "ActualWeightDiffers", actualWeight: 2.07123 }
     OMS->>POS: Outbound recalculation call (synchronous)
@@ -382,7 +382,7 @@ sequenceDiagram
   OMS-->>TMS: 202 { newOrderStatus: "OutForDelivery" }
   Note over OMS: State: OutForDelivery
 
-  rect rgb(255, 240, 210)
+  rect rgb(175, 135, 55)
     Note over TMS,OMS: POD-specific Step 6a — pre-delivery recalculation before driver collects payment
     TMS->>OMS: POST /webhooks/tms/recalculation-requested { trackingId, reason: "PickQuantityDiffers" }
     OMS->>POS: Outbound recalculation call (synchronous)
@@ -402,7 +402,7 @@ sequenceDiagram
   Note over OMS,TMS: Outbox: ABBTaxInvoiceSentToTMS → TMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
-  rect rgb(255, 220, 220)
+  rect rgb(175, 70, 70)
     Note over Customer,OMS: Customer rejects beef at the door (not fresh) — keeps chicken
     Customer->>Gateway: Initiate partial return for beef only
     Gateway->>OMS: POST /returns { orderId, returnType: "PartialItem", returnReason: "ItemNotFresh", items: [{ orderLineId: beefLineId, sku: "BEEF-KG", quantity: 0.5 }] }
@@ -472,7 +472,7 @@ sequenceDiagram
   Gateway->>OMS: GET /orders/{orderId}/delivery-slot
   OMS-->>Gateway: 200 { deliverySlot: { scheduledStart, scheduledEnd } }
 
-  rect rgb(220, 255, 220)
+  rect rgb(60, 145, 85)
     Note over Customer,OMS: Slot reschedule allowed while order is Pending
     Customer->>Gateway: Reschedule delivery to +5 hours
     Gateway->>TMS: Reschedule request
@@ -505,7 +505,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -515,7 +515,7 @@ sequenceDiagram
   OMS-->>TMS: 202 { newOrderStatus: "OutForDelivery" }
   Note over OMS: State: OutForDelivery
 
-  rect rgb(255, 210, 210)
+  rect rgb(175, 70, 70)
     Note over Customer,OMS: Reschedule attempt rejected once OutForDelivery
     Customer->>Gateway: Attempt to reschedule slot again (+7 hours)
     Gateway->>TMS: Reschedule request
@@ -538,7 +538,7 @@ sequenceDiagram
   participant WMS
   participant TMS
 
-  rect rgb(220, 255, 220)
+  rect rgb(60, 145, 85)
     Note over Customer,OMS: Scenario A — Cancel from Pending via Kanban UI (allowed)
     Customer->>Gateway: Place order
     Gateway->>OMS: POST /orders
@@ -560,7 +560,7 @@ sequenceDiagram
     OMS-->>Gateway: 200 { status: "Cancelled" }
   end
 
-  rect rgb(255, 210, 210)
+  rect rgb(175, 70, 70)
     Note over Customer,OMS: Scenario B — Cancel from PickStarted (rejected)
     Customer->>Gateway: Place second order
     Gateway->>OMS: POST /orders
@@ -611,7 +611,7 @@ sequenceDiagram
   POS-->>OMS: adjustedAmount (water only)
   OMS-->>WMS: 202 { accepted: true, adjustedAmount }
 
-  rect rgb(255, 240, 210)
+  rect rgb(175, 135, 55)
     Note over WMS,OMS: Short-pick recorded — soap line pickedQty = 0
     WMS->>OMS: PATCH /orders/{orderId}/partial-pick { lines: [{ orderLineId: soapLineId, pickedQuantity: 0, orderedQuantity: 1, reason: "OutOfStock" }], idempotencyKey }
     OMS-->>WMS: 200 { orderId, partialLines: [{ orderLineId: soapLineId, shortfallQuantity: 1 }] }
@@ -626,7 +626,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 3000 (water only), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{ trackingId, lineIds: [waterLine only] }] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -671,7 +671,7 @@ sequenceDiagram
   OMS-->>WMS: 202 { accepted: true, orderId }
   Note over OMS,Gateway: Outbox: WaveStartedSentToGateway → Gateway
 
-  rect rgb(255, 240, 210)
+  rect rgb(175, 135, 55)
     Note over WMS,OMS: Fabric softener unavailable — substitution offered
     WMS->>OMS: POST /webhooks/wms/substitution-offered { orderId, orderLineId: softenerLineId, substituteSku: "DISH-SOAP-500ML", substituteUnitPrice: 4500, substitutedAmount: 1 }
     OMS-->>WMS: 202 { accepted: true, substitutionId, customerNotified: true }
@@ -700,9 +700,9 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 7500 (2×1500 water + 4500 dish soap) }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
-  rect rgb(220, 235, 255)
+  rect rgb(88, 130, 180)
     Note over STS,OMS: Credit note issued — substitute cheaper than original (8900 − 4500 = 4400 sat refund)
     STS->>OMS: POST /webhooks/sts/credit-note-received { orderId, creditNoteNumber, amount: 4400, currency: "THB" }
     OMS-->>STS: 202 { accepted: true }
@@ -768,7 +768,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }
@@ -783,7 +783,7 @@ sequenceDiagram
   Note over OMS: State: Delivered
   Note over OMS,Gateway: Outbox: DeliveredEvent → Gateway
 
-  rect rgb(255, 220, 220)
+  rect rgb(175, 70, 70)
     Note over Customer,OMS: Full return initiated after delivery
     Customer->>Gateway: Initiate full return (CustomerRequest)
     Gateway->>OMS: POST /returns { orderId, returnReason: "CustomerRequest", items: [{ orderLineId, sku: "APPLE-1KG", quantity: 2, itemReason: "CustomerRequest" }] }
@@ -850,7 +850,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 17820 (discounted), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
-  Note over OMS,Gateway: Outbox: ABBInvoiceSentToGateway → Gateway
+  Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
   OMS-->>WMS: 202 { accepted: true, newStatus: "Packed" }

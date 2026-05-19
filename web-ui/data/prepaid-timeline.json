@@ -1,10 +1,10 @@
-﻿[
+[
   { "id":  1, "time": "09:00", "phase": "booking",  "type": "domain",  "system": "CBE", "event": "TimeSlotRequested",         "detail": "Customer → Gateway → PS → TMS → CBE. Available delivery windows queried. Slot 14:00–16:00 selected." },
   { "id":  2, "time": "09:05", "phase": "booking",  "type": "domain",  "system": "CBE", "event": "BookingCreated",            "detail": "Customer → Gateway → PS → TMS → CBE. Delivery booking confirmed. Slot locked in TMS and CHG Backend." },
   { "id":  3, "time": "09:10", "phase": "outbound", "type": "domain",  "system": "OMS", "event": "OrderCreated",              "detail": "PRE-001 — PrePaid · Delivery · 4 items · ฿1,200. Status → Pending" },
   { "id":  4, "time": "09:10", "phase": "outbound", "type": "outbox",  "system": "CBE", "event": "SaleOrderSentToCBE",        "detail": "SC → CBE: Sale Order dispatched. Payment amount registered in CHG Backend.", "outStatus": "Published" },
   { "id":  5, "time": "09:10", "phase": "outbound", "type": "outbox",  "system": "WMS", "event": "SaleOrderSentToWMS",        "detail": "SC → WMS: Sale Order dispatched. Order registered for warehouse picking.", "outStatus": "Published" },
-  { "id":  6, "time": "09:15", "phase": "outbound", "type": "webhook", "system": "WMS", "event": "PickStarted",               "detail": "POST /webhooks/wms/pick-started. No BookingConfirmed step — booking pre-confirmed via TMS/CBE. Status → PickStarted" },
+  { "id":  6, "time": "09:15", "phase": "outbound", "type": "webhook", "system": "WMS", "event": "PickStarted",               "detail": "POST /webhooks/wms/pick-started. Booking pre-confirmed via TMS/CBE. Status → PickStarted" },
   { "id":  7, "time": "09:15", "phase": "outbound", "type": "outbox",  "system": "TMS", "event": "PickStartedEvent",          "detail": "SC → TMS: PickStartedEvent dispatched. TMS notified for driver slot scheduling.", "outStatus": "Published" },
   { "id":  8, "time": "09:20", "phase": "outbound", "type": "webhook", "system": "WMS", "event": "POSRecalculationRequested", "detail": "WMS → SC: POS Recalculation request (mid-pick). Current basket: ฿1,200. Can repeat multiple times." },
   { "id":  9, "time": "09:20", "phase": "outbound", "type": "outbox",  "system": "POS", "event": "RecalculationForwarded",    "detail": "SC → POS: Recalculation forwarded. Promo engine and tax calculation applied.", "outStatus": "Published" },

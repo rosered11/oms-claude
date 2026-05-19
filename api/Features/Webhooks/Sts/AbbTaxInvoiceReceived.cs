@@ -50,7 +50,7 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store, OutboxAdapterServ
         var invoicePayload = System.Text.Json.JsonSerializer.Serialize(
             TmsWmsTaxInvoicePayload.Build(order, invoice, order.Lines));
 
-        if (order.IsPrepaid)
+        if (order.PaymentFlow == "PRE_PAID")
         {
             foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
                 order.BusinessUnit, "ABBInvoiceSentToWMS", invoicePayload))
@@ -63,8 +63,9 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store, OutboxAdapterServ
                 store.AppendEvent(req.OrderId, evt);
         }
 
+        var gatewayEvent = "ABBTaxInvoiceSentToGateway";
         foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
-            order.BusinessUnit, "ABBInvoiceSentToGateway", invoicePayload))
+            order.BusinessUnit, gatewayEvent, invoicePayload))
             store.AppendEvent(req.OrderId, evt);
 
         return Results.Accepted(null, new { accepted = true, orderId = req.OrderId });

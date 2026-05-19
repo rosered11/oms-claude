@@ -21,7 +21,7 @@ public class OrderDto
     public string? PreHoldStatus { get; set; }
     public string? HoldReason { get; set; }
     public bool SubstitutionFlag { get; set; }
-    public bool IsPrepaid { get; set; }
+    public string PaymentFlow { get; set; } = "PAY_ON_DELIVERY";
     public string Type { get; set; } = "";
     public int Items { get; set; }
     public decimal Amount { get; set; }

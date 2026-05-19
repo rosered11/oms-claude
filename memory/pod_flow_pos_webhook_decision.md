@@ -160,7 +160,7 @@ clearly gate `Invoiced`/`Paid` transitions to non-POD channels.
 ## Implementation Constraint
 
 Any handler for `POST /webhooks/pos/invoiced` and `POST /webhooks/pos/payment-confirmed`
-MUST validate that the order's `is_prepaid` flag (or channel type) is not POD before
+MUST validate that the order's `payment_flow` flag (or channel type) is not POD before
 processing. Receiving these webhooks for a POD order is an error condition — the handler
 should return 422 Unprocessable Entity.
 

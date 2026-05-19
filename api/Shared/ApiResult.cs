@@ -45,7 +45,7 @@ public static class ApiResult
         OccurredAt = DateTime.UtcNow
     };
 
-    public static IEnumerable<TimelineEventDto> DispatchOutbox(
+    public static IEnumerable<TimelineEventDto> BuildOutboxEvents(
         InMemoryStore store, string channelType, string subChannel, string businessUnit,
         string triggerEvent, string payloadDetail)
     {

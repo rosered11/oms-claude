@@ -44,7 +44,7 @@ public static class GatewayUpdateStatusPayload
             [
                 new
                 {
-                    payment_type = order.IsPrepaid ? "PRE_PAID" : "POST_PAID",
+                    payment_type = order.PaymentFlow == "PRE_PAID" ? "PRE_PAID" : "POST_PAID",
                     payment_method = paymentMethod,
                     payment_jd = payment.PaymentMethod,
                     payment_amount = payment.TotalAmount / 100m,

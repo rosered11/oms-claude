@@ -1,0 +1,2022 @@
+﻿<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sprint Connect OMS — API Blueprint</title><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css"><style>@import url('https://fonts.googleapis.com/css?family=Roboto:400,700|Inconsolata|Raleway:200');.hljs-comment,.hljs-title{color:#8e908c}.hljs-variable,.hljs-attribute,.hljs-tag,.hljs-regexp,.ruby .hljs-constant,.xml .hljs-tag .hljs-title,.xml .hljs-pi,.xml .hljs-doctype,.html .hljs-doctype,.css .hljs-id,.css .hljs-class,.css .hljs-pseudo{color:#c82829}.hljs-number,.hljs-preprocessor,.hljs-pragma,.hljs-built_in,.hljs-literal,.hljs-params,.hljs-constant{color:#f5871f}.ruby .hljs-class .hljs-title,.css .hljs-rules .hljs-attribute{color:#eab700}.hljs-string,.hljs-value,.hljs-inheritance,.hljs-header,.ruby .hljs-symbol,.xml .hljs-cdata{color:#718c00}.css .hljs-hexcolor{color:#3e999f}.hljs-function,.python .hljs-decorator,.python .hljs-title,.ruby .hljs-function .hljs-title,.ruby .hljs-title .hljs-keyword,.perl .hljs-sub,.javascript .hljs-title,.coffeescript .hljs-title{color:#4271ae}.hljs-keyword,.javascript .hljs-function{color:#8959a8}.hljs{display:block;background:white;color:#4d4d4c;padding:.5em}.coffeescript .javascript,.javascript .xml,.tex .hljs-formula,.xml .javascript,.xml .vbscript,.xml .css,.xml .hljs-cdata{opacity:.5}.right .hljs-comment{color:#969896}.right .css .hljs-class,.right .css .hljs-id,.right .css .hljs-pseudo,.right .hljs-attribute,.right .hljs-regexp,.right .hljs-tag,.right .hljs-variable,.right .html .hljs-doctype,.right .ruby .hljs-constant,.right .xml .hljs-doctype,.right .xml .hljs-pi,.right .xml .hljs-tag .hljs-title{color:#c66}.right .hljs-built_in,.right .hljs-constant,.right .hljs-literal,.right .hljs-number,.right .hljs-params,.right .hljs-pragma,.right .hljs-preprocessor{color:#de935f}.right .css .hljs-rule .hljs-attribute,.right .ruby .hljs-class .hljs-title{color:#f0c674}.right .hljs-header,.right .hljs-inheritance,.right .hljs-name,.right .hljs-string,.right .hljs-value,.right .ruby .hljs-symbol,.right .xml .hljs-cdata{color:#b5bd68}.right .css .hljs-hexcolor,.right .hljs-title{color:#8abeb7}.right .coffeescript .hljs-title,.right .hljs-function,.right .javascript .hljs-title,.right .perl .hljs-sub,.right .python .hljs-decorator,.right .python .hljs-title,.right .ruby .hljs-function .hljs-title,.right .ruby .hljs-title .hljs-keyword{color:#81a2be}.right .hljs-keyword,.right .javascript .hljs-function{color:#b294bb}.right .hljs{display:block;overflow-x:auto;background:#1d1f21;color:#c5c8c6;padding:.5em;-webkit-text-size-adjust:none}.right .coffeescript .javascript,.right .javascript .xml,.right .tex .hljs-formula,.right .xml .css,.right .xml .hljs-cdata,.right .xml .javascript,.right .xml .vbscript{opacity:.5}body{color:black;background:white;font:400 14px / 1.42 'Roboto',Helvetica,sans-serif}header{border-bottom:1px solid #f2f2f2;margin-bottom:12px}h1,h2,h3,h4,h5{color:black;margin:12px 0}h1 .permalink,h2 .permalink,h3 .permalink,h4 .permalink,h5 .permalink{margin-left:0;opacity:0;transition:opacity .25s ease}h1:hover .permalink,h2:hover .permalink,h3:hover .permalink,h4:hover .permalink,h5:hover .permalink{opacity:1}.triple h1 .permalink,.triple h2 .permalink,.triple h3 .permalink,.triple h4 .permalink,.triple h5 .permalink{opacity:.15}.triple h1:hover .permalink,.triple h2:hover .permalink,.triple h3:hover .permalink,.triple h4:hover .permalink,.triple h5:hover .permalink{opacity:.15}h1{font:200 36px 'Raleway',Helvetica,sans-serif;font-size:36px}h2{font:200 36px 'Raleway',Helvetica,sans-serif;font-size:30px}h3{font-size:100%;text-transform:uppercase}h5{font-size:100%;font-weight:normal}p{margin:0 0 10px}p.choices{line-height:1.6}a{color:#428bca;text-decoration:none}li p{margin:0}hr.split{border:0;height:1px;width:100%;padding-left:6px;margin:12px auto;background-image:linear-gradient(to right, rgba(0,0,0,0) 20%, rgba(0,0,0,0.2) 51.4%, rgba(255,255,255,0.2) 51.4%, rgba(255,255,255,0) 80%)}dl dt{float:left;width:130px;clear:left;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}dl dd{margin-left:150px}blockquote{color:rgba(0,0,0,0.5);font-size:15.5px;padding:10px 20px;margin:12px 0;border-left:5px solid #e8e8e8}blockquote p:last-child{margin-bottom:0}pre{background-color:#f5f5f5;padding:12px;border:1px solid #cfcfcf;border-radius:6px;overflow:auto}pre code{color:black;background-color:transparent;padding:0;border:none}code{color:#444;background-color:#f5f5f5;font:'Inconsolata',monospace;padding:1px 4px;border:1px solid #cfcfcf;border-radius:3px}ul,ol{padding-left:2em}table{border-collapse:collapse;border-spacing:0;margin-bottom:12px}table tr:nth-child(2n){background-color:#fafafa}table th,table td{padding:6px 12px;border:1px solid #e6e6e6}.text-muted{opacity:.5}.note,.warning{padding:.3em 1em;margin:1em 0;border-radius:2px;font-size:90%}.note h1,.warning h1,.note h2,.warning h2,.note h3,.warning h3,.note h4,.warning h4,.note h5,.warning h5,.note h6,.warning h6{font-family:200 36px 'Raleway',Helvetica,sans-serif;font-size:135%;font-weight:500}.note p,.warning p{margin:.5em 0}.note{color:black;background-color:#f0f6fb;border-left:4px solid #428bca}.note h1,.note h2,.note h3,.note h4,.note h5,.note h6{color:#428bca}.warning{color:black;background-color:#fbf1f0;border-left:4px solid #c9302c}.warning h1,.warning h2,.warning h3,.warning h4,.warning h5,.warning h6{color:#c9302c}header{margin-top:24px}nav{position:fixed;top:24px;bottom:0;overflow-y:auto}nav .resource-group{padding:0}nav .resource-group .heading{position:relative}nav .resource-group .heading .chevron{position:absolute;top:12px;right:12px;opacity:.5}nav .resource-group .heading a{display:block;color:black;opacity:.7;border-left:2px solid transparent;margin:0}nav .resource-group .heading a:hover{text-decoration:none;background-color:bad-color;border-left:2px solid black}nav ul{list-style-type:none;padding-left:0}nav ul a{display:block;font-size:13px;color:rgba(0,0,0,0.7);padding:8px 12px;border-top:1px solid #d9d9d9;border-left:2px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}nav ul a:hover{text-decoration:none;background-color:bad-color;border-left:2px solid black}nav ul>li{margin:0}nav ul>li:first-child{margin-top:-12px}nav ul>li:last-child{margin-bottom:-12px}nav ul ul a{padding-left:24px}nav ul ul li{margin:0}nav ul ul li:first-child{margin-top:0}nav ul ul li:last-child{margin-bottom:0}nav>div>div>ul>li:first-child>a{border-top:none}.preload *{transition:none !important}.pull-left{float:left}.pull-right{float:right}.badge{display:inline-block;float:right;min-width:10px;min-height:14px;padding:3px 7px;font-size:12px;color:#000;background-color:#f2f2f2;border-radius:10px;margin:-2px 0}.badge.get{color:#70bbe1;background-color:#d9edf7}.badge.head{color:#70bbe1;background-color:#d9edf7}.badge.options{color:#70bbe1;background-color:#d9edf7}.badge.put{color:#f0db70;background-color:#fcf8e3}.badge.patch{color:#f0db70;background-color:#fcf8e3}.badge.post{color:#93cd7c;background-color:#dff0d8}.badge.delete{color:#ce8383;background-color:#f2dede}.collapse-button{float:right}.collapse-button .close{display:none;color:#428bca;cursor:pointer}.collapse-button .open{color:#428bca;cursor:pointer}.collapse-button.show .close{display:inline}.collapse-button.show .open{display:none}.collapse-content{max-height:0;overflow:hidden;transition:max-height .3s ease-in-out}nav{width:220px}.container{max-width:940px;margin-left:auto;margin-right:auto}.container .row .content{margin-left:244px;width:696px}.container .row:after{content:'';display:block;clear:both}.container-fluid nav{width:22%}.container-fluid .row .content{margin-left:24%}.container-fluid.triple nav{width:16.5%;padding-right:1px}.container-fluid.triple .row .content{position:relative;margin-left:16.5%;padding-left:24px}.middle:before,.middle:after{content:'';display:table}.middle:after{clear:both}.middle{box-sizing:border-box;width:51.5%;padding-right:12px}.right{box-sizing:border-box;float:right;width:48.5%;padding-left:12px}.right a{color:#428bca}.right h1,.right h2,.right h3,.right h4,.right h5,.right p,.right div{color:white}.right pre{background-color:#1d1f21;border:1px solid #1d1f21}.right pre code{color:#c5c8c6}.right .description{margin-top:12px}.triple .resource-heading{font-size:125%}.definition{margin-top:12px;margin-bottom:12px}.definition .method{font-weight:bold}.definition .method.get{color:#2e8ab8}.definition .method.head{color:#2e8ab8}.definition .method.options{color:#2e8ab8}.definition .method.post{color:#56b82e}.definition .method.put{color:#b8a22e}.definition .method.patch{color:#b8a22e}.definition .method.delete{color:#b82e2e}.definition .uri{word-break:break-all;word-wrap:break-word}.definition .hostname{opacity:.5}.example-names{background-color:#eee;padding:12px;border-radius:6px}.example-names .tab-button{cursor:pointer;color:black;border:1px solid #ddd;padding:6px;margin-left:12px}.example-names .tab-button.active{background-color:#d5d5d5}.right .example-names{background-color:#444}.right .example-names .tab-button{color:white;border:1px solid #666;border-radius:6px}.right .example-names .tab-button.active{background-color:#5e5e5e}#nav-background{position:fixed;left:0;top:0;bottom:0;width:16.5%;padding-right:14.4px;background-color:#fbfbfb;border-right:1px solid #f0f0f0;z-index:-1}#right-panel-background{position:absolute;right:-12px;top:-12px;bottom:-12px;width:48.6%;background-color:#333;z-index:-1}@media (max-width:1200px){nav{width:198px}.container{max-width:840px}.container .row .content{margin-left:224px;width:606px}}@media (max-width:992px){nav{width:169.4px}.container{max-width:720px}.container .row .content{margin-left:194px;width:526px}}@media (max-width:768px){nav{display:none}.container{width:95%;max-width:none}.container .row .content,.container-fluid .row .content,.container-fluid.triple .row .content{margin-left:auto;margin-right:auto;width:95%}#nav-background{display:none}#right-panel-background{width:48.6%}}.back-to-top{position:fixed;z-index:1;bottom:0;right:24px;padding:4px 8px;color:rgba(0,0,0,0.5);background-color:#f2f2f2;text-decoration:none !important;border-top:1px solid #d9d9d9;border-left:1px solid #d9d9d9;border-right:1px solid #d9d9d9;border-top-left-radius:3px;border-top-right-radius:3px}.resource-group{padding:12px;margin-bottom:12px;background-color:white;border:1px solid #d9d9d9;border-radius:6px}.resource-group h2.group-heading,.resource-group .heading a{padding:12px;margin:-12px -12px 12px -12px;background-color:#f2f2f2;border-bottom:1px solid #d9d9d9;border-top-left-radius:6px;border-top-right-radius:6px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.triple .content .resource-group{padding:0;border:none}.triple .content .resource-group h2.group-heading,.triple .content .resource-group .heading a{margin:0 0 12px 0;border:1px solid #d9d9d9}nav .resource-group .heading a{padding:12px;margin-bottom:0}nav .resource-group .collapse-content{padding:0}.action{margin-bottom:12px;padding:12px 12px 0 12px;overflow:hidden;border:1px solid transparent;border-radius:6px}.action h4.action-heading{padding:6px 12px;margin:-12px -12px 12px -12px;border-bottom:1px solid transparent;border-top-left-radius:6px;border-top-right-radius:6px;overflow:hidden}.action h4.action-heading .name{float:right;font-weight:normal;padding:6px 0}.action h4.action-heading .method{padding:6px 12px;margin-right:12px;border-radius:3px;display:inline-block}.action h4.action-heading .method.get{color:#fff;background-color:#337ab7}.action h4.action-heading .method.head{color:#fff;background-color:#337ab7}.action h4.action-heading .method.options{color:#fff;background-color:#337ab7}.action h4.action-heading .method.put{color:#fff;background-color:#ed9c28}.action h4.action-heading .method.patch{color:#fff;background-color:#ed9c28}.action h4.action-heading .method.post{color:#fff;background-color:#5cb85c}.action h4.action-heading .method.delete{color:#fff;background-color:#d9534f}.action h4.action-heading code{color:#444;background-color:#f5f5f5;border-color:#cfcfcf;font-weight:normal;word-break:break-all;display:inline-block;margin-top:2px}.action dl.inner{padding-bottom:2px}.action .title{border-bottom:1px solid white;margin:0 -12px -1px -12px;padding:12px}.action.get{border-color:#bce8f1}.action.get h4.action-heading{color:#337ab7;background:#d9edf7;border-bottom-color:#bce8f1}.action.head{border-color:#bce8f1}.action.head h4.action-heading{color:#337ab7;background:#d9edf7;border-bottom-color:#bce8f1}.action.options{border-color:#bce8f1}.action.options h4.action-heading{color:#337ab7;background:#d9edf7;border-bottom-color:#bce8f1}.action.post{border-color:#d6e9c6}.action.post h4.action-heading{color:#5cb85c;background:#dff0d8;border-bottom-color:#d6e9c6}.action.put{border-color:#faebcc}.action.put h4.action-heading{color:#ed9c28;background:#fcf8e3;border-bottom-color:#faebcc}.action.patch{border-color:#faebcc}.action.patch h4.action-heading{color:#ed9c28;background:#fcf8e3;border-bottom-color:#faebcc}.action.delete{border-color:#ebccd1}.action.delete h4.action-heading{color:#d9534f;background:#f2dede;border-bottom-color:#ebccd1}</style></head><body class="preload"><a href="#top" class="text-muted back-to-top"><i class="fa fa-toggle-up"></i>&nbsp;Back to top</a><div class="container"><div class="row"><nav><div class="resource-group"><div class="heading"><div class="chevron"><i class="open fa fa-angle-down"></i></div><a href="#top">Overview</a></div><div class="collapse-content"><ul><li><a href="#header-authenticatio">Authenticatio</a></li></ul></div></div><div class="resource-group"><div class="heading"><div class="chevron"><i class="open fa fa-angle-down"></i></div><a href="#">Resource Group</a></div><div class="collapse-content"><ul><li><a href="#post"><span class="badge post"><i class="fa fa-plus"></i></span>POST /auth/token</a></li><li><a href="#get"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders</a></li><li><a href="#post-1"><span class="badge post"><i class="fa fa-plus"></i></span>POST /orders</a></li><li><a href="#get-1"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}</a></li><li><a href="#get-2"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/lines</a></li><li><a href="#get-3"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/packages</a></li><li><a href="#get-4"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/webhooks</a></li><li><a href="#get-5"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/credit-note</a></li><li><a href="#get-6"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/substitutions</a></li><li><a href="#post-2"><span class="badge post"><i class="fa fa-plus"></i></span>POST /orders/{id}/substitutions/{subId}/approve</a></li><li><a href="#post-3"><span class="badge post"><i class="fa fa-plus"></i></span>POST /orders/{id}/substitutions/{subId}/reject</a></li><li><a href="#get-7"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/timeline</a></li><li><a href="#patch"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /orders/{id}/hold</a></li><li><a href="#patch-1"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /orders/{id}/release-hold</a></li><li><a href="#patch-2"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /orders/{id}/cancel</a></li><li><a href="#post-4"><span class="badge post"><i class="fa fa-plus"></i></span>POST /orders/{id}/recalculate</a></li><li><a href="#patch-3"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /orders/{id}/partial-pick</a></li><li><a href="#get-8"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /orders/{id}/delivery-slot</a></li><li><a href="#patch-4"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /orders/{id}/delivery-slot</a></li><li><a href="#post-5"><span class="badge post"><i class="fa fa-plus"></i></span>POST /orders/{id}/invoice/prepaid</a></li><li><a href="#post-6"><span class="badge post"><i class="fa fa-plus"></i></span>POST /returns</a></li><li><a href="#get-9"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /returns</a></li><li><a href="#get-10"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /returns/{id}</a></li><li><a href="#get-11"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /returns/{id}/items</a></li><li><a href="#patch-5"><span class="badge patch"><i class="fa fa-pencil"></i></span>PATCH /returns/{id}/cancel</a></li><li><a href="#get-12"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /returns/{id}/refund</a></li><li><a href="#get-13"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/purchase-orders</a></li><li><a href="#post-7"><span class="badge post"><i class="fa fa-plus"></i></span>POST /inbound/purchase-orders</a></li><li><a href="#get-14"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/purchase-orders/{id}</a></li><li><a href="#get-15"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/purchase-orders/{id}/goods-receipts</a></li><li><a href="#get-16"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/transfer-orders</a></li><li><a href="#post-8"><span class="badge post"><i class="fa fa-plus"></i></span>POST /inbound/transfer-orders</a></li><li><a href="#get-17"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/transfer-orders/{id}</a></li><li><a href="#get-18"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /inbound/transfer-orders/{id}/confirmations</a></li><li><a href="#get-19"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /stock/{sku}/ledger</a></li><li><a href="#post-9"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/booking-confirmed</a></li><li><a href="#post-10"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/pick-started</a></li><li><a href="#post-11"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/wave-started</a></li><li><a href="#post-12"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/pick-confirmed</a></li><li><a href="#post-13"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/packed</a></li><li><a href="#post-14"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/substitution-offered</a></li><li><a href="#post-15"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/put-away-confirmed</a></li><li><a href="#post-16"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/goods-receipt-confirmed</a></li><li><a href="#post-17"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/purchase-order-put-away-confirmed</a></li><li><a href="#post-18"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/transfer-pick-confirmed</a></li><li><a href="#post-19"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/transfer-received</a></li><li><a href="#post-20"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/damaged-goods-received</a></li><li><a href="#post-21"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/wms/damaged-goods-put-away</a></li><li><a href="#post-22"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/tms/slot-rescheduled</a></li><li><a href="#post-23"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/tms/package-dispatched</a></li><li><a href="#post-24"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/tms/package-delivered</a></li><li><a href="#post-25"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/tms/package-damage-reported</a></li><li><a href="#post-26"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/tms/recalculation-requested</a></li><li><a href="#post-27"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/sts/abb-tax-invoice</a></li><li><a href="#post-28"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/sts/credit-note</a></li><li><a href="#post-29"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/sts/abb-tax-invoice-received</a></li><li><a href="#post-30"><span class="badge post"><i class="fa fa-plus"></i></span>POST /webhooks/sts/credit-note-received</a></li><li><a href="#get-20"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /branches/nearby</a></li><li><a href="#get-21"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /config/outbox-routing-rules</a></li><li><a href="#get-22"><span class="badge get"><i class="fa fa-arrow-down"></i></span>GET /config/outbox-routing-rules/{ruleId}</a></li><li><a href="#post-31"><span class="badge post"><i class="fa fa-plus"></i></span>POST /config/outbox-routing-rules</a></li><li><a href="#put"><span class="badge put"><i class="fa fa-pencil"></i></span>PUT /config/outbox-routing-rules/{ruleId}</a></li><li><a href="#delete"><span class="badge delete"><i class="fa fa-times"></i></span>DELETE /config/outbox-routing-rules/{ruleId}</a></li></ul></div></div></nav><div class="content"><header><h1 id="top">Sprint Connect OMS — API Blueprint</h1></header><p>t</p>
+<p><strong>Version:</strong> 2.0<br>
+<strong>Format:</strong> REST / JSON<br>
+<strong>Host:</strong> <code>https://api.sprintconnect.io/v1</code><br>
+<strong>Auth:</strong> Bearer JWT on all endpoints (except <code>POST /auth/token</code></p>
+<p>)</p>
+<p>–</p>
+<ul>
+<li></li>
+</ul>
+<h2 id="header-authenticatio">Authenticatio <a class="permalink" href="#header-authenticatio" aria-hidden="true">¶</a></h2>
+<section id="" class="resource-group"><h2 class="group-heading">Resource Group <a href="#" class="permalink">&para;</a></h2><div id="-1" class="resource"><h3 class="resource-heading">Resource <a href="#-1" class="permalink">&nbsp;&para;</a></h3><div id="post" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post" class="method post">POST</a><code class="uri">/auth/token</code></h4><p>n</p>
+<p>Obtain a Bearer JWT for API access</p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "clientId": "oms-client-01",
+  "clientSecret": "s3cr3t",
+  "scope": "orders:read orders:write"
+}
+``
+
+`
+
+**Response 200:
+
+**
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+``
+
+`
+
+--
+
+-
+
+## Group: Order</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/auth/token</span></div></div></div><div id="-2" class="resource"><h3 class="resource-heading">Resource <a href="#-2" class="permalink">&nbsp;&para;</a></h3><div id="get" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get" class="method get">GET</a><code class="uri">/orders</code></h4><p>s</p>
+<p>List orders (paginated). Used by the Kanban Board. (UC17</p>
+<p>)</p>
+<p><strong>Query parameters:</strong> <code>status</code>, <code>store</code>, <code>type</code> (fulfillment type), <code>channel</code> (channel type — e.g. <code>Marketplace</code>, <code>Gateway</code>, <code>Web</code>), <code>page</code> (default 1), <code>limit</code> (max 200, default 50</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "items": [
+    {
+      "id": "ORD-001",
+      "orderNumber": "ORD-001",
+      "status": "PickStarted",
+      "fulfillmentType": "Delivery",
+      "paymentMethod": "Prepaid",
+      "store": "Central DC",
+      "storeId": "store-central-dc",
+      "lineCount": 3,
+      "totalAmount": 2380,
+      "currency": "THB",
+      "customer": { "name": "Alice Johnson", "phone": "0812345678" },
+      "deliverySlot": {
+        "scheduledStart": "2024-01-15T18:00:00Z",
+        "scheduledEnd": "2024-01-15T20:00:00Z"
+      },
+      "createdAt": "2024-01-15T14:00:00Z",
+      "updatedAt": "2024-01-15T15:31:00Z"
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "limit": 50
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders</span></div></div></div><div id="-3" class="resource"><h3 class="resource-heading">Resource <a href="#-3" class="permalink">&nbsp;&para;</a></h3><div id="post-1" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-1" class="method post">POST</a><code class="uri">/orders</code></h4><p>s</p>
+<p>Create a new outbound order. (UC1</p>
+<p>)</p>
+<p>Idempotent on <code>sourceOrderId</code> — duplicate calls with the same value return the existing order</p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "sourceOrderId": "EXT-001",
+  "channelType": "App",
+  "businessUnit": "TOPS",
+  "storeId": "store-central-dc",
+  "fulfillmentType": "Delivery",
+  "paymentMethod": "Prepaid",
+  "isPrepaid": true,
+  "customer": {
+    "name": "Alice Johnson",
+    "phone": "0812345678",
+    "email": "alice@example.com",
+    "externalCustomerId": "CRM-ALICE-001"
+  },
+  "deliveryAddress": {
+    "addressType": "Delivery",
+    "firstName": "Alice",
+    "lastName": "Johnson",
+    "mobilePhone": "0812345678",
+    "email": "alice@example.com",
+    "address1": "123 Main St",
+    "subdistrict": "Silom",
+    "district": "Bang Rak",
+    "province": "Bangkok",
+    "postalCode": "10500"
+  },
+  "deliverySlot": {
+    "scheduledStart": "2024-01-15T14:00:00Z",
+    "scheduledEnd": "2024-01-15T16:00:00Z",
+    "bookedVia": "TMS",
+    "bookingRef": "TMS-BK-001"
+  },
+  "lines": [
+    {
+      "sku": "APPLE-1KG",
+      "productName": "Apple (1 kg bag)",
+      "barcode": "8851234567890",
+      "requestedQty": 4,
+      "unitPrice": 120,
+      "unitOfMeasure": "Each"
+    }
+  ]
+}
+``
+
+`
+
+**Response 201:
+
+**
+```json
+{
+  "id": "ORD-001",
+  "orderNumber": "ORD-001",
+  "status": "Pending",
+  "createdAt": "2024-01-15T14:00:00Z"
+}
+``
+
+`
+
+**`paymentMethod`** field value
+
+s:
+- `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and Gatew
+
+ay
+- `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + Gatewa
+
+y
+
+**Outbox events dispatched on order creation:*
+
+*
+
+| Event | Target | Condition |
+|---|---|---|
+| `SaleOrderSentToWMS` | WMS | All orders |
+| `SaleOrderSentToTMS` | TMS | All orders — dispatched at order creation for transport scheduling
+
+|
+
+**Response 409** (duplicate `sourceOrderId`
+
+):
+```json
+{ "error": "conflict", "detail": "Order with sourceOrderId EXT-001 already exists as ORD-001." }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders</span></div></div></div><div id="-4" class="resource"><h3 class="resource-heading">Resource <a href="#-4" class="permalink">&nbsp;&para;</a></h3><div id="get-1" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-1" class="method get">GET</a><code class="uri">/orders/</code></h4><p>}</p>
+<p>Get full order detail. (UC16</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "id": "ORD-001",
+  "orderNumber": "ORD-001",
+  "status": "PickStarted",
+  "fulfillmentType": "Delivery",
+  "paymentMethod": "Prepaid",
+  "substitutionFlag": false,
+  "store": "Central DC",
+  "storeId": "store-central-dc",
+  "customer": { "name": "Alice Johnson", "phone": "0812345678", "email": "alice@example.com" },
+  "deliveryAddress": {
+    "address1": "123 Main St",
+    "subdistrict": "Silom",
+    "district": "Bang Rak",
+    "province": "Bangkok",
+    "postalCode": "10500"
+  },
+  "deliverySlot": {
+    "slotId": "slot-001",
+    "scheduledStart": "2024-01-15T18:00:00Z",
+    "scheduledEnd": "2024-01-15T20:00:00Z"
+  },
+  "lines": [
+    {
+      "orderLineId": "line-001",
+      "sku": "APPLE-1KG",
+      "productName": "Apple (1 kg bag)",
+      "barcode": "8851234567890",
+      "unitOfMeasure": "Each",
+      "requestedQty": 4,
+      "pickedQty": 4,
+      "unitPrice": 120,
+      "recalculatedUnitPrice": 108,
+      "currency": "THB",
+      "status": "Active"
+    }
+  ],
+  "packages": [
+    {
+      "packageId": "pkg-001",
+      "trackingId": "TRK-2024-001",
+      "vehicleType": "Van",
+      "weight": 2.5,
+      "status": "OutForDelivery",
+      "lineIds": ["line-001"]
+    }
+  ],
+  "totalAmount": 2380,
+  "currency": "THB",
+  "createdAt": "2024-01-15T14:00:00Z",
+  "updatedAt": "2024-01-15T15:31:00Z"
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/</span></div></div></div><div id="-5" class="resource"><h3 class="resource-heading">Resource <a href="#-5" class="permalink">&nbsp;&para;</a></h3><div id="get-2" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-2" class="method get">GET</a><code class="uri">/orders/lines</code></h4><p>s</p>
+<p>List order lines with picked quantities and recalculated prices. (UC16</p>
+<p>)</p>
+<p><strong>Response 200:</strong> <code>{ &quot;orderId&quot;: &quot;ORD-001&quot;, &quot;lines&quot;: [ ... ] }</code> — same shape as <code>lines[]</code> in GET /orders/{id}</p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/lines</span></div></div></div><div id="-6" class="resource"><h3 class="resource-heading">Resource <a href="#-6" class="permalink">&nbsp;&para;</a></h3><div id="get-3" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-3" class="method get">GET</a><code class="uri">/orders/packages</code></h4><p>s</p>
+<p>List packages with tracking IDs and carrier details. (UC18</p>
+<p>)</p>
+<p><strong>Response 200:</strong> <code>{ &quot;orderId&quot;: &quot;ORD-001&quot;, &quot;packages&quot;: [ ... ] }</code> — same shape as <code>packages[]</code> in GET /orders/{id}</p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/packages</span></div></div></div><div id="-7" class="resource"><h3 class="resource-heading">Resource <a href="#-7" class="permalink">&nbsp;&para;</a></h3><div id="get-4" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-4" class="method get">GET</a><code class="uri">/orders/webhooks</code></h4><p>s</p>
+<p>List all webhook events received for an order</p>
+<p>.</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "webhooks": [
+    {
+      "webhookLogId": "whl-001",
+      "sourceSystem": "WMS",
+      "eventType": "PickStarted",
+      "detail": "Picker picker-01 started at 2024-01-15T15:00:00Z",
+      "receivedAt": "2024-01-15T15:00:00Z"
+    }
+  ]
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/webhooks</span></div></div></div><div id="-8" class="resource"><h3 class="resource-heading">Resource <a href="#-8" class="permalink">&nbsp;&para;</a></h3><div id="get-5" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-5" class="method get">GET</a><code class="uri">/orders/credit-note</code></h4><p>e</p>
+<p>Get the credit note associated with an order. Returns the credit note issued by STS for this order — for example, after a substitution where the replacement item is cheaper than the original (UC11), or after a partial pick adjustment</p>
+<p>.</p>
+<p>Returns <code>404</code> if no credit note exists for the order</p>
+<p>.</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "creditNoteId": "CN-001",
+  "creditNoteNumber": "CN-UC11-1716000000000",
+  "invoiceId": "inv-001",
+  "amount": 4400,
+  "currency": "THB",
+  "reason": "PriceAdjustment",
+  "status": "Issued",
+  "creditNoteLink": "https://sts.example.com/cn/UC11.pdf",
+  "sourceStsRef": "STS-CN-REF-001",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+``
+
+`
+
+**Response 404:
+
+**
+```json
+{ "error": "not_found", "detail": "No credit note exists for order ORD-001." }
+``
+
+`
+
+| Field | Type | Description |
+|---|---|---|
+| `creditNoteId` | string | OMS internal credit note ID |
+| `creditNoteNumber` | string | Fiscal credit note number from STS |
+| `invoiceId` | string | The invoice being partially reversed |
+| `amount` | number | Credit amount in satang (smallest THB unit) |
+| `currency` | string | Currency code — `THB` |
+| `reason` | string | Why the credit note was issued — e.g. `PriceAdjustment`, `CustomerRejection` |
+| `status` | string | `Issued`, `Applied`, or `Cancelled` |
+| `creditNoteLink` | string | URL to the Credit Note PDF hosted by STS |
+| `sourceStsRef` | string | STS reference ID for reconciliation |
+| `issuedAt` | timestamp | When STS issued the credit note (ISO 8601 UTC)
+
+|
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/credit-note</span></div></div></div><div id="-9" class="resource"><h3 class="resource-heading">Resource <a href="#-9" class="permalink">&nbsp;&para;</a></h3><div id="get-6" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-6" class="method get">GET</a><code class="uri">/orders/substitutions</code></h4><p>s</p>
+<p>List substitutions offered by WMS. (UC5</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-003",
+  "substitutions": [
+    {
+      "substitutionId": "sub-001",
+      "orderLineId": "line-003",
+      "originalSku": "MILK-1L",
+      "originalProductName": "Whole Milk (1L)",
+      "substituteSku": "MILK-2L",
+      "substituteProductName": "Whole Milk (2L)",
+      "substituteUnitPrice": 55,
+      "substitutedAmount": 1,
+      "customerApproved": null,
+      "approvedAt": null,
+      "createdAt": "2024-01-15T15:10:00Z"
+    }
+  ]
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/substitutions</span></div></div></div><div id="-10" class="resource"><h3 class="resource-heading">Resource <a href="#-10" class="permalink">&nbsp;&para;</a></h3><div id="post-2" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-2" class="method post">POST</a><code class="uri">/orders/substitutions/approve</code></h4><p>e</p>
+<p>Customer approves a proposed substitution. (UC5</p>
+<p>)</p>
+<p><strong>Response 200:</strong> `{ “substitutionId”: “sub-001”, “customerApproved”: true, “approvedAt”: “…” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/substitutions/approve</span></div></div></div><div id="-11" class="resource"><h3 class="resource-heading">Resource <a href="#-11" class="permalink">&nbsp;&para;</a></h3><div id="post-3" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-3" class="method post">POST</a><code class="uri">/orders/substitutions/reject</code></h4><p>t</p>
+<p>Customer rejects a substitution; original line is voided. (UC5</p>
+<p>)</p>
+<p><strong>Response 200:</strong> `{ “substitutionId”: “sub-001”, “customerApproved”: false, “approvedAt”: “…” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/substitutions/reject</span></div></div></div><div id="-12" class="resource"><h3 class="resource-heading">Resource <a href="#-12" class="permalink">&nbsp;&para;</a></h3><div id="get-7" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-7" class="method get">GET</a><code class="uri">/orders/timeline</code></h4><p>e</p>
+<p>Chronological event history combining domain transitions, inbound webhooks, and outbox events. (UC16</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "order": {
+    "orderNumber": "ORD-001",
+    "status": "Delivered",
+    "fulfillmentType": "Delivery",
+    "store": "Central DC"
+  },
+  "events": [
+    {
+      "id": 1,
+      "occurredAt": "2024-01-15T14:00:00Z",
+      "time": "14:00",
+      "phase": "outbound",
+      "type": "domain",
+      "system": "OMS",
+      "event": "Pending",
+      "detail": "Order created. 4 lines, ฿480.",
+      "outStatus": null
+    },
+    {
+      "id": 2,
+      "occurredAt": "2024-01-15T15:00:00Z",
+      "time": "15:00",
+      "phase": "outbound",
+      "type": "webhook",
+      "system": "WMS",
+      "event": "PickStarted",
+      "detail": "Picker picker-01 started.",
+      "outStatus": null
+    },
+    {
+      "id": 3,
+      "occurredAt": "2024-01-15T15:00:00Z",
+      "time": "15:00",
+      "phase": "outbound",
+      "type": "outbox",
+      "system": "TMS",
+      "event": "PickStartedEvent",
+      "detail": "Dispatched to TMS for driver scheduling.",
+      "outStatus": "Published"
+    }
+  ],
+  "summary": {
+    "totalEvents": 12,
+    "inboundPhaseEvents": 3,
+    "outboundPhaseEvents": 9,
+    "orderToDeliveredMinutes": 320,
+    "totalEndToEndMinutes": 380
+  }
+}
+``
+
+`
+
+**Event types:*
+
+*
+
+| `type` | Source table |
+|---|---|
+| `domain` | `orders.order_status_history` |
+| `webhook` | `orders.order_webhook_logs` |
+| `outbox` | `orders.order_outbox` |
+| `bridge` | Derived marker — synthesized between PO put-away and first order event
+
+|
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/timeline</span></div></div></div><div id="-13" class="resource"><h3 class="resource-heading">Resource <a href="#-13" class="permalink">&nbsp;&para;</a></h3><div id="patch" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch" class="method patch">PATCH</a><code class="uri">/orders/hold</code></h4><p>d</p>
+<p>Place order on hold. Saves <code>pre_hold_status</code>. (UC6</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “holdReason”: “ManualReview”, “heldBy”: “ops-agent-01” }</p>
+<p>`</p>
+<p><strong>Response 200:</strong> `{ “id”: “ORD-001”, “newStatus”: “OnHold”, “preHoldStatus”: “PickStarted” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/hold</span></div></div></div><div id="-14" class="resource"><h3 class="resource-heading">Resource <a href="#-14" class="permalink">&nbsp;&para;</a></h3><div id="patch-1" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch-1" class="method patch">PATCH</a><code class="uri">/orders/release-hold</code></h4><p>d</p>
+<p>Release hold; restores <code>pre_hold_status</code>. (UC6</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “releasedBy”: “ops-agent-01” }</p>
+<p>`</p>
+<p><strong>Response 200:</strong> `{ “id”: “ORD-001”, “newStatus”: “PickStarted” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/release-hold</span></div></div></div><div id="-15" class="resource"><h3 class="resource-heading">Resource <a href="#-15" class="permalink">&nbsp;&para;</a></h3><div id="patch-2" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch-2" class="method patch">PATCH</a><code class="uri">/orders/cancel</code></h4><p>l</p>
+<p>Cancel order. Allowed from <code>Pending</code>, <code>BookingConfirmed</code>, <code>OnHold</code> only. (UC9</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “reason”: “CustomerRequest”, “cancelledBy”: “ops-agent-01” }</p>
+<p>`</p>
+<p><strong>Response 200:</strong> `{ “id”: “ORD-005”, “newStatus”: “Cancelled” }</p>
+<p>`</p>
+<p>*<em>Outbox events dispatched on cancellation (all three are appended atomically):</em></p>
+<ul>
+<li></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Target</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OrderCancelledSentToWMS</code></td>
+<td>WMS</td>
+<td>Reverse stock reservation</td>
+</tr>
+<tr>
+<td><code>OrderCancelledSentToTMS</code></td>
+<td>TMS</td>
+<td>Cancel delivery booking</td>
+</tr>
+<tr>
+<td><code>OrderCancelledSentToGateway</code></td>
+<td>Gateway</td>
+<td>Notify customer of cancellation</td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p>All three events appear on <code>GET /orders/{id}/timeline</code> with <code>type: &quot;outbox&quot;</code> and the respective <code>system</code> values (<code>&quot;WMS&quot;</code>, <code>&quot;TMS&quot;</code>, <code>&quot;Gateway&quot;</code>)</p>
+<p>.</p>
+<p>**Response 409:</p>
+<p>**</p>
+<pre><code class="language-json">{ "error": "invalid_transition", "detail": "Order ORD-005 is in status Delivered. Cancellation is not allowed from this state." }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/cancel</span></div></div></div><div id="-16" class="resource"><h3 class="resource-heading">Resource <a href="#-16" class="permalink">&nbsp;&para;</a></h3><div id="post-4" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-4" class="method post">POST</a><code class="uri">/orders/recalculate</code></h4><p>e</p>
+<p>Manually trigger a POS recalculation. OMS calls POS API outbound synchronously and returns the adjusted amount. (UC15</p>
+<p>)</p>
+<p>**Response 202:</p>
+<p>**</p>
+<pre><code class="language-json">{ "orderId": "ORD-009", "adjustedAmount": 19800, "recalcTriggeredAt": "2024-01-15T15:30:00Z" }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/recalculate</span></div></div></div><div id="-17" class="resource"><h3 class="resource-heading">Resource <a href="#-17" class="permalink">&nbsp;&para;</a></h3><div id="patch-3" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch-3" class="method patch">PATCH</a><code class="uri">/orders/partial-pick</code></h4><p>k</p>
+<p>Record a partial pick: one or more order lines were picked in lesser quantity than ordered. OMS calls POS outbound synchronously to recalculate. (UC-PARTPICK</p>
+<p>)</p>
+<p>Not allowed after <code>PickConfirmed</code></p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "lines": [
+    {
+      "orderLineId": "LINE-001",
+      "pickedQuantity": 1,
+      "orderedQuantity": 2,
+      "reason": "OutOfStock"
+    }
+  ],
+  "idempotencyKey": "uuid-here"
+}
+``
+
+`
+
+**Response 200:
+
+**
+```json
+{
+  "orderId": "ORD-001",
+  "status": "PickStarted",
+  "partialLines": [
+    {
+      "orderLineId": "LINE-001",
+      "pickedQuantity": 1,
+      "orderedQuantity": 2,
+      "shortfallQuantity": 1,
+      "reason": "OutOfStock"
+    }
+  ]
+}
+``
+
+`
+
+**Error 409:** `pos_recalc_already_pending` — POS recalculation already in progres
+
+s
+
+**Error 409:** `invalid_transition` — Order not in a state that allows partial pic
+
+k
+
+**Error 422:** `zero_pick_not_allowed` — All lines reduced to zero; use Cancel Order instea
+
+d
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/partial-pick</span></div></div></div><div id="-18" class="resource"><h3 class="resource-heading">Resource <a href="#-18" class="permalink">&nbsp;&para;</a></h3><div id="get-8" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-8" class="method get">GET</a><code class="uri">/orders/delivery-slot</code></h4><p>t</p>
+<p>Get current delivery slot. (UC19</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "slotId": "slot-001",
+  "scheduledStart": "2024-01-15T18:00:00Z",
+  "scheduledEnd": "2024-01-15T20:00:00Z",
+  "storeId": "store-central-dc"
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/delivery-slot</span></div></div></div><div id="-19" class="resource"><h3 class="resource-heading">Resource <a href="#-19" class="permalink">&nbsp;&para;</a></h3><div id="patch-4" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch-4" class="method patch">PATCH</a><code class="uri">/orders/delivery-slot</code></h4><p>t</p>
+<p>Reschedule delivery window. Not allowed once order is <code>OutForDelivery</code>, <code>Delivered</code>, or later. (UC19, UC-RESCHEDULE</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "scheduledStart": "2024-01-15T20:00:00Z",
+  "scheduledEnd": "2024-01-15T22:00:00Z",
+  "bookedVia": "TMS",
+  "bookingRef": "TMS-BK-002",
+  "reason": "CustomerRequest"
+}
+``
+
+`
+
+**Response 200:
+
+**
+```json
+{
+  "orderId": "ORD-001",
+  "deliverySlot": {
+    "scheduledStart": "2024-01-15T20:00:00Z",
+    "scheduledEnd": "2024-01-15T22:00:00Z"
+  }
+}
+``
+
+`
+
+**Outbox event dispatched:** `DeliverySlotRescheduledEvent` → TM
+
+S
+
+**Response 409:
+
+**
+```json
+{ "error": "slot_change_not_allowed", "detail": "Order ORD-001 is already OutForDelivery. Slot cannot be changed." }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/delivery-slot</span></div></div></div><div id="-20" class="resource"><h3 class="resource-heading">Resource <a href="#-20" class="permalink">&nbsp;&para;</a></h3><div id="post-5" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-5" class="method post">POST</a><code class="uri">/orders/invoice/prepaid</code></h4><p>d</p>
+<p>Send pre-delivery ABB/Tax Invoice to WMS. Prepaid orders only — called after PickConfirmed and before TMS dispatch. (UC28</p>
+<p>)</p>
+<p>**Response 202:</p>
+<p>**</p>
+<pre><code class="language-json">{ "orderId": "ORD-001", "invoiceNumber": "INV-PRE-001", "invoicedAt": "2024-01-15T09:46:00Z" }
+``
+
+`
+
+--
+
+-
+
+## Group: Return</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/orders/invoice/prepaid</span></div></div></div><div id="-21" class="resource"><h3 class="resource-heading">Resource <a href="#-21" class="permalink">&nbsp;&para;</a></h3><div id="post-6" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-6" class="method post">POST</a><code class="uri">/returns</code></h4><p>s</p>
+<p>Initiate a return for a delivered or paid order. (UC14</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "returnReason": "WrongItem",
+  "items": [
+    { "orderLineId": "line-001", "sku": "APPLE-1KG", "quantity": 2, "itemReason": "WrongItem" }
+  ],
+  "requestedBy": "alice@example.com"
+}
+``
+
+`
+
+**Response 201:
+
+**
+```json
+{
+  "id": "RET-001",
+  "returnOrderNumber": "RET-001",
+  "orderId": "ORD-001",
+  "status": "ReturnRequested",
+  "createdAt": "2024-01-15T20:00:00Z"
+}
+``
+
+`
+
+**Response 422:
+
+**
+```json
+{ "error": "unprocessable", "detail": "Order ORD-005 is in status Cancelled. Returns are only allowed from Delivered, Invoiced, or Paid." }
+``
+
+`
+
+#### Partial Item Retur
+
+n
+
+When a customer rejects specific items at delivery (e.g. ordered beef and chicken, but chicken was not fresh)
+
+:
+
+- Call `POST /returns` with `returnType: "PartialItem"` and list only the rejected line items in `items[
+
+]`
+- OMS triggers partial refund calculation via P
+
+OS
+- Only allowed after `Delivered` stat
+
+us
+- Each `returnLineItem` must reference the original `orderLineId
+
+`
+
+**Example request for partial return:
+
+**
+```json
+{
+  "orderId": "ORD-001",
+  "returnType": "PartialItem",
+  "returnReason": "ItemNotFresh",
+  "items": [
+    { "orderLineId": "line-002", "sku": "CHICKEN-1KG", "quantity": 1, "itemReason": "ItemNotFresh" }
+  ],
+  "requestedBy": "alice@example.com"
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns</span></div></div></div><div id="-22" class="resource"><h3 class="resource-heading">Resource <a href="#-22" class="permalink">&nbsp;&para;</a></h3><div id="get-9" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-9" class="method get">GET</a><code class="uri">/returns</code></h4><p>s</p>
+<p>List returns. Query params: <code>orderId</code>, <code>status</code>, <code>page</code>, <code>limit</code></p>
+<p>.</p>
+<p><strong>Response 200:</strong> Paginated <code>items[]</code> array with <code>id</code>, <code>returnOrderNumber</code>, <code>orderId</code>, <code>status</code>, <code>returnReason</code>, <code>requestedAt</code>, <code>refundedAt</code>, <code>createdAt</code>, <code>updatedAt</code></p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns</span></div></div></div><div id="-23" class="resource"><h3 class="resource-heading">Resource <a href="#-23" class="permalink">&nbsp;&para;</a></h3><div id="get-10" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-10" class="method get">GET</a><code class="uri">/returns/</code></h4><p>}</p>
+<p>Get full return detail. (UC14</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "id": "RET-001",
+  "returnOrderNumber": "RET-001",
+  "orderId": "ORD-001",
+  "invoiceId": "inv-001",
+  "creditNoteId": "CN-RET-001",
+  "status": "PutAway",
+  "goodsReceiveNo": "GRN-RET-2024-001",
+  "returnReason": "WrongItem",
+  "requestedAt": "2024-01-15T20:00:00Z",
+  "pickupScheduledAt": "2024-01-16T09:00:00Z",
+  "pickedUpAt": "2024-01-16T09:45:00Z",
+  "receivedAt": "2024-01-16T11:00:00Z",
+  "inspectedAt": "2024-01-16T11:20:00Z",
+  "putAwayAt": "2024-01-16T11:30:00Z",
+  "refundedAt": "2024-01-16T11:35:00Z",
+  "createdAt": "2024-01-15T20:00:00Z",
+  "updatedAt": "2024-01-16T11:35:00Z"
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns/</span></div></div></div><div id="-24" class="resource"><h3 class="resource-heading">Resource <a href="#-24" class="permalink">&nbsp;&para;</a></h3><div id="get-11" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-11" class="method get">GET</a><code class="uri">/returns/items</code></h4><p>s</p>
+<p>List items in a return, including condition and put-away location. (UC14</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "returnId": "RET-001",
+  "items": [
+    {
+      "returnItemId": "ri-001",
+      "orderLineId": "line-001",
+      "sku": "APPLE-1KG",
+      "productName": "Apple (1 kg bag)",
+      "barcode": "8851234567890",
+      "quantity": 2,
+      "unitOfMeasure": "Each",
+      "unitPrice": 120,
+      "currency": "THB",
+      "itemReason": "WrongItem",
+      "condition": "Resellable",
+      "putAwayStatus": "PutAway",
+      "assignedSloc": "B-05",
+      "inspectedAt": "2024-01-16T11:20:00Z",
+      "putAwayAt": "2024-01-16T11:30:00Z"
+    }
+  ]
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns/items</span></div></div></div><div id="-25" class="resource"><h3 class="resource-heading">Resource <a href="#-25" class="permalink">&nbsp;&para;</a></h3><div id="patch-5" class="action patch"><h4 class="action-heading"><div class="name"></div><a href="#patch-5" class="method patch">PATCH</a><code class="uri">/returns/cancel</code></h4><p>l</p>
+<p>Cancel return (allowed from <code>ReturnRequested</code> or <code>PickupScheduled</code> only). (UC14</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “reason”: “CustomerChangedMind”, “cancelledBy”: “ops-agent-01” }</p>
+<p>`</p>
+<p><strong>Response 200:</strong> `{ “id”: “RET-001”, “newStatus”: “Cancelled” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method patch">PATCH</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns/cancel</span></div></div></div><div id="-26" class="resource"><h3 class="resource-heading">Resource <a href="#-26" class="permalink">&nbsp;&para;</a></h3><div id="get-12" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-12" class="method get">GET</a><code class="uri">/returns/refund</code></h4><p>d</p>
+<p>Get refund and credit note for a completed return. (UC14</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "returnId": "RET-001",
+  "refund": {
+    "refundId": "ref-001",
+    "refundAmount": 240,
+    "currency": "THB",
+    "refundMethod": "CreditCard",
+    "status": "Processed",
+    "referenceNo": "REF-TXN-001",
+    "processedAt": "2024-01-16T11:35:00Z"
+  },
+  "creditNote": {
+    "creditNoteId": "CN-RET-001",
+    "creditNoteNumber": "CN-RET-001",
+    "invoiceId": "inv-001",
+    "amount": 240,
+    "currency": "THB",
+    "reason": "Return",
+    "status": "Issued"
+  }
+}
+``
+
+`
+
+--
+
+-
+
+## Group: Inboun</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/returns/refund</span></div></div></div><div id="-27" class="resource"><h3 class="resource-heading">Resource <a href="#-27" class="permalink">&nbsp;&para;</a></h3><div id="get-13" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-13" class="method get">GET</a><code class="uri">/inbound/purchase-orders</code></h4><p>s</p>
+<p>List Purchase Orders. Query params: <code>status</code>, <code>store</code>, <code>page</code>, <code>limit</code>. (UC21</p>
+<p>)</p>
+<p><strong>Response 200:</strong> Paginated <code>items[]</code> with <code>id</code>, <code>poNumber</code>, <code>supplier</code>, <code>supplierId</code>, <code>lines</code>, <code>status</code>, <code>store</code>, <code>value</code>, <code>goodsReceiveNo</code>, <code>createdAt</code>, <code>updatedAt</code></p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/purchase-orders</span></div></div></div><div id="-28" class="resource"><h3 class="resource-heading">Resource <a href="#-28" class="permalink">&nbsp;&para;</a></h3><div id="post-7" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-7" class="method post">POST</a><code class="uri">/inbound/purchase-orders</code></h4><p>s</p>
+<p>Create a Purchase Order. Triggers <code>PurchaseOrderCreatedEvent</code> → WMS. (UC21</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "poNumber": "PO-005",
+  "supplierId": "sup-fresh-foods",
+  "storeId": "store-central-dc",
+  "lines": [
+    { "sku": "APPLE-1KG", "orderedQty": 20, "unitCost": 45, "currency": "THB" }
+  ]
+}
+``
+
+`
+
+**Response 201:** `{ "id": "PO-005", "poNumber": "PO-005", "status": "Created", "createdAt": "..." }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/purchase-orders</span></div></div></div><div id="-29" class="resource"><h3 class="resource-heading">Resource <a href="#-29" class="permalink">&nbsp;&para;</a></h3><div id="get-14" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-14" class="method get">GET</a><code class="uri">/inbound/purchase-orders/</code></h4><p>}</p>
+<p>Get PO detail including all lines with received quantities and conditions. (UC21</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "id": "PO-001",
+  "poNumber": "PO-001",
+  "supplier": "Fresh Foods Ltd",
+  "store": "Central DC",
+  "storeId": "store-central-dc",
+  "status": "Closed",
+  "value": 45000,
+  "goodsReceiveNo": "GRN-2024-001",
+  "lines": [
+    {
+      "poLineId": "pol-001",
+      "sku": "APPLE-1KG",
+      "productName": "Apple (1 kg bag)",
+      "orderedQty": 10,
+      "receivedQty": 10,
+      "unitCost": 45,
+      "currency": "THB",
+      "condition": "Resellable",
+      "sloc": "A-12",
+      "receivedAt": "2024-01-15T09:28:00Z",
+      "putAwayAt": "2024-01-15T10:15:00Z"
+    }
+  ],
+  "createdAt": "2024-01-15T08:00:00Z",
+  "updatedAt": "2024-01-15T10:15:00Z"
+}
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/purchase-orders/</span></div></div></div><div id="-30" class="resource"><h3 class="resource-heading">Resource <a href="#-30" class="permalink">&nbsp;&para;</a></h3><div id="get-15" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-15" class="method get">GET</a><code class="uri">/inbound/purchase-orders/goods-receipts</code></h4><p>s</p>
+<p>List goods receipt records for a PO. (UC21</p>
+<p>)</p>
+<p><strong>Response 200:</strong> `{ “purchaseOrderId”: “PO-001”, “goodsReceipts”: [ { “goodsReceiveNo”, “status”, “receivedAt”, “putAwayAt”, “lines”: […] } ] }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/purchase-orders/goods-receipts</span></div></div></div><div id="-31" class="resource"><h3 class="resource-heading">Resource <a href="#-31" class="permalink">&nbsp;&para;</a></h3><div id="get-16" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-16" class="method get">GET</a><code class="uri">/inbound/transfer-orders</code></h4><p>s</p>
+<p>List Transfer Orders. Query params: <code>status</code>, <code>sourceStore</code>, <code>destStore</code>, <code>page</code>, <code>limit</code>. (UC22</p>
+<p>)</p>
+<p><strong>Response 200:</strong> Paginated <code>items[]</code> with <code>id</code>, <code>transferNumber</code>, <code>source</code>, <code>sourceStoreId</code>, <code>dest</code>, <code>destStoreId</code>, <code>lines</code>, <code>status</code>, <code>tracking</code>, <code>createdAt</code>, <code>updatedAt</code></p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/transfer-orders</span></div></div></div><div id="-32" class="resource"><h3 class="resource-heading">Resource <a href="#-32" class="permalink">&nbsp;&para;</a></h3><div id="post-8" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-8" class="method post">POST</a><code class="uri">/inbound/transfer-orders</code></h4><p>s</p>
+<p>Create a Transfer Order. Triggers <code>TransferOrderCreatedEvent</code> → source WMS. (UC22</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "sourceStoreId": "store-central-dc",
+  "destStoreId": "store-b",
+  "lines": [ { "sku": "APPLE-1KG", "requestedQty": 6 } ]
+}
+``
+
+`
+
+**Response 201:** `{ "id": "TR-005", "transferNumber": "TR-005", "status": "Created", "createdAt": "..." }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/transfer-orders</span></div></div></div><div id="-33" class="resource"><h3 class="resource-heading">Resource <a href="#-33" class="permalink">&nbsp;&para;</a></h3><div id="get-17" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-17" class="method get">GET</a><code class="uri">/inbound/transfer-orders/</code></h4><p>}</p>
+<p>Get Transfer Order detail including lines and quantities. (UC22</p>
+<p>)</p>
+<p><strong>Response 200:</strong> Full TO object with <code>lines[]</code> containing <code>toLineId</code>, <code>sku</code>, <code>productName</code>, <code>requestedQty</code>, <code>transferredQty</code>, <code>confirmedAt</code></p>
+<p>.</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/transfer-orders/</span></div></div></div><div id="-34" class="resource"><h3 class="resource-heading">Resource <a href="#-34" class="permalink">&nbsp;&para;</a></h3><div id="get-18" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-18" class="method get">GET</a><code class="uri">/inbound/transfer-orders/confirmations</code></h4><p>s</p>
+<p>List pick and receipt confirmations for a Transfer Order. (UC22</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "transferOrderId": "TR-001",
+  "confirmations": [
+    { "type": "PickConfirmed", "confirmedAt": "2024-01-15T11:00:00Z", "confirmedBy": "WMS", "tracking": "TRK-TR-001" },
+    { "type": "TransferReceived", "confirmedAt": "2024-01-15T14:30:00Z", "confirmedBy": "WMS", "tracking": "TRK-TR-001" }
+  ]
+}
+``
+
+`
+
+--
+
+-
+
+## Group: Stoc</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/inbound/transfer-orders/confirmations</span></div></div></div><div id="-35" class="resource"><h3 class="resource-heading">Resource <a href="#-35" class="permalink">&nbsp;&para;</a></h3><div id="get-19" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-19" class="method get">GET</a><code class="uri">/stock/ledger</code></h4><p>r</p>
+<p>Per-SKU stock movement ledger across locations. OMS does not own inventory counts — this reflects events OMS recorded. (UC24</p>
+<p>)</p>
+<p><strong>Query params:</strong> <code>storeId</code> (optional filter), <code>from</code> (ISO 8601 date), <code>to</code> (ISO 8601 date</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "sku": "APPLE-1KG",
+  "skuName": "Apple (1 kg bag)",
+  "unitPrice": 120,
+  "currency": "THB",
+  "locations": [
+    {
+      "storeId": "store-central-dc",
+      "storeName": "Central DC",
+      "balance": 0,
+      "events": [
+        { "id": 1, "time": "10:15", "occurredAt": "2024-01-15T10:15:00Z", "dir": "in", "ref": "PO-001", "refType": "PurchaseOrder", "event": "PurchaseOrderPutAwayConfirmed", "qtyChange": 10, "balance": 10, "detail": "Fresh Foods Ltd — 10 bags shelved at Sloc A-12." },
+        { "id": 2, "time": "11:00", "occurredAt": "2024-01-15T11:00:00Z", "dir": "out", "ref": "TR-001", "refType": "TransferOrder", "event": "TransferPickConfirmed", "qtyChange": -4, "balance": 6, "detail": "4 bags picked for transfer → Store A" },
+        { "id": 3, "time": "15:31", "occurredAt": "2024-01-15T15:31:00Z", "dir": "out", "ref": "ORD-A", "refType": "Order", "event": "PickConfirmed", "qtyChange": -6, "balance": 0, "detail": "6 bags picked for delivery" }
+      ]
+    }
+  ]
+}
+``
+
+`
+
+--
+
+-
+
+## Group: Webhooks (Inbound
+
+)
+
+All webhook endpoints return `202 Accepted`. Duplicate `X-Idempotency-Key` values are ignored
+
+.
+
+**Required headers on all webhooks:*
+
+*
+
+| Header | Description |
+|---|---|
+| `X-Source-System` | `WMS`, `TMS`, or `POS` |
+| `X-Idempotency-Key` | UUID |
+| `X-Webhook-Signature` | HMAC-SHA256 of body using shared secret
+
+|
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/stock/ledger</span></div></div></div><div id="-36" class="resource"><h3 class="resource-heading">Resource <a href="#-36" class="permalink">&nbsp;&para;</a></h3><div id="post-9" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-9" class="method post">POST</a><code class="uri">/webhooks/wms/booking-confirmed</code></h4><p>d</p>
+<p>WMS confirms stock reserved. → <code>BookingConfirmed</code>. (UC2</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “orderId”: “ORD-001”, “wmsBookingRef”: “WMS-BK-001”, “confirmedAt”: “…” }</p>
+<p>`</p>
+<p><strong>Response 202:</strong> `{ “accepted”: true, “orderId”: “ORD-001”, “newStatus”: “BookingConfirmed” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/booking-confirmed</span></div></div></div><div id="-37" class="resource"><h3 class="resource-heading">Resource <a href="#-37" class="permalink">&nbsp;&para;</a></h3><div id="post-10" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-10" class="method post">POST</a><code class="uri">/webhooks/wms/pick-started</code></h4><p>d</p>
+<p>WMS picker begins collecting items. → <code>PickStarted</code>. (UC3</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “orderId”: “ORD-001”, “pickerId”: “picker-01”, “startedAt”: “…” }</p>
+<p>`</p>
+<p><strong>Response 202:</strong> `{ “accepted”: true, “orderId”: “ORD-001”, “newStatus”: “PickStarted” }</p>
+<p>`</p>
+<p>**Outbox events dispatched:</p>
+<p>**</p>
+<ul>
+<li><code>PickStartedSentToTMS</code> → TMS (all payment methods — allows TMS to prepare delivery logistics in advance</li>
+</ul>
+<p>)</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/pick-started</span></div></div></div><div id="-38" class="resource"><h3 class="resource-heading">Resource <a href="#-38" class="permalink">&nbsp;&para;</a></h3><div id="post-11" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-11" class="method post">POST</a><code class="uri">/webhooks/wms/wave-started</code></h4><p>d</p>
+<p>WMS notifies OMS that wave picking has started. (UC-WAVE</p>
+<p>)</p>
+<p>Valid only when order is in <code>PickStarted</code> status</p>
+<p>.</p>
+<p><strong>Headers:</strong> `X-Idempotency-Key: <uuid></p>
+<p>`</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "waveId": "WAVE-001",
+  "startedAt": "2024-01-15T15:35:00Z"
+}
+``
+
+`
+
+**Response 202 Accepted*
+
+*
+
+**Outbox event dispatched:** `WaveStartedSentToGateway` → Gatewa
+
+y
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/wave-started</span></div></div></div><div id="-39" class="resource"><h3 class="resource-heading">Resource <a href="#-39" class="permalink">&nbsp;&para;</a></h3><div id="post-12" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-12" class="method post">POST</a><code class="uri">/webhooks/wms/pick-confirmed</code></h4><p>d</p>
+<p>WMS reports actual picked quantities per line. Triggers POS recalculation if any quantity differs or substitution exists. → <code>PickConfirmed</code>. (UC4</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "lines": [ { "orderLineId": "line-001", "sku": "APPLE-1KG", "pickedQty": 5, "substituted": false } ],
+  "pickedAt": "2024-01-15T15:31:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "PickConfirmed" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/pick-confirmed</span></div></div></div><div id="-40" class="resource"><h3 class="resource-heading">Resource <a href="#-40" class="permalink">&nbsp;&para;</a></h3><div id="post-13" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-13" class="method post">POST</a><code class="uri">/webhooks/wms/packed</code></h4><p>d</p>
+<p>WMS confirms order packed into packages. → <code>Packed</code>. (UC4</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "packages": [ { "trackingId": "TRK-2024-001", "vehicleType": "Van", "weight": 2.5, "lineIds": ["line-001"] } ],
+  "packedAt": "2024-01-15T17:30:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Packed", "packagesCreated": 1 }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/packed</span></div></div></div><div id="-41" class="resource"><h3 class="resource-heading">Resource <a href="#-41" class="permalink">&nbsp;&para;</a></h3><div id="post-14" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-14" class="method post">POST</a><code class="uri">/webhooks/wms/substitution-offered</code></h4><p>d</p>
+<p>WMS offers alternative SKU for unfulfillable line. Sets <code>substitution_flag = true</code>. (UC5</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-003",
+  "orderLineId": "line-003",
+  "substituteSku": "MILK-2L",
+  "substituteProductName": "Whole Milk (2L)",
+  "substituteUnitPrice": 55,
+  "substitutedAmount": 1,
+  "offeredAt": "2024-01-15T15:10:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "substitutionId": "sub-001", "orderId": "ORD-003", "customerNotified": true }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/substitution-offered</span></div></div></div><div id="-42" class="resource"><h3 class="resource-heading">Resource <a href="#-42" class="permalink">&nbsp;&para;</a></h3><div id="post-15" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-15" class="method post">POST</a><code class="uri">/webhooks/wms/put-away-confirmed</code></h4><p>d</p>
+<p>WMS confirms returned items are shelved. Atomically: transitions the <strong>return record</strong> to <code>PutAway</code>, transitions the <strong>linked order</strong> from <code>Delivered</code> to <code>Returned</code>, and initiates the refund calculation. (UC12, UC14</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "returnId": "RET-001",
+  "items": [
+    { "sku": "APPLE-1KG", "condition": "Resellable", "sloc": "B-05", "quantity": 2, "performedBy": "wms-picker-07" }
+  ],
+  "putAwayAt": "2024-01-15T11:00:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "returnId": "RET-001", "newReturnStatus": "PutAway", "refundInitiated": true, "creditNoteId": "CN-RET-001" }
+
+`
+
+**Side effects (all atomic in the same DB transaction):*
+
+*
+
+| Effect | Detail |
+|---|---|
+| Return record status | `Requested` → `PutAway` |
+| **Order status** | `Delivered` → **`Returned`** |
+| Refund record | Created with `status: Pending` |
+| Credit note | Created or linked if applicable
+
+|
+
+The order status transition to `Returned` was added to fix a bug where the order remained in `Delivered` after the return was put away. Calling `GET /orders/{orderId}` after this webhook now returns `status: "Returned"`
+
+.
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/put-away-confirmed</span></div></div></div><div id="-43" class="resource"><h3 class="resource-heading">Resource <a href="#-43" class="permalink">&nbsp;&para;</a></h3><div id="post-16" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-16" class="method post">POST</a><code class="uri">/webhooks/wms/goods-receipt-confirmed</code></h4><p>d</p>
+<p>WMS confirms goods physically received at dock against a PO. (UC21</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "purchaseOrderId": "PO-001",
+  "goodsReceiveNo": "GRN-2024-001",
+  "lines": [ { "sku": "APPLE-1KG", "receivedQty": 10 } ],
+  "receivedAt": "2024-01-15T09:28:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "purchaseOrderId": "PO-001", "newStatus": "FullyReceived" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/goods-receipt-confirmed</span></div></div></div><div id="-44" class="resource"><h3 class="resource-heading">Resource <a href="#-44" class="permalink">&nbsp;&para;</a></h3><div id="post-17" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-17" class="method post">POST</a><code class="uri">/webhooks/wms/purchase-order-put-away-confirmed</code></h4><p>d</p>
+<p>WMS confirms inbound goods shelved. Closes PO. Signals stock available. (UC21</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "purchaseOrderId": "PO-001",
+  "items": [ { "sku": "APPLE-1KG", "condition": "Resellable", "sloc": "A-12", "qty": 10 } ],
+  "putAwayAt": "2024-01-15T10:14:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "purchaseOrderId": "PO-001", "newStatus": "Closed" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/purchase-order-put-away-confirmed</span></div></div></div><div id="-45" class="resource"><h3 class="resource-heading">Resource <a href="#-45" class="permalink">&nbsp;&para;</a></h3><div id="post-18" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-18" class="method post">POST</a><code class="uri">/webhooks/wms/transfer-pick-confirmed</code></h4><p>d</p>
+<p>WMS at source store confirms items picked and packed for transfer. Triggers TMS dispatch. (UC22</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "transferOrderId": "TR-001",
+  "lines": [ { "sku": "APPLE-1KG", "transferredQty": 4 } ],
+  "confirmedAt": "2024-01-15T11:00:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "transferOrderId": "TR-001", "newStatus": "PickConfirmed" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/transfer-pick-confirmed</span></div></div></div><div id="-46" class="resource"><h3 class="resource-heading">Resource <a href="#-46" class="permalink">&nbsp;&para;</a></h3><div id="post-19" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-19" class="method post">POST</a><code class="uri">/webhooks/wms/transfer-received</code></h4><p>d</p>
+<p>WMS at destination confirms stock arrived and put away. Completes Transfer Order. (UC22</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “transferOrderId”: “TR-001”, “receivedAt”: “2024-01-15T14:30:00Z” }</p>
+<p>`</p>
+<p><strong>Response 202:</strong> `{ “accepted”: true, “transferOrderId”: “TR-001”, “newStatus”: “Completed” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/transfer-received</span></div></div></div><div id="-47" class="resource"><h3 class="resource-heading">Resource <a href="#-47" class="permalink">&nbsp;&para;</a></h3><div id="post-20" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-20" class="method post">POST</a><code class="uri">/webhooks/wms/damaged-goods-received</code></h4><p>d</p>
+<p>WMS checks in a damaged package returned by TMS driver. Order → <code>OnHold (PackageDamaged)</code>. (UC23</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-006",
+  "trackingId": "TRK-2024-006",
+  "receivedAt": "2024-01-15T12:00:00Z",
+  "items": [
+    { "sku": "APPLE-1KG", "condition": "Repairable", "sloc": null, "quantity": 3 }
+  ]
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-006", "damagedReceiptId": "DMG-001", "newOrderStatus": "OnHold", "holdReason": "PackageDamaged" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/damaged-goods-received</span></div></div></div><div id="-48" class="resource"><h3 class="resource-heading">Resource <a href="#-48" class="permalink">&nbsp;&para;</a></h3><div id="post-21" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-21" class="method post">POST</a><code class="uri">/webhooks/wms/damaged-goods-put-away</code></h4><p>y</p>
+<p>WMS confirms damaged items inspected, condition assigned, shelved/disposed. (UC23</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "damagedReceiptId": "DMG-001",
+  "items": [ { "sku": "APPLE-1KG", "condition": "Repairable", "sloc": "DMG-01", "quantity": 12 } ],
+  "putAwayAt": "2024-01-15T12:00:00Z",
+  "updatedBy": "wms-inspector-02"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "damagedReceiptId": "DMG-001", "newStatus": "PutAway" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/wms/damaged-goods-put-away</span></div></div></div><div id="-49" class="resource"><h3 class="resource-heading">Resource <a href="#-49" class="permalink">&nbsp;&para;</a></h3><div id="post-22" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-22" class="method post">POST</a><code class="uri">/webhooks/tms/slot-rescheduled</code></h4><p>d</p>
+<p>TMS notifies OMS that the delivery slot has been rescheduled by the customer. Updates the delivery slot and notifies WMS. Not allowed once the order is <code>OutForDelivery</code> or later. (UC8</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "newScheduledStart": "2024-01-15T20:00:00Z",
+  "newScheduledEnd": "2024-01-15T21:00:00Z",
+  "bookingRef": "TMS-RESCHEDULE-001",
+  "reason": "CustomerRequest",
+  "rescheduledAt": "2024-01-15T14:00:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "deliverySlot": { "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T21:00:00Z" } }
+
+`
+
+**Outbox event dispatched:** `DeliverySlotRescheduledEvent` → WM
+
+S
+
+**Response 409:
+
+**
+```json
+{ "error": "slot_change_not_allowed", "detail": "Order ORD-001 is already OutForDelivery. Slot cannot be changed." }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/tms/slot-rescheduled</span></div></div></div><div id="-50" class="resource"><h3 class="resource-heading">Resource <a href="#-50" class="permalink">&nbsp;&para;</a></h3><div id="post-23" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-23" class="method post">POST</a><code class="uri">/webhooks/tms/package-dispatched</code></h4><p>d</p>
+<p>TMS driver collected the package. Transitions order to <code>OutForDelivery</code>. (UC7</p>
+<p>)</p>
+<p><strong>Request:</strong> `{ “trackingId”: “TRK-2024-001”, “dispatchedAt”: “2024-01-15T17:47:00Z” }</p>
+<p>`</p>
+<p><strong>Response 202:</strong> `{ “accepted”: true, “orderId”: “ORD-001”, “newOrderStatus”: “OutForDelivery”, “newPackageStatus”: “OutForDelivery” }</p>
+<p>`</p>
+<p><strong>Outbox event dispatched:</strong> <code>OutForDeliverySentToGateway</code> → Gatewa</p>
+<p>y</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/tms/package-dispatched</span></div></div></div><div id="-51" class="resource"><h3 class="resource-heading">Resource <a href="#-51" class="permalink">&nbsp;&para;</a></h3><div id="post-24" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-24" class="method post">POST</a><code class="uri">/webhooks/tms/package-delivered</code></h4><p>d</p>
+<p>TMS confirms delivery to customer. Triggers invoice generation. → <code>Delivered</code>. (UC8</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "trackingId": "TRK-2024-001",
+  "deliveredAt": "2024-01-15T19:22:00Z",
+  "recipientName": "Alice Johnson",
+  "proofOfDelivery": "https://tms.example.com/pod/TRK-2024-001.jpg"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-001", "newStatus": "Delivered", "invoiceTriggered": true }
+
+`
+
+**Outbox events dispatched:
+
+**
+- `DeliveredSentToGateway` → Gateway (all payment methods
+
+)
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/tms/package-delivered</span></div></div></div><div id="-52" class="resource"><h3 class="resource-heading">Resource <a href="#-52" class="permalink">&nbsp;&para;</a></h3><div id="post-25" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-25" class="method post">POST</a><code class="uri">/webhooks/tms/package-damage-reported</code></h4><p>d</p>
+<p>TMS driver reports damage before/during delivery. Order → <code>OnHold</code>. Driver instructed to return goods to warehouse. (UC20</p>
+<p>)</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "trackingId": "TRK-2024-006",
+  "reason": "PackageDamaged",
+  "driverNote": "Box crushed during transport",
+  "reportedAt": "2024-01-15T10:45:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-006", "newOrderStatus": "OnHold", "holdReason": "PackageDamaged", "preHoldStatus": "OutForDelivery" }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/tms/package-damage-reported</span></div></div></div><div id="-53" class="resource"><h3 class="resource-heading">Resource <a href="#-53" class="permalink">&nbsp;&para;</a></h3><div id="post-26" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-26" class="method post">POST</a><code class="uri">/webhooks/tms/recalculation-requested</code></h4><p>d</p>
+<p>TMS driver requests a POS recalculation at the customer’s door (POD only). Used when the actual delivered weight differs from the ordered quantity (e.g. weight-based items). OMS calls POS outbound and returns the adjusted amount so the driver knows the correct amount to collect. Only valid when order is <code>OutForDelivery</code></p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "trackingId": "TRK-2024-005",
+  "reason": "ActualWeightDiffers",
+  "actualWeight": 0.84123,
+  "requestedAt": "2024-01-15T14:30:00Z"
+}
+``
+
+`
+
+**Response 202:** `{ "accepted": true, "orderId": "ORD-005", "adjustedAmount": 10684 }
+
+`
+
+**Error 404:** `tracking_not_found`
+**Error 422:** Invalid transition — order is not `OutForDelivery
+
+`
+
+--
+
+-
+
+## Group: STS Webhook
+
+s
+
+Inbound callbacks from the Settlement &amp; Tax System (STS). STS generates official ABB/Tax Invoice and Credit Note documents and notifies OMS with download links
+
+.
+
+**How STS is triggered (external to OMS):*
+
+*
+
+OMS dispatches outbox events to Gateway at key status transitions. Gateway handles payment and tax processing outside OMS. Once Gateway's processing is complete, STS sends the ABB/Tax Invoice (and optionally a Credit Note) back to OMS
+
+.
+
+| Flow | OMS outbox event that triggers Gateway | Gateway processing | STS sends to OMS |
+|---|---|---|---|
+| **Prepaid** | `PickConfirmedSentToGateway` (after `PickConfirmed`) | Gateway handles payment settlement externally | ABB/Tax Invoice or Credit Note |
+| **POD** | `DeliveredSentToGateway` (after `Delivered`) | Gateway handles COD/payment collection externally | ABB/Tax Invoice or Credit Note
+
+|
+
+OMS routes the received STS documents to downstream systems based on `orders.is_prepaid`
+
+:
+
+| Flow | Trigger point | Invoice forwarded to | Credit Note forwarded to |
+|---|---|---|---|
+| **Pre-paid** (`is_prepaid = true`) | After `PickConfirmed`, before TMS dispatch | WMS + Gateway | WMS + Gateway |
+| **POD** — Pay On Delivery (`is_prepaid = false`) | After `Delivered` | TMS + Gateway | TMS + Gateway
+
+|
+
+**Shared STS webhook headers:*
+
+*
+
+| Header | Description |
+|---|---|
+| `X-Source-System` | Always `STS` |
+| `X-Idempotency-Key` | UUID — duplicate requests with same key are ignored |
+| `X-Webhook-Signature` | HMAC-SHA256 of request body using shared secret
+
+|
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/tms/recalculation-requested</span></div></div></div><div id="-54" class="resource"><h3 class="resource-heading">Resource <a href="#-54" class="permalink">&nbsp;&para;</a></h3><div id="post-27" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-27" class="method post">POST</a><code class="uri">/webhooks/sts/abb-tax-invoice</code></h4><p>e</p>
+<p>STS sends the ABB/Tax Invoice document link. Timing and forwarding targets differ by payment type</p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "invoiceNumber": "ABB-2024-001",
+  "invoiceLink": "https://sts.example.com/invoices/ABB-2024-001.pdf",
+  "amount": 2380,
+  "currency": "THB",
+  "issuedAt": "2024-01-15T16:00:00Z"
+}
+``
+
+`
+
+**Response 202:
+
+**
+```json
+{
+  "accepted": true,
+  "orderId": "ORD-001",
+  "invoiceNumber": "ABB-2024-001",
+  "invoiceId": "inv-001",
+  "forwardedTo": ["WMS", "Gateway"]
+}
+``
+
+`
+
+**Response 409:** `{ "error": "conflict", "detail": "ABB/Tax Invoice ABB-2024-001 already received for ORD-001." }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/sts/abb-tax-invoice</span></div></div></div><div id="-55" class="resource"><h3 class="resource-heading">Resource <a href="#-55" class="permalink">&nbsp;&para;</a></h3><div id="post-28" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-28" class="method post">POST</a><code class="uri">/webhooks/sts/credit-note</code></h4><p>e</p>
+<p>STS sends a Credit Note document link as a separate webhook when a credit note exists for the order. Pre-paid: forwards to WMS and Gateway. POD: forwards to TMS and Gateway</p>
+<p>.</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-2024-001",
+  "creditNoteLink": "https://sts.example.com/credit-notes/CN-2024-001.pdf",
+  "amount": 200,
+  "currency": "THB",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+``
+
+`
+
+**Response 202:
+
+**
+```json
+{
+  "accepted": true,
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-2024-001",
+  "forwardedTo": ["WMS"]
+}
+``
+
+`
+
+**Response 409:** `{ "error": "conflict", "detail": "Credit Note CN-2024-001 already received for ORD-001." }
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/sts/credit-note</span></div></div></div><div id="-56" class="resource"><h3 class="resource-heading">Resource <a href="#-56" class="permalink">&nbsp;&para;</a></h3><div id="post-29" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-29" class="method post">POST</a><code class="uri">/webhooks/sts/abb-tax-invoice-received</code></h4><p>d</p>
+<p>STS sends the official ABB/Tax Invoice to OMS. Timing and forwarding targets differ by payment method: Prepaid invoices arrive after <code>PickConfirmed</code>; POD invoices arrive after <code>Delivered</code></p>
+<p>.</p>
+<p><strong>Headers:</strong> `X-Idempotency-Key: <uuid></p>
+<p>`</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "invoiceNumber": "INV-STS-001",
+  "invoiceAmount": 238000,
+  "currency": "THB",
+  "invoiceLink": "https://sts.example.com/invoices/INV-STS-001.pdf",
+  "issuedAt": "2024-01-15T16:00:00Z"
+}
+``
+
+`
+
+Note: `invoiceLink` is required for POD (the link is forwarded to TMS and Gateway). For Prepaid, only `invoiceAmount` and `invoiceNumber` are forwarded to WMS
+
+.
+
+**Response 202 Accepted*
+
+*
+
+**Routing by payment method:
+
+**
+- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBTaxInvoiceSentToGateway` → Gatew
+
+ay
+- `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGateway` → Gatewa
+
+y
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/sts/abb-tax-invoice-received</span></div></div></div><div id="-57" class="resource"><h3 class="resource-heading">Resource <a href="#-57" class="permalink">&nbsp;&para;</a></h3><div id="post-30" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-30" class="method post">POST</a><code class="uri">/webhooks/sts/credit-note-received</code></h4><p>d</p>
+<p>STS issues a credit note to OMS. Optional — only dispatched when a credit note exists for the order (e.g. price adjustment after substitution or partial pick). Forwarding target depends on payment method</p>
+<p>.</p>
+<p><strong>Headers:</strong> `X-Idempotency-Key: <uuid></p>
+<p>`</p>
+<p>**Request:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "orderId": "ORD-001",
+  "creditNoteNumber": "CN-001",
+  "amount": 4400,
+  "currency": "THB",
+  "creditNoteLink": "https://sts.example.com/credit-notes/CN-001.pdf",
+  "issuedAt": "2024-01-15T16:05:00Z"
+}
+``
+
+`
+
+**Note:** The request field is `amount` (not `creditAmount` — that was a previous naming that caused a 0-amount bug and has been corrected)
+
+.
+
+**Response 202 Accepted*
+
+*
+
+**Routing by payment method:
+
+**
+- `paymentMethod = 'Prepaid'`: dispatches `CreditNoteSentToWMS` → WMS and `CreditNoteSentToGateway` → Gatew
+
+ay
+- `paymentMethod = 'POD'`: dispatches `CreditNoteSentToTMS` → TMS and `CreditNoteSentToGateway` → Gatewa
+
+y
+
+--
+
+-
+
+## Group: Branche</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/webhooks/sts/credit-note-received</span></div></div></div><div id="-58" class="resource"><h3 class="resource-heading">Resource <a href="#-58" class="permalink">&nbsp;&para;</a></h3><div id="get-20" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-20" class="method get">GET</a><code class="uri">/branches/nearby</code></h4><p>y</p>
+<p>Returns branches near a given location. Used as the first step in the POD customer journey — customer selects a branch before requesting a delivery time slot</p>
+<p>.</p>
+<p><strong>Query parameters:</strong> <code>lat</code> (required), <code>lng</code> (required), <code>radius</code> (km, default 10), <code>limit</code> (default 20</p>
+<p>)</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{
+  "branches": [
+    {
+      "branchId": "store-central-dc",
+      "name": "Central DC",
+      "address": "123 Main St, Bangkok",
+      "lat": 13.7563,
+      "lng": 100.5018,
+      "distanceKm": 2.3,
+      "availableSlots": true
+    }
+  ]
+}
+``
+
+`
+
+**Error 400:** `missing_coordinates` — lat or lng not provide
+
+d
+
+--
+
+-
+
+## Group: Configuration Managemen
+
+t
+
+### Outbox Routing Rule
+
+s
+
+Endpoints for managing `config.outbox_routing_rules` — the table that drives dynamic outbox dispatch. The outbox worker matches `(channel_type, business_unit, trigger_event)` to resolve which target systems receive an event. Exact matches take precedence over wildcard `*` entries; all matching rules are dispatched, ordered by `execution_order`. If no rule matches, no outbox event is dispatched (safe opt-out via config)
+
+.
+
+**OutboxRoutingRule response shape:*
+
+*
+
+```json
+{
+  "rule_id": 1,
+  "channel_type": "Marketplace",
+  "business_unit": "TikTok",
+  "trigger_event": "PickConfirmedEvent",
+  "target_system": "Marketplace",
+  "endpoint_key": "tiktok.pick-confirm",
+  "execution_order": 2,
+  "is_active": true
+}
+``
+
+`
+
+| Field | Type | Description |
+|---|---|---|
+| `rule_id` | bigint | Auto-generated primary key |
+| `channel_type` | string | Channel this rule applies to; use `"*"` to match all channels |
+| `business_unit` | string | Business unit this rule applies to; use `"*"` to match all BUs |
+| `trigger_event` | string | Domain event name that triggers dispatch |
+| `target_system` | string | Downstream system: `WMS`, `TMS`, `Marketplace`, `Gateway`, etc. |
+| `endpoint_key` | string | ACL adapter key resolved to a real URL (e.g. `tiktok.pick-confirm`) |
+| `execution_order` | int | Ascending sort order when multiple rules match the same trigger |
+| `is_active` | bool | `false` = soft-deleted / opted out; worker skips inactive rules
+
+|
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/branches/nearby</span></div></div></div><div id="-59" class="resource"><h3 class="resource-heading">Resource <a href="#-59" class="permalink">&nbsp;&para;</a></h3><div id="get-21" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-21" class="method get">GET</a><code class="uri">/config/outbox-routing-rules</code></h4><p>s</p>
+<p>Return all outbox routing rules</p>
+<p>.</p>
+<p><strong>Auth:</strong> Bearer JW</p>
+<p>T</p>
+<p>**Response 200:</p>
+<p>**</p>
+<pre><code class="language-json">{ "data": [ { "rule_id": 1, "channel_type": "Marketplace", "business_unit": "TikTok", "trigger_event": "PickConfirmedEvent", "target_system": "Marketplace", "endpoint_key": "tiktok.pick-confirm", "execution_order": 2, "is_active": true } ] }
+``
+
+`
+
+--</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/config/outbox-routing-rules</span></div></div></div><div id="-60" class="resource"><h3 class="resource-heading">Resource <a href="#-60" class="permalink">&nbsp;&para;</a></h3><div id="get-22" class="action get"><h4 class="action-heading"><div class="name"></div><a href="#get-22" class="method get">GET</a><code class="uri">/config/outbox-routing-rules/</code></h4><p>}</p>
+<p>Return a single outbox routing rule by ID</p>
+<p>.</p>
+<p><strong>Auth:</strong> Bearer JW</p>
+<p>T</p>
+<p><strong>Response 200:</strong> `{ “data”: OutboxRoutingRule }</p>
+<p>`</p>
+<p><strong>Response 404:</strong> `{ “error_code”: “not_found”, “message”: “Rule <ruleId> not found.”, “trace_id”: “…” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method get">GET</span>&nbsp;<span class="uri"><span class="hostname"></span>/config/outbox-routing-rules/</span></div></div></div><div id="-61" class="resource"><h3 class="resource-heading">Resource <a href="#-61" class="permalink">&nbsp;&para;</a></h3><div id="post-31" class="action post"><h4 class="action-heading"><div class="name"></div><a href="#post-31" class="method post">POST</a><code class="uri">/config/outbox-routing-rules</code></h4><p>s</p>
+<p>Create a new outbox routing rule</p>
+<p>.</p>
+<p><strong>Auth:</strong> Bearer JW</p>
+<p>T</p>
+<p>*<em>Request:</em></p>
+<ul>
+<li></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel_type</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Channel type or <code>&quot;*&quot;</code> for all channels</td>
+</tr>
+<tr>
+<td><code>business_unit</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Business unit or <code>&quot;*&quot;</code> for all BUs</td>
+</tr>
+<tr>
+<td><code>trigger_event</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Domain event name</td>
+</tr>
+<tr>
+<td><code>target_system</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Downstream system identifier</td>
+</tr>
+<tr>
+<td><code>endpoint_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>ACL adapter endpoint key</td>
+</tr>
+<tr>
+<td><code>execution_order</code></td>
+<td>int</td>
+<td>Yes</td>
+<td>Dispatch order when multiple rules match</td>
+</tr>
+<tr>
+<td><code>is_active</code></td>
+<td>bool</td>
+<td>Yes</td>
+<td>Set <code>true</code> to activate immediately</td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p><strong>Response 201:</strong> `{ “data”: OutboxRoutingRule }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method post">POST</span>&nbsp;<span class="uri"><span class="hostname"></span>/config/outbox-routing-rules</span></div></div></div><div id="-62" class="resource"><h3 class="resource-heading">Resource <a href="#-62" class="permalink">&nbsp;&para;</a></h3><div id="put" class="action put"><h4 class="action-heading"><div class="name"></div><a href="#put" class="method put">PUT</a><code class="uri">/config/outbox-routing-rules/</code></h4><p>}</p>
+<p>Replace an existing outbox routing rule. All fields are replaced</p>
+<p>.</p>
+<p><strong>Auth:</strong> Bearer JW</p>
+<p>T</p>
+<p><strong>Request:</strong> Same fields as <code>POST /config/outbox-routing-rules</code></p>
+<p>.</p>
+<p><strong>Response 200:</strong> `{ “data”: OutboxRoutingRule }</p>
+<p>`</p>
+<p><strong>Response 404:</strong> `{ “error_code”: “not_found”, “message”: “Rule <ruleId> not found.”, “trace_id”: “…” }</p>
+<p>`</p>
+<p>–</p>
+<h4>Example URI</h4><div class="definition"><span class="method put">PUT</span>&nbsp;<span class="uri"><span class="hostname"></span>/config/outbox-routing-rules/</span></div></div></div><div id="-63" class="resource"><h3 class="resource-heading">Resource <a href="#-63" class="permalink">&nbsp;&para;</a></h3><div id="delete" class="action delete"><h4 class="action-heading"><div class="name"></div><a href="#delete" class="method delete">DELETE</a><code class="uri">/config/outbox-routing-rules/</code></h4><p>}</p>
+<p>Soft-delete a routing rule: sets <code>is_active = false</code>. The worker will stop dispatching events for this rule. The record is retained for audit</p>
+<p>.</p>
+<p><strong>Auth:</strong> Bearer JW</p>
+<p>T</p>
+<p><strong>Response 200:</strong> `{ “data”: { “message”: “Rule deactivated” } }</p>
+<p>`</p>
+<p><strong>Response 404:</strong> `{ “error_code”: “not_found”, “message”: “Rule <ruleId> not found.”, “trace_id”: “…” }</p>
+<p>`</p>
+<p>–</p>
+<ul>
+<li></li>
+</ul>
+<h2 id="header-error-envelop">Error Envelop <a class="permalink" href="#header-error-envelop" aria-hidden="true">¶</a></h2>
+<p>e</p>
+<p>All error responses share this shape</p>
+<p>:</p>
+<pre><code class="language-json">{ "error": "&lt;error_code&gt;", "detail": "&lt;human-readable message&gt;" }
+``
+
+`
+
+| Code | HTTP Status | Meaning |
+|---|---|---|
+| `unauthorized` | 401 | Token missing or expired |
+| `not_found` | 404 | Resource does not exist |
+| `conflict` | 409 | Duplicate `sourceOrderId` |
+| `invalid_transition` | 409 | State machine guard rejected the transition |
+| `unprocessable` | 422 | Business rule violation |
+| `invalid_parameter` | 400 | Bad query parameter</code></pre>
+<h4>Example URI</h4><div class="definition"><span class="method delete">DELETE</span>&nbsp;<span class="uri"><span class="hostname"></span>/config/outbox-routing-rules/</span></div></div></div></section></div></div></div><p style="text-align: center;" class="text-muted">Generated by&nbsp;<a href="https://github.com/danielgtaylor/aglio" class="aglio">aglio</a>&nbsp;on 18 May 2026</p><script>/* eslint-env browser */
+/* eslint quotes: [2, "single"] */
+'use strict';
+
+/*
+  Determine if a string ends with another string.
+*/
+function endsWith(str, suffix) {
+    return str.indexOf(suffix, str.length - suffix.length) !== -1;
+}
+
+/*
+  Get a list of direct child elements by class name.
+*/
+function childrenByClass(element, name) {
+  var filtered = [];
+
+  for (var i = 0; i < element.children.length; i++) {
+    var child = element.children[i];
+    var classNames = child.className.split(' ');
+    if (classNames.indexOf(name) !== -1) {
+      filtered.push(child);
+    }
+  }
+
+  return filtered;
+}
+
+/*
+  Get an array [width, height] of the window.
+*/
+function getWindowDimensions() {
+  var w = window,
+      d = document,
+      e = d.documentElement,
+      g = d.body,
+      x = w.innerWidth || e.clientWidth || g.clientWidth,
+      y = w.innerHeight || e.clientHeight || g.clientHeight;
+
+  return [x, y];
+}
+
+/*
+  Collapse or show a request/response example.
+*/
+function toggleCollapseButton(event) {
+    var button = event.target.parentNode;
+    var content = button.parentNode.nextSibling;
+    var inner = content.children[0];
+
+    if (button.className.indexOf('collapse-button') === -1) {
+      // Clicked without hitting the right element?
+      return;
+    }
+
+    if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+        // Currently showing, so let's hide it
+        button.className = 'collapse-button';
+        content.style.maxHeight = '0px';
+    } else {
+        // Currently hidden, so let's show it
+        button.className = 'collapse-button show';
+        content.style.maxHeight = inner.offsetHeight + 12 + 'px';
+    }
+}
+
+function toggleTabButton(event) {
+    var i, index;
+    var button = event.target;
+
+    // Get index of the current button.
+    var buttons = childrenByClass(button.parentNode, 'tab-button');
+    for (i = 0; i < buttons.length; i++) {
+        if (buttons[i] === button) {
+            index = i;
+            button.className = 'tab-button active';
+        } else {
+            buttons[i].className = 'tab-button';
+        }
+    }
+
+    // Hide other tabs and show this one.
+    var tabs = childrenByClass(button.parentNode.parentNode, 'tab');
+    for (i = 0; i < tabs.length; i++) {
+        if (i === index) {
+            tabs[i].style.display = 'block';
+        } else {
+            tabs[i].style.display = 'none';
+        }
+    }
+}
+
+/*
+  Collapse or show a navigation menu. It will not be hidden unless it
+  is currently selected or `force` has been passed.
+*/
+function toggleCollapseNav(event, force) {
+    var heading = event.target.parentNode;
+    var content = heading.nextSibling;
+    var inner = content.children[0];
+
+    if (heading.className.indexOf('heading') === -1) {
+      // Clicked without hitting the right element?
+      return;
+    }
+
+    if (content.style.maxHeight && content.style.maxHeight !== '0px') {
+      // Currently showing, so let's hide it, but only if this nav item
+      // is already selected. This prevents newly selected items from
+      // collapsing in an annoying fashion.
+      if (force || window.location.hash && endsWith(event.target.href, window.location.hash)) {
+        content.style.maxHeight = '0px';
+      }
+    } else {
+      // Currently hidden, so let's show it
+      content.style.maxHeight = inner.offsetHeight + 12 + 'px';
+    }
+}
+
+/*
+  Refresh the page after a live update from the server. This only
+  works in live preview mode (using the `--server` parameter).
+*/
+function refresh(body) {
+    document.querySelector('body').className = 'preload';
+    document.body.innerHTML = body;
+
+    // Re-initialize the page
+    init();
+    autoCollapse();
+
+    document.querySelector('body').className = '';
+}
+
+/*
+  Determine which navigation items should be auto-collapsed to show as many
+  as possible on the screen, based on the current window height. This also
+  collapses them.
+*/
+function autoCollapse() {
+  var windowHeight = getWindowDimensions()[1];
+  var itemsHeight = 64; /* Account for some padding */
+  var itemsArray = Array.prototype.slice.call(
+    document.querySelectorAll('nav .resource-group .heading'));
+
+  // Get the total height of the navigation items
+  itemsArray.forEach(function (item) {
+    itemsHeight += item.parentNode.offsetHeight;
+  });
+
+  // Should we auto-collapse any nav items? Try to find the smallest item
+  // that can be collapsed to show all items on the screen. If not possible,
+  // then collapse the largest item and do it again. First, sort the items
+  // by height from smallest to largest.
+  var sortedItems = itemsArray.sort(function (a, b) {
+    return a.parentNode.offsetHeight - b.parentNode.offsetHeight;
+  });
+
+  while (sortedItems.length && itemsHeight > windowHeight) {
+    for (var i = 0; i < sortedItems.length; i++) {
+      // Will collapsing this item help?
+      var itemHeight = sortedItems[i].nextSibling.offsetHeight;
+      if ((itemsHeight - itemHeight <= windowHeight) || i === sortedItems.length - 1) {
+        // It will, so let's collapse it, remove its content height from
+        // our total and then remove it from our list of candidates
+        // that can be collapsed.
+        itemsHeight -= itemHeight;
+        toggleCollapseNav({target: sortedItems[i].children[0]}, true);
+        sortedItems.splice(i, 1);
+        break;
+      }
+    }
+  }
+}
+
+/*
+  Initialize the interactive functionality of the page.
+*/
+function init() {
+    var i, j;
+
+    // Make collapse buttons clickable
+    var buttons = document.querySelectorAll('.collapse-button');
+    for (i = 0; i < buttons.length; i++) {
+        buttons[i].onclick = toggleCollapseButton;
+
+        // Show by default? Then toggle now.
+        if (buttons[i].className.indexOf('show') !== -1) {
+            toggleCollapseButton({target: buttons[i].children[0]});
+        }
+    }
+
+    var responseCodes = document.querySelectorAll('.example-names');
+    for (i = 0; i < responseCodes.length; i++) {
+        var tabButtons = childrenByClass(responseCodes[i], 'tab-button');
+        for (j = 0; j < tabButtons.length; j++) {
+            tabButtons[j].onclick = toggleTabButton;
+
+            // Show by default?
+            if (j === 0) {
+                toggleTabButton({target: tabButtons[j]});
+            }
+        }
+    }
+
+    // Make nav items clickable to collapse/expand their content.
+    var navItems = document.querySelectorAll('nav .resource-group .heading');
+    for (i = 0; i < navItems.length; i++) {
+        navItems[i].onclick = toggleCollapseNav;
+
+        // Show all by default
+        toggleCollapseNav({target: navItems[i].children[0]});
+    }
+}
+
+// Initial call to set up buttons
+init();
+
+window.onload = function () {
+    autoCollapse();
+    // Remove the `preload` class to enable animations
+    document.querySelector('body').className = '';
+};
+</script></body></html>

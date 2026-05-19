@@ -13,7 +13,7 @@ public record CreateOrderSlotRequest(DateTime ScheduledStart, DateTime Scheduled
 
 public record CreateOrderRequest(
     string SourceOrderId, string ChannelType, string BusinessUnit, string StoreId,
-    string FulfillmentType, string PaymentMethod, bool IsPrepaid,
+    string FulfillmentType, string PaymentMethod, string PaymentFlow,
     string CustomerName, string CustomerPhone, string? CustomerEmail,
     string? ExternalCustomerId,
     CreateOrderAddressRequest? DeliveryAddress,
@@ -70,7 +70,7 @@ public class CreateOrderHandler(InMemoryStore store)
             Type = "Standard",
             FulfillmentType = req.FulfillmentType,
             PaymentMethod = req.PaymentMethod,
-            IsPrepaid = req.IsPrepaid,
+            PaymentFlow = req.PaymentFlow,
             Items = req.Lines.Count,
             Amount = req.Lines.Sum(l => l.RequestedQty * l.UnitPrice),
             CreatedBy = "api",
@@ -105,7 +105,7 @@ public class CreateOrderHandler(InMemoryStore store)
         store.AddOrder(order);
         store.AppendEvent(id, ApiResult.DomainEvent("OrderCreated", OrderStatus.Pending,
             $"Order {num} created via {req.ChannelType}."));
-        foreach (var evt in ApiResult.DispatchOutbox(store, req.ChannelType, req.SubChannel, req.BusinessUnit,
+        foreach (var evt in ApiResult.BuildOutboxEvents(store, req.ChannelType, req.SubChannel, req.BusinessUnit,
             "OrderCreatedEvent", $"SC → {{target}}: Sale Order {num}"))
             store.AppendEvent(id, evt);
         return Results.Created($"/api/orders/{id}", order);

@@ -740,7 +740,7 @@ const PREPAID_PHASES = [
       { id: 17, from: ['SC'],  to: ['Gateway'],  type: 'outbox',  label: 'PickConfirmedSentToGateway (outbox)' },
       { id: 18, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'ABBTaxInvoiceReceived',          note: 'STS sends official ABB/Tax Invoice after PickConfirmed. Requires X-Idempotency-Key.' },
       { id: 19, from: ['SC'],  to: ['WMS'], type: 'outbox',  label: 'ABBInvoiceSentToWMS (outbox)',   note: 'Invoice forwarded to WMS BEFORE TMS dispatches. Pre-delivery.' },
-      { id: 19.5, from: ['SC'], to: ['Gateway'], type: 'outbox', label: 'ABBInvoiceSentToGateway (outbox)',    note: 'Invoice also forwarded to Gateway. Completes pre-delivery invoice fan-out.' },
+      { id: 19.5, from: ['SC'], to: ['Gateway'], type: 'outbox', label: 'ABBTaxInvoiceSentToGateway (outbox)',    note: 'Invoice also forwarded to Gateway. Completes pre-delivery invoice fan-out.' },
       { id: 20, from: ['STS'], to: ['SC'],  type: 'webhook', label: 'CreditNoteReceived',             note: 'Optional. STS issues credit note if price adjustment required. Requires X-Idempotency-Key; duplicates ignored.', optional: true },
       { id: 21, from: ['SC'],  to: ['WMS'], type: 'outbox',  label: 'CreditNoteSentToWMS (outbox)',   optional: true },
       { id: 21.5, from: ['SC'], to: ['Gateway'], type: 'outbox',  label: 'CreditNoteSentToGateway (outbox)',   note: 'Prepaid: credit note also forwarded to Gateway.', optional: true },
@@ -1779,7 +1779,7 @@ const OUTBOUND_COLS = [
 const PO_STATUSES = ['Created', 'PartiallyReceived', 'FullyReceived', 'Closed'];
 const TO_STATUSES = ['Created', 'PickConfirmed', 'InTransit', 'Received', 'Completed'];
 
-const CANCELLABLE_STATUSES = new Set(['Pending', 'BookingConfirmed', 'OnHold']);
+const CANCELLABLE_STATUSES = new Set(['Pending', 'OnHold']);
 
 function OrderCard({ order, onClick, onCancel }) {
   const urg     = orderUrgency(order);

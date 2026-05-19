@@ -82,7 +82,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
     });
   });
 
-  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBInvoiceSentToGateway', () => {
+  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBTaxInvoiceSentToGateway', () => {
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
       orderId,
       invoiceNumber: `ABB-UC3-${Date.now()}`,
@@ -99,7 +99,7 @@ describe('UC3 — TikTok Marketplace / CMG / Prepaid — AWB retrieval after Out
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
       expect(names).to.include('ABBInvoiceSentToWMS');
-      expect(names).to.include('ABBInvoiceSentToGateway');
+      expect(names).to.include('ABBTaxInvoiceSentToGateway');
     });
   });
 

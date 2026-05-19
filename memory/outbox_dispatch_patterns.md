@@ -1,5 +1,5 @@
 ﻿---
-name: Outbox Dispatch Paths — ApiResult.DispatchOutbox vs OutboxAdapterService.Dispatch
+name: Outbox Dispatch Paths — ApiResult.BuildOutboxEvents vs OutboxAdapterService.Dispatch
 type: decision
 date: 2026-05-18
 source: bug fix in PickConfirmedHandler; api/Shared/ApiResult.cs; api/Infrastructure/OutboxAdapterService.cs
@@ -7,7 +7,7 @@ source: bug fix in PickConfirmedHandler; api/Shared/ApiResult.cs; api/Infrastruc
 
 ## Rule
 
-Any handler whose outbox events must appear in the outbox monitor (i.e. visible in `GET /outbox/dispatch-logs`) **must** call `OutboxAdapterService.Dispatch`. Using `ApiResult.DispatchOutbox` in that context silently omits the dispatch log — no `OutboxDispatchLog` record is created, no HTTP call is made, and the event is invisible to the outbox monitor and the retry mechanism.
+Any handler whose outbox events must appear in the outbox monitor (i.e. visible in `GET /outbox/dispatch-logs`) **must** call `OutboxAdapterService.Dispatch`. Using `ApiResult.BuildOutboxEvents` in that context silently omits the dispatch log — no `OutboxDispatchLog` record is created, no HTTP call is made, and the event is invisible to the outbox monitor and the retry mechanism.
 
 ---
 
@@ -35,11 +35,11 @@ foreach (var evt in adapterService.Dispatch(orderId, channelType, subChannel, bu
 
 ---
 
-### 2. `ApiResult.DispatchOutbox` — lightweight timeline annotation path
+### 2. `ApiResult.BuildOutboxEvents` — lightweight timeline annotation path
 
 ```csharp
 // no service injection needed — static helper
-foreach (var evt in ApiResult.DispatchOutbox(store, channelType, subChannel, businessUnit,
+foreach (var evt in ApiResult.BuildOutboxEvents(store, channelType, subChannel, businessUnit,
     "OrderCreatedEvent", $"SC → {{target}}: Sale Order {num}"))
     store.AppendEvent(id, evt);
 ```
@@ -55,7 +55,7 @@ foreach (var evt in ApiResult.DispatchOutbox(store, channelType, subChannel, bus
 
 ## Bug Reference — PickConfirmedHandler (fixed 2026-05-18)
 
-`PickConfirmedHandler` was incorrectly using `ApiResult.DispatchOutbox`. This meant `PickConfirmedEvent` dispatches were written only as order timeline events, not as `OutboxDispatchLog` entries. The outbox monitor showed no record of these dispatches, and the Gateway/TMS calls were never made.
+`PickConfirmedHandler` was incorrectly using `ApiResult.BuildOutboxEvents`. This meant `PickConfirmedEvent` dispatches were written only as order timeline events, not as `OutboxDispatchLog` entries. The outbox monitor showed no record of these dispatches, and the Gateway/TMS calls were never made.
 
 **Fix applied:**
 - `api/Features/Webhooks/Wms/PickConfirmed.cs` — handler now injects `OutboxAdapterService`, builds a `GatewayUpdateStatusPayload` with status `"PICK_CONFIRMED"`, and calls `adapterService.Dispatch`.
@@ -71,7 +71,7 @@ foreach (var evt in ApiResult.DispatchOutbox(store, channelType, subChannel, bus
 | External system must receive an HTTP call | `OutboxAdapterService.Dispatch` |
 | Event must appear in outbox monitor (`/outbox/dispatch-logs`) | `OutboxAdapterService.Dispatch` |
 | Retry on failure is needed | `OutboxAdapterService.Dispatch` |
-| Timeline annotation only (no external call) | `ApiResult.DispatchOutbox` |
+| Timeline annotation only (no external call) | `ApiResult.BuildOutboxEvents` |
 
 ---
 

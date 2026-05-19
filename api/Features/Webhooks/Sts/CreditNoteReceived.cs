@@ -53,7 +53,7 @@ public class CreditNoteReceivedHandler(InMemoryStore store, OutboxAdapterService
         var cnPayload = System.Text.Json.JsonSerializer.Serialize(
             TmsWmsCreditNotePayload.Build(order, creditNote, invoice, returnItems));
 
-        if (order.IsPrepaid)
+        if (order.PaymentFlow == "PRE_PAID")
         {
             foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
                 order.BusinessUnit, "CreditNoteSentToWMS", cnPayload))

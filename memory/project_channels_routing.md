@@ -129,8 +129,8 @@ Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. T
 - If no rule matches, no outbox event is dispatched. This is the intentional opt-out mechanism (absence of a row = no dispatch).
 
 **Order handler pattern:**
-- Handlers call `ApiResult.DispatchOutbox()` instead of hardcoded `ApiResult.OutboxEvent()` calls.
-- `DispatchOutbox()` looks up matching routing rules and emits one outbox entry per rule, so a single domain transition can fan out to multiple targets if the configuration warrants it.
+- Handlers call `ApiResult.BuildOutboxEvents()` instead of hardcoded `ApiResult.OutboxEvent()` calls.
+- `BuildOutboxEvents()` looks up matching routing rules and emits one outbox entry per rule, so a single domain transition can fan out to multiple targets if the configuration warrants it.
 
 **Management endpoints (documented in `docs/oms-api-blueprint.md`, Group: Configuration Management):**
 
@@ -151,7 +151,7 @@ Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. T
 | Use case | Notes |
 |---|---|
 | Create Order | Standard flow |
-| Cancel Order | Allowed from Pending, BookingConfirmed, OnHold |
+| Cancel Order | Allowed from Pending, OnHold |
 | Partial Pick | Picker takes fewer units than requested; `shortfall_reason` recorded; POS recalculates |
 | Partial Item Return | Customer rejects subset of delivered items; triggers partial refund and CreditNoteSentToWMS |
 | Return Order | Post-delivery return with full refund |

@@ -5,15 +5,15 @@
     "orderDate": "2024-01-15T14:02:00Z", "createdAt": "2024-01-15T14:02:00Z", "updatedAt": "2024-01-15T14:02:00Z",
     "status": "Pending", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": true, "posRecalcPending": false, "items": 5, "amount": 245000,
+    "substitutionFlag": true, "posRecalcPending": false, "items": 5, "amount": 2450,
     "createdBy": "customer-app", "updatedBy": "customer-app",
     "deliverySlot": { "slotId": "slot-001", "storeId": "store-001", "scheduledStart": "2024-01-15T18:00:00Z", "scheduledEnd": "2024-01-15T20:00:00Z" },
     "lines": [
-      { "id": "L001-1", "sku": "APPLE-1KG",   "productName": "Apple (1 kg bag)",   "barcode": "8850001001", "requestedAmount": 2, "pickedAmount": 0, "uom": "Unit", "unitPrice": 12000, "currency": "THB", "status": "Active",       "isSubstitute": false },
-      { "id": "L001-2", "sku": "MILK-1L",      "productName": "Whole Milk 1L",      "barcode": "8850001002", "requestedAmount": 3, "pickedAmount": 0, "uom": "Unit", "unitPrice": 6500,  "currency": "THB", "status": "Active",       "isSubstitute": false },
-      { "id": "L001-3", "sku": "BREAD-WH",     "productName": "Whole Wheat Bread",  "barcode": "8850001003", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 4500,  "currency": "THB", "status": "Active",       "isSubstitute": false },
-      { "id": "L001-4", "sku": "CHEESE-200G",  "productName": "Cheddar Cheese 200g","barcode": "8850001004", "requestedAmount": 2, "pickedAmount": 0, "uom": "Unit", "unitPrice": 18500, "currency": "THB", "status": "Active",       "isSubstitute": false },
-      { "id": "L001-5", "sku": "YOGURT-500G",  "productName": "Greek Yogurt 500g",  "barcode": "8850001005", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 8900,  "currency": "THB", "status": "Active",       "isSubstitute": false }
+      { "id": "L001-1", "sku": "APPLE-1KG",   "productName": "Apple (1 kg bag)",   "barcode": "8850001001", "requestedAmount": 2, "pickedAmount": 0, "uom": "Unit", "unitPrice": 120,  "currency": "THB", "status": "Active",       "isSubstitute": false },
+      { "id": "L001-2", "sku": "MILK-1L",      "productName": "Whole Milk 1L",      "barcode": "8850001002", "requestedAmount": 3, "pickedAmount": 0, "uom": "Unit", "unitPrice": 65,   "currency": "THB", "status": "Active",       "isSubstitute": false },
+      { "id": "L001-3", "sku": "BREAD-WH",     "productName": "Whole Wheat Bread",  "barcode": "8850001003", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 45,   "currency": "THB", "status": "Active",       "isSubstitute": false },
+      { "id": "L001-4", "sku": "CHEESE-200G",  "productName": "Cheddar Cheese 200g","barcode": "8850001004", "requestedAmount": 2, "pickedAmount": 0, "uom": "Unit", "unitPrice": 185,  "currency": "THB", "status": "Active",       "isSubstitute": false },
+      { "id": "L001-5", "sku": "YOGURT-500G",  "productName": "Greek Yogurt 500g",  "barcode": "8850001005", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 89,   "currency": "THB", "status": "Active",       "isSubstitute": false }
     ],
     "packages": []
   },
@@ -23,12 +23,12 @@
     "orderDate": "2024-01-15T13:45:00Z", "createdAt": "2024-01-15T13:45:00Z", "updatedAt": "2024-01-15T14:10:00Z",
     "status": "PickStarted", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 2, "amount": 89000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 2, "amount": 890,
     "createdBy": "customer-app", "updatedBy": "wms-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L002-1", "sku": "ORANGE-1KG",  "productName": "Orange (1 kg bag)",  "barcode": "8850002001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 11000, "currency": "THB", "status": "Active", "isSubstitute": false },
-      { "id": "L002-2", "sku": "BUTTER-250G", "productName": "Unsalted Butter 250g","barcode": "8850002002", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 8900,  "currency": "THB", "status": "Active", "isSubstitute": false }
+      { "id": "L002-1", "sku": "ORANGE-1KG",  "productName": "Orange (1 kg bag)",  "barcode": "8850002001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 110, "currency": "THB", "status": "Active", "isSubstitute": false },
+      { "id": "L002-2", "sku": "BUTTER-250G", "productName": "Unsalted Butter 250g","barcode": "8850002002", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 89,  "currency": "THB", "status": "Active", "isSubstitute": false }
     ],
     "packages": []
   },
@@ -38,13 +38,13 @@
     "orderDate": "2024-01-15T10:30:00Z", "createdAt": "2024-01-15T10:30:00Z", "updatedAt": "2024-01-15T13:00:00Z",
     "status": "ReadyForCollection", "preHoldStatus": null, "holdReason": null,
     "type": "ClickAndCollect", "fulfillmentType": "ClickAndCollect", "paymentMethod": "PrePaid",
-    "substitutionFlag": true, "posRecalcPending": false, "items": 8, "amount": 320000,
+    "substitutionFlag": true, "posRecalcPending": false, "items": 8, "amount": 3200,
     "createdBy": "customer-web", "updatedBy": "wms-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L003-1", "sku": "CHICKEN-500G","productName": "Chicken Breast 500g", "barcode": "8850003001", "requestedAmount": 500, "pickedAmount": 490, "uom": "Gram", "unitPrice": 150, "currency": "THB", "status": "PartiallyPicked", "isSubstitute": false },
-      { "id": "L003-2", "sku": "PASTA-500G",  "productName": "Spaghetti 500g",      "barcode": "8850003002", "requestedAmount": 2,   "pickedAmount": 2,   "uom": "Unit", "unitPrice": 5500, "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
-      { "id": "L003-3", "sku": "SAUCE-350G",  "productName": "Tomato Sauce 350g",   "barcode": "8850003003", "requestedAmount": 3,   "pickedAmount": 3,   "uom": "Unit", "unitPrice": 7200, "currency": "THB", "status": "FullyPicked",    "isSubstitute": false }
+      { "id": "L003-1", "sku": "CHICKEN-500G","productName": "Chicken Breast 500g", "barcode": "8850003001", "requestedAmount": 500, "pickedAmount": 490, "uom": "Gram", "unitPrice": 1.50, "currency": "THB", "status": "PartiallyPicked", "isSubstitute": false },
+      { "id": "L003-2", "sku": "PASTA-500G",  "productName": "Spaghetti 500g",      "barcode": "8850003002", "requestedAmount": 2,   "pickedAmount": 2,   "uom": "Unit", "unitPrice": 55,   "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
+      { "id": "L003-3", "sku": "SAUCE-350G",  "productName": "Tomato Sauce 350g",   "barcode": "8850003003", "requestedAmount": 3,   "pickedAmount": 3,   "uom": "Unit", "unitPrice": 72,   "currency": "THB", "status": "FullyPicked",    "isSubstitute": false }
     ],
     "packages": []
   },
@@ -54,13 +54,13 @@
     "orderDate": "2024-01-15T09:00:00Z", "createdAt": "2024-01-15T09:00:00Z", "updatedAt": "2024-01-15T14:30:00Z",
     "status": "OutForDelivery", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PayOnDelivery",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 3, "amount": 115000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 3, "amount": 1150,
     "createdBy": "customer-app", "updatedBy": "tms-system",
     "deliverySlot": { "slotId": "slot-004", "storeId": "store-001", "scheduledStart": "2024-01-15T15:00:00Z", "scheduledEnd": "2024-01-15T17:00:00Z" },
     "lines": [
-      { "id": "L004-1", "sku": "BEEF-1KG",    "productName": "Ground Beef 1kg",     "barcode": "8850004001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 32000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L004-2", "sku": "POTATO-2KG",  "productName": "Potato 2kg bag",      "barcode": "8850004002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 8900,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L004-3", "sku": "OIL-1L",      "productName": "Sunflower Oil 1L",    "barcode": "8850004003", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 7500,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L004-1", "sku": "BEEF-1KG",    "productName": "Ground Beef 1kg",     "barcode": "8850004001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 320, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L004-2", "sku": "POTATO-2KG",  "productName": "Potato 2kg bag",      "barcode": "8850004002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 89,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L004-3", "sku": "OIL-1L",      "productName": "Sunflower Oil 1L",    "barcode": "8850004003", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 75,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-004-1", "trackingId": "TRK-2024-004", "vehicleType": "Motorcycle", "status": "OutForDelivery", "weight": 4.2, "lineIds": ["L004-1","L004-2","L004-3"] }
@@ -72,11 +72,11 @@
     "orderDate": "2024-01-14T16:00:00Z", "createdAt": "2024-01-14T16:00:00Z", "updatedAt": "2024-01-14T19:30:00Z",
     "status": "Delivered", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": true, "posRecalcPending": false, "items": 1, "amount": 75000,
+    "substitutionFlag": true, "posRecalcPending": false, "items": 1, "amount": 750,
     "createdBy": "customer-app", "updatedBy": "tms-system",
     "deliverySlot": { "slotId": "slot-005", "storeId": "store-002", "scheduledStart": "2024-01-14T19:00:00Z", "scheduledEnd": "2024-01-14T21:00:00Z" },
     "lines": [
-      { "id": "L005-1", "sku": "WINE-750ML",  "productName": "Red Wine 750ml",      "barcode": "8850005001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 75000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L005-1", "sku": "WINE-750ML",  "productName": "Red Wine 750ml",      "barcode": "8850005001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 750, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-005-1", "trackingId": "TRK-2024-005", "vehicleType": "Van", "status": "Delivered", "weight": 1.1, "lineIds": ["L005-1"] }
@@ -88,12 +88,12 @@
     "orderDate": "2024-01-15T11:00:00Z", "createdAt": "2024-01-15T11:00:00Z", "updatedAt": "2024-01-15T16:00:00Z",
     "status": "OnHold", "preHoldStatus": "OutForDelivery", "holdReason": "PackageDamaged",
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 12, "amount": 560000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 12, "amount": 5600,
     "createdBy": "customer-app", "updatedBy": "tms-system",
     "deliverySlot": { "slotId": "slot-006", "storeId": "store-001", "scheduledStart": "2024-01-15T14:00:00Z", "scheduledEnd": "2024-01-15T16:00:00Z" },
     "lines": [
-      { "id": "L006-1", "sku": "TV-55IN",     "productName": "55-inch Smart TV",    "barcode": "8850006001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 450000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L006-2", "sku": "HDMI-2M",     "productName": "HDMI Cable 2m",       "barcode": "8850006002", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 19900,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L006-1", "sku": "TV-55IN",     "productName": "55-inch Smart TV",    "barcode": "8850006001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 4500, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L006-2", "sku": "HDMI-2M",     "productName": "HDMI Cable 2m",       "barcode": "8850006002", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 199,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-006-1", "trackingId": "TRK-2024-006", "vehicleType": "Truck", "status": "OnHold", "weight": 22.0, "lineIds": ["L006-1","L006-2"] }
@@ -105,12 +105,12 @@
     "orderDate": "2024-01-15T12:00:00Z", "createdAt": "2024-01-15T12:00:00Z", "updatedAt": "2024-01-15T14:45:00Z",
     "status": "Packed", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 4, "amount": 180000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 4, "amount": 1800,
     "createdBy": "customer-app", "updatedBy": "wms-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L007-1", "sku": "COFFEE-250G", "productName": "Ground Coffee 250g",  "barcode": "8850007001", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 32000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L007-2", "sku": "SUGAR-1KG",   "productName": "White Sugar 1kg",     "barcode": "8850007002", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 3500,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L007-1", "sku": "COFFEE-250G", "productName": "Ground Coffee 250g",  "barcode": "8850007001", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 320, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L007-2", "sku": "SUGAR-1KG",   "productName": "White Sugar 1kg",     "barcode": "8850007002", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 35,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-007-1", "trackingId": "TRK-2024-007", "vehicleType": "Motorcycle", "status": "Packed", "weight": 1.0, "lineIds": ["L007-1","L007-2"] }
@@ -122,11 +122,11 @@
     "orderDate": "2024-01-14T10:00:00Z", "createdAt": "2024-01-14T10:00:00Z", "updatedAt": "2024-01-15T14:00:00Z",
     "status": "Returned", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 2, "amount": 92000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 2, "amount": 920,
     "createdBy": "customer-web", "updatedBy": "wms-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L008-1", "sku": "SHAMPOO-400ML","productName": "Shampoo 400ml",      "barcode": "8850008001", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 18500, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L008-1", "sku": "SHAMPOO-400ML","productName": "Shampoo 400ml",      "barcode": "8850008001", "requestedAmount": 2, "pickedAmount": 2, "uom": "Unit", "unitPrice": 185, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-008-1", "trackingId": "TRK-2024-008", "vehicleType": "Motorcycle", "status": "Delivered", "weight": 0.9, "lineIds": ["L008-1"] }
@@ -139,15 +139,15 @@
     "status": "PickConfirmed", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
     "substitutionFlag": true, "posRecalcPending": true,
-    "items": 6, "amount": 310000,
+    "items": 6, "amount": 3100,
     "createdBy": "customer-app", "updatedBy": "wms-system",
     "deliverySlot": { "slotId": "slot-009", "storeId": "store-003", "scheduledStart": "2024-01-15T18:00:00Z", "scheduledEnd": "2024-01-15T20:00:00Z" },
     "lines": [
-      { "id": "L009-1", "sku": "SALMON-200G", "productName": "Salmon Fillet 200g",  "barcode": "8850009001", "requestedAmount": 200, "pickedAmount": 190, "uom": "Gram", "unitPrice": 89,   "currency": "THB", "status": "PartiallyPicked", "isSubstitute": false },
-      { "id": "L009-2", "sku": "RICE-5KG",    "productName": "Jasmine Rice 5kg",    "barcode": "8850009002", "requestedAmount": 1,   "pickedAmount": 1,   "uom": "Unit", "unitPrice": 18900, "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
-      { "id": "L009-3", "sku": "LIME-500G",   "productName": "Lime 500g",           "barcode": "8850009003", "requestedAmount": 1,   "pickedAmount": 0,   "uom": "Unit", "unitPrice": 3500,  "currency": "THB", "status": "Cancelled",      "isSubstitute": false },
-      { "id": "L009-4", "sku": "COCONUT-M",   "productName": "Coconut Milk 400ml",  "barcode": "8850009004", "requestedAmount": 2,   "pickedAmount": 2,   "uom": "Unit", "unitPrice": 4500,  "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
-      { "id": "L009-5", "sku": "CORIANDER",   "productName": "Coriander Substitute","barcode": "8850009005", "requestedAmount": 1,   "pickedAmount": 1,   "uom": "Unit", "unitPrice": 2500,  "currency": "THB", "status": "FullyPicked",    "isSubstitute": true }
+      { "id": "L009-1", "sku": "SALMON-200G", "productName": "Salmon Fillet 200g",  "barcode": "8850009001", "requestedAmount": 200, "pickedAmount": 190, "uom": "Gram", "unitPrice": 0.89, "currency": "THB", "status": "PartiallyPicked", "isSubstitute": false },
+      { "id": "L009-2", "sku": "RICE-5KG",    "productName": "Jasmine Rice 5kg",    "barcode": "8850009002", "requestedAmount": 1,   "pickedAmount": 1,   "uom": "Unit", "unitPrice": 189,  "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
+      { "id": "L009-3", "sku": "LIME-500G",   "productName": "Lime 500g",           "barcode": "8850009003", "requestedAmount": 1,   "pickedAmount": 0,   "uom": "Unit", "unitPrice": 35,   "currency": "THB", "status": "Cancelled",      "isSubstitute": false },
+      { "id": "L009-4", "sku": "COCONUT-M",   "productName": "Coconut Milk 400ml",  "barcode": "8850009004", "requestedAmount": 2,   "pickedAmount": 2,   "uom": "Unit", "unitPrice": 45,   "currency": "THB", "status": "FullyPicked",    "isSubstitute": false },
+      { "id": "L009-5", "sku": "CORIANDER",   "productName": "Coriander Substitute","barcode": "8850009005", "requestedAmount": 1,   "pickedAmount": 1,   "uom": "Unit", "unitPrice": 25,   "currency": "THB", "status": "FullyPicked",    "isSubstitute": true }
     ],
     "packages": []
   },
@@ -157,12 +157,12 @@
     "orderDate": "2024-01-14T11:00:00Z", "createdAt": "2024-01-14T11:00:00Z", "updatedAt": "2024-01-14T13:00:00Z",
     "status": "Paid", "preHoldStatus": null, "holdReason": null,
     "type": "ClickAndCollect", "fulfillmentType": "ClickAndCollect", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 3, "amount": 140000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 3, "amount": 1400,
     "createdBy": "customer-web", "updatedBy": "pos-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L010-1", "sku": "WHISKEY-700", "productName": "Whiskey 700ml",        "barcode": "8850010001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 95000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L010-2", "sku": "SODA-330ML",  "productName": "Soda Water 330ml x6", "barcode": "8850010002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 12900, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L010-1", "sku": "WHISKEY-700", "productName": "Whiskey 700ml",        "barcode": "8850010001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 950, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L010-2", "sku": "SODA-330ML",  "productName": "Soda Water 330ml x6", "barcode": "8850010002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 129, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": []
   },
@@ -170,14 +170,14 @@
     "id": "ORD-011", "orderNumber": "ORD-011", "customer": "Kate Brown",
     "channelType": "App", "businessUnit": "CMG", "storeId": "store-001", "store": "Central DC",
     "orderDate": "2024-01-15T08:30:00Z", "createdAt": "2024-01-15T08:30:00Z", "updatedAt": "2024-01-15T09:00:00Z",
-    "status": "BookingConfirmed", "preHoldStatus": null, "holdReason": null,
+    "status": "Pending", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PayOnDelivery",
-    "substitutionFlag": true, "posRecalcPending": false, "items": 7, "amount": 420000,
+    "substitutionFlag": true, "posRecalcPending": false, "items": 7, "amount": 4200,
     "createdBy": "customer-app", "updatedBy": "booking-system",
     "deliverySlot": { "slotId": "slot-011", "storeId": "store-001", "scheduledStart": "2024-01-15T20:00:00Z", "scheduledEnd": "2024-01-15T22:00:00Z" },
     "lines": [
-      { "id": "L011-1", "sku": "SOFA-3SEAT",  "productName": "3-Seat Fabric Sofa",  "barcode": "8850011001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 350000, "currency": "THB", "status": "Active", "isSubstitute": false },
-      { "id": "L011-2", "sku": "CUSHION-SET", "productName": "Cushion Set (4pcs)",  "barcode": "8850011002", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 35000,  "currency": "THB", "status": "Active", "isSubstitute": false }
+      { "id": "L011-1", "sku": "SOFA-3SEAT",  "productName": "3-Seat Fabric Sofa",  "barcode": "8850011001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 3500, "currency": "THB", "status": "Active", "isSubstitute": false },
+      { "id": "L011-2", "sku": "CUSHION-SET", "productName": "Cushion Set (4pcs)",  "barcode": "8850011002", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 350,  "currency": "THB", "status": "Active", "isSubstitute": false }
     ],
     "packages": []
   },
@@ -187,11 +187,11 @@
     "orderDate": "2024-01-15T09:15:00Z", "createdAt": "2024-01-15T09:15:00Z", "updatedAt": "2024-01-15T09:30:00Z",
     "status": "Cancelled", "preHoldStatus": null, "holdReason": null,
     "type": "Express", "fulfillmentType": "Express", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 1, "amount": 34000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 1, "amount": 340,
     "createdBy": "customer-app", "updatedBy": "customer-app",
     "deliverySlot": null,
     "lines": [
-      { "id": "L012-1", "sku": "ICECREAM-1L", "productName": "Ice Cream 1L Tub",    "barcode": "8850012001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 34000, "currency": "THB", "status": "Cancelled", "isSubstitute": false }
+      { "id": "L012-1", "sku": "ICECREAM-1L", "productName": "Ice Cream 1L Tub",    "barcode": "8850012001", "requestedAmount": 1, "pickedAmount": 0, "uom": "Unit", "unitPrice": 340, "currency": "THB", "status": "Cancelled", "isSubstitute": false }
     ],
     "packages": []
   },
@@ -201,12 +201,12 @@
     "orderDate": "2024-01-15T07:00:00Z", "createdAt": "2024-01-15T07:00:00Z", "updatedAt": "2024-01-15T14:00:00Z",
     "status": "OutForDelivery", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 9, "amount": 680000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 9, "amount": 6800,
     "createdBy": "customer-web", "updatedBy": "tms-system",
     "deliverySlot": { "slotId": "slot-013", "storeId": "store-001", "scheduledStart": "2024-01-15T13:00:00Z", "scheduledEnd": "2024-01-15T15:00:00Z" },
     "lines": [
-      { "id": "L013-1", "sku": "WARDROBE-2D","productName": "2-Door Wardrobe",      "barcode": "8850013001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 420000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
-      { "id": "L013-2", "sku": "BED-QUEEN",  "productName": "Queen Bed Frame",      "barcode": "8850013002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 260000, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L013-1", "sku": "WARDROBE-2D","productName": "2-Door Wardrobe",      "barcode": "8850013001", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 4200, "currency": "THB", "status": "FullyPicked", "isSubstitute": false },
+      { "id": "L013-2", "sku": "BED-QUEEN",  "productName": "Queen Bed Frame",      "barcode": "8850013002", "requestedAmount": 1, "pickedAmount": 1, "uom": "Unit", "unitPrice": 2600, "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-013-1", "trackingId": "TRK-2024-013A", "vehicleType": "Truck",   "status": "OutForDelivery", "weight": 85.0, "lineIds": ["L013-1"] },
@@ -219,11 +219,11 @@
     "orderDate": "2024-01-14T09:00:00Z", "createdAt": "2024-01-14T09:00:00Z", "updatedAt": "2024-01-14T17:00:00Z",
     "status": "Paid", "preHoldStatus": null, "holdReason": null,
     "type": "Delivery", "fulfillmentType": "Delivery", "paymentMethod": "PrePaid",
-    "substitutionFlag": false, "posRecalcPending": false, "items": 4, "amount": 210000,
+    "substitutionFlag": false, "posRecalcPending": false, "items": 4, "amount": 2100,
     "createdBy": "customer-app", "updatedBy": "pos-system",
     "deliverySlot": null,
     "lines": [
-      { "id": "L014-1", "sku": "SNACK-MIX",  "productName": "Snack Mix Pack",       "barcode": "8850014001", "requestedAmount": 4, "pickedAmount": 4, "uom": "Unit", "unitPrice": 8900,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
+      { "id": "L014-1", "sku": "SNACK-MIX",  "productName": "Snack Mix Pack",       "barcode": "8850014001", "requestedAmount": 4, "pickedAmount": 4, "uom": "Unit", "unitPrice": 89,  "currency": "THB", "status": "FullyPicked", "isSubstitute": false }
     ],
     "packages": [
       { "id": "PKG-014-1", "trackingId": "TRK-2024-014", "vehicleType": "Motorcycle", "status": "Delivered", "weight": 2.0, "lineIds": ["L014-1"] }

@@ -158,8 +158,8 @@ public class InMemoryStore
         Add("*", "*", "*", "PackedEvent",            "TMS",     "tms.pack-confirm",    1);
         Add("*", "*", "*", "OutForDeliveryEvent",    "Gateway",      "Gateway.out-for-delivery", 1);
         Add("*", "*", "*", "DeliveredEvent",         "Gateway",      "Gateway.delivered",        1);
-        Add("*", "*", "*", "ABBTaxInvoiceSentToTMS", "TMS",     "tms.abb-tax-invoice", 1);
-        Add("*", "*", "*", "ABBInvoiceSentToGateway",     "Gateway", "gateway.abb-invoice", 1);
+        Add("*", "*", "*", "ABBTaxInvoiceSentToTMS",     "TMS",     "tms.abb-tax-invoice",      1);
+        Add("*", "*", "*", "ABBTaxInvoiceSentToGateway",  "Gateway", "gateway.abb-tax-invoice",  1);
         Add("*", "*", "*", "CreditNoteSentToGateway",     "Gateway", "gateway.credit-note", 1);
         Add("*", "*", "*", "OrderCancelledEvent",    "WMS",     "wms.cancel-order",    1);
         Add("*", "*", "*", "OrderCancelledEvent",    "TMS",     "tms.cancel-booking",  2);
@@ -230,7 +230,7 @@ public class InMemoryStore
             "StaticToken", staticToken: "static-tms-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
-        Add("gateway.abb-invoice", $"{mock}/Gateway/api/invoices",
+        Add("gateway.abb-tax-invoice", $"{mock}/Gateway/api/invoices",
             "StaticToken", staticToken: "static-Gateway-token",
             staticTokenHeader: "x-api-key",
             headers: new() { ["x-channel"] = "TWD" });
@@ -290,7 +290,7 @@ public class InMemoryStore
             PromotionId = "promo-001-1", OrderId = "ORD-001",
             SourcePromoId = "P-FRESH10", PromoCode = "FRESH10",
             PromoName = "10% Fresh Produce Discount", PromoType = "PercentageDiscount",
-            DiscountAmount = 24500, DiscountPercentage = 0.10m,
+            DiscountAmount = 245, DiscountPercentage = 0.10m,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 14, 2, 0)
         });
 
@@ -300,13 +300,13 @@ public class InMemoryStore
             PromotionId = "promo-003-1", OrderId = "ORD-003",
             SourcePromoId = "P-MEMBER20", PromoCode = "MEMBER20",
             PromoName = "20% Member Discount", PromoType = "PercentageDiscount",
-            DiscountAmount = 64000, DiscountPercentage = 0.20m,
+            DiscountAmount = 640, DiscountPercentage = 0.20m,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 10, 30, 0)
         });
         AddOrderFee(new OrderFeeDto
         {
             FeeId = "fee-003-1", OrderId = "ORD-003", FeeCode = "DELIVERY_FEE",
-            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 49,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 10, 30, 0),
             UpdatedAt = Utc(2024, 1, 15, 10, 30, 0)
         });
@@ -315,7 +315,7 @@ public class InMemoryStore
         AddOrderFee(new OrderFeeDto
         {
             FeeId = "fee-004-1", OrderId = "ORD-004", FeeCode = "DELIVERY_FEE",
-            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 49,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 9, 0, 0),
             UpdatedAt = Utc(2024, 1, 15, 9, 0, 0)
         });
@@ -324,20 +324,20 @@ public class InMemoryStore
         SetOrderPayment("ORD-005", new OrderPaymentDto
         {
             PaymentId = "pay-005", OrderId = "ORD-005",
-            PaymentMethod = "CreditCard", TotalAmount = 75000, Currency = "THB",
+            PaymentMethod = "CreditCard", TotalAmount = 750, Currency = "THB",
             Status = "Captured",
             CreatedAt = Utc(2024, 1, 14, 16, 2, 0), UpdatedAt = Utc(2024, 1, 14, 19, 31, 0)
         });
         AddPaymentTransaction(new PaymentTransactionDto
         {
             TransactionId = "txn-005-1", PaymentId = "pay-005",
-            Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
+            Amount = 750, Currency = "THB", PaymentMethod = "CreditCard",
             GatewayRef = "Gateway-AUTH-2024-005", CreatedAt = Utc(2024, 1, 14, 16, 2, 0)
         });
         AddPaymentTransaction(new PaymentTransactionDto
         {
             TransactionId = "txn-005-2", PaymentId = "pay-005",
-            Amount = 75000, Currency = "THB", PaymentMethod = "CreditCard",
+            Amount = 750, Currency = "THB", PaymentMethod = "CreditCard",
             GatewayRef = "Gateway-CAP-2024-005", CreatedAt = Utc(2024, 1, 14, 19, 31, 0)
         });
 
@@ -347,13 +347,13 @@ public class InMemoryStore
             PromotionId = "promo-009-1", OrderId = "ORD-009",
             SourcePromoId = "P-SEA15", PromoCode = "SEAFOOD15",
             PromoName = "15% Seafood Promotion", PromoType = "PercentageDiscount",
-            DiscountAmount = 46500, DiscountPercentage = 0.15m,
+            DiscountAmount = 465, DiscountPercentage = 0.15m,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 13, 0, 0)
         });
         AddOrderFee(new OrderFeeDto
         {
             FeeId = "fee-009-1", OrderId = "ORD-009", FeeCode = "DELIVERY_FEE",
-            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 49,
             Currency = "THB", CreatedAt = Utc(2024, 1, 15, 13, 0, 0),
             UpdatedAt = Utc(2024, 1, 15, 13, 0, 0)
         });
@@ -362,14 +362,14 @@ public class InMemoryStore
         SetOrderPayment("ORD-010", new OrderPaymentDto
         {
             PaymentId = "pay-010", OrderId = "ORD-010",
-            PaymentMethod = "BankTransfer", TotalAmount = 140000, Currency = "THB",
+            PaymentMethod = "BankTransfer", TotalAmount = 1400, Currency = "THB",
             Status = "Captured",
             CreatedAt = Utc(2024, 1, 14, 11, 0, 0), UpdatedAt = Utc(2024, 1, 14, 13, 5, 0)
         });
         AddPaymentTransaction(new PaymentTransactionDto
         {
             TransactionId = "txn-010-1", PaymentId = "pay-010",
-            Amount = 140000, Currency = "THB", PaymentMethod = "BankTransfer",
+            Amount = 1400, Currency = "THB", PaymentMethod = "BankTransfer",
             GatewayRef = "Gateway-CAP-2024-010", CreatedAt = Utc(2024, 1, 14, 13, 5, 0)
         });
         AddOrderPromotion(new OrderPromotionDto
@@ -377,7 +377,7 @@ public class InMemoryStore
             PromotionId = "promo-010-1", OrderId = "ORD-010",
             SourcePromoId = "P-SUMMER15", PromoCode = "SUMMER15",
             PromoName = "Summer Campaign 15% Off", PromoType = "PercentageDiscount",
-            DiscountAmount = 21000, DiscountPercentage = 0.15m,
+            DiscountAmount = 210, DiscountPercentage = 0.15m,
             Currency = "THB", CreatedAt = Utc(2024, 1, 14, 11, 0, 0)
         });
 
@@ -385,14 +385,14 @@ public class InMemoryStore
         SetOrderPayment("ORD-014", new OrderPaymentDto
         {
             PaymentId = "pay-014", OrderId = "ORD-014",
-            PaymentMethod = "CreditCard", TotalAmount = 210000, Currency = "THB",
+            PaymentMethod = "CreditCard", TotalAmount = 2100, Currency = "THB",
             Status = "Captured",
             CreatedAt = Utc(2024, 1, 14, 9, 5, 0), UpdatedAt = Utc(2024, 1, 14, 17, 0, 0)
         });
         AddPaymentTransaction(new PaymentTransactionDto
         {
             TransactionId = "txn-014-1", PaymentId = "pay-014",
-            Amount = 210000, Currency = "THB", PaymentMethod = "CreditCard",
+            Amount = 2100, Currency = "THB", PaymentMethod = "CreditCard",
             GatewayRef = "Gateway-CAP-2024-014", CreatedAt = Utc(2024, 1, 14, 9, 5, 0)
         });
         AddOrderPromotion(new OrderPromotionDto
@@ -400,13 +400,13 @@ public class InMemoryStore
             PromotionId = "promo-014-1", OrderId = "ORD-014",
             SourcePromoId = "P-SNACK10", PromoCode = "SNACK10",
             PromoName = "Snack Party 10% Off", PromoType = "PercentageDiscount",
-            DiscountAmount = 23333, DiscountPercentage = 0.10m,
+            DiscountAmount = 233.33m, DiscountPercentage = 0.10m,
             Currency = "THB", CreatedAt = Utc(2024, 1, 14, 9, 0, 0)
         });
         AddOrderFee(new OrderFeeDto
         {
             FeeId = "fee-014-1", OrderId = "ORD-014", FeeCode = "DELIVERY_FEE",
-            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 4900,
+            FeeName = "Delivery Fee", FeeType = "Delivery", Amount = 49,
             Currency = "THB", CreatedAt = Utc(2024, 1, 14, 9, 0, 0),
             UpdatedAt = Utc(2024, 1, 14, 9, 0, 0)
         });

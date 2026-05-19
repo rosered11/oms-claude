@@ -37,10 +37,10 @@ public class StsCreditNoteHandler(InMemoryStore store)
             IssuedAt = req.IssuedAt
         });
 
-        var forwardedTo = order.IsPrepaid ? new[] { "WMS" } : new[] { "TMS" };
+        var forwardedTo = order.PaymentFlow == "PRE_PAID" ? new[] { "WMS" } : new[] { "TMS" };
 
         store.AppendEvent(req.OrderId, ApiResult.OutboxEvent(forwardedTo[0],
-            order.IsPrepaid ? "CreditNoteSentToWMS" : "CreditNoteSentToTMS",
+            order.PaymentFlow == "PRE_PAID" ? "CreditNoteSentToWMS" : "CreditNoteSentToTMS",
             $"Credit Note {req.CreditNoteNumber} forwarded to {forwardedTo[0]}."));
 
         return Results.Accepted(null, new

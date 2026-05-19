@@ -26,7 +26,7 @@ erDiagram
         varchar pre_hold_status
         varchar hold_reason
         bool    substitution_flag
-        bool    is_prepaid
+        varchar payment_flow
         timestamptz created_at
         timestamptz updated_at
         varchar created_by

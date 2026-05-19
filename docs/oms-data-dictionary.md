@@ -29,7 +29,7 @@ One row per customer order. This is the central aggregate that all other tables 
 | `pre_hold_status` | varchar | The status the order was in before it was put on hold. Saved so it can be restored when the hold is released. `null` when not on hold. |
 | `hold_reason` | varchar | Why the order was placed on hold — e.g. `ManualReview`, `PackageDamaged`. `null` when not on hold. |
 | `substitution_flag` | bool | `true` if WMS has proposed at least one substitution on this order. Never reset to `false`. |
-| `is_prepaid` | bool | `true` for orders where payment is collected before delivery — e.g. `CreditCard`, `QRCode`, `Wallet`. `false` for COD and other post-pay methods. When `true`, the Settlement & Tax System (STS) sends the ABB/Tax Invoice link after `PickConfirmed`, before the package is handed to TMS. When `false`, the invoice is triggered by the `PackageDelivered` event and follows the POS invoicing flow. |
+| `payment_flow` | VARCHAR(50) | Payment flow type indicator. Allowed values: `"PRE_PAID"` (payment collected before delivery — e.g. CreditCard, QRCode, Wallet) or `"PAY_ON_DELIVERY"` (customer pays at delivery). Field is extensible for future payment flow types. When `"PRE_PAID"`, the Settlement & Tax System (STS) sends the ABB/Tax Invoice link after `PickConfirmed`, before the package is handed to TMS. When `"PAY_ON_DELIVERY"`, the invoice is triggered by the `PackageDelivered` event. |
 | `created_at` / `updated_at` | timestamptz | Standard audit timestamps. |
 | `created_by` / `updated_by` | varchar | User or system that created or last changed the record. |
 
@@ -270,19 +270,19 @@ One row per payment gateway transaction. An order may have multiple transactions
 
 ### `invoices` — fiscal invoices issued to customers
 
-One invoice per order. For **pre-paid** orders, created by the Settlement & Tax System (STS) after `PickConfirmed` — before dispatch. For **post-paid** (COD) orders, triggered by the `PackageDelivered` event via the POS invoicing flow.
+One invoice per order. For **pre-paid** orders (`payment_flow = "PRE_PAID"`), created by the Settlement & Tax System (STS) after `PickConfirmed` — before dispatch. For **pay-on-delivery** orders (`payment_flow = "PAY_ON_DELIVERY"`), created by STS after the `PackageDelivered` event.
 
 | Column | Type | Plain meaning |
 |---|---|---|
 | `invoice_id` | bigint PK | OMS's unique invoice ID. |
 | `order_id` | bigint | The order this invoice is for. |
-| `invoice_number` | varchar UK | The official invoice number — e.g. `ABB-2024-001` for pre-paid STS invoices, `INV-2024-001` for POS-generated invoices. Sequential and unique. |
+| `invoice_number` | varchar UK | The official invoice number — e.g. `ABB-2024-001` for STS-issued invoices. Sequential and unique. |
 | `invoice_type` | varchar | `Standard` (regular invoice), `AbbTaxInvoice` (pre-paid STS-issued invoice), `TaxInvoice` (official tax document from STS). |
 | `total_amount` | decimal | Total amount invoiced. |
 | `currency` | varchar | `THB`. |
 | `status` | varchar | `Generated` (created in OMS), `Issued` (sent or linked to customer), `Voided` (cancelled by a credit note). |
-| `invoice_link` | varchar | URL to the ABB/Tax Invoice PDF provided by STS. For Prepaid orders, set when STS fires after `PickConfirmed`; OMS forwards to WMS + Gateway. For POD orders, set when STS fires after `Delivered`; OMS forwards to TMS + Gateway. `null` for POS-generated invoices. |
-| `source_sts_ref` | varchar | Reference ID assigned by STS for this invoice document. Used for idempotency on `POST /webhooks/sts/abb-tax-invoice` and cross-system reconciliation. `null` for POS-generated invoices. |
+| `invoice_link` | varchar | URL to the ABB/Tax Invoice PDF provided by STS. For Prepaid orders, set when STS fires after `PickConfirmed`; OMS forwards to WMS + Gateway. For POD orders, set when STS fires after `Delivered`; OMS forwards to TMS + Gateway. |
+| `source_sts_ref` | varchar | Reference ID assigned by STS for this invoice document. Used for idempotency on `POST /webhooks/sts/abb-tax-invoice` and cross-system reconciliation. |
 | `generated_at` | timestamptz | When the invoice was created. For pre-paid orders, this is the `issuedAt` timestamp from the STS webhook (before dispatch). For POD orders, set after `PackageDelivered`. |
 | `issued_at` | timestamptz | When the invoice was sent to the customer. |
 
@@ -298,8 +298,8 @@ Stores credit notes received from STS (reducing the amount owed by the customer 
 | `order_id` | bigint FK | The order this credit note applies to. References `orders.orders.id`. Cross-context reference enforced at application layer. |
 | `invoice_id` | bigint FK | The invoice being partially reversed. `null` for STS credit notes not tied to a specific internal invoice. |
 | `credit_note_number` | varchar(100) UNIQUE | The fiscal credit note number assigned by STS — e.g. `CN-RET-001`. Unique across the table. |
-| `credit_amount` | bigint | Amount credited back to the customer in satang (smallest currency unit). Stored as integer to avoid floating-point errors. |
-| `amount` | decimal | Decimal representation of the credit amount for display. (Legacy column — prefer `credit_amount` for calculations.) |
+| `credit_amount` | DECIMAL(10,2) | Amount credited back to the customer in baht (e.g. `44.00`). |
+| `amount` | decimal | Decimal representation of the credit amount. (Legacy column — prefer `credit_amount` for calculations.) |
 | `currency` | varchar(3) | Currency code. Default `THB`. |
 | `reason` | varchar(255) | Why the credit note was issued — e.g. `CustomerRejection`, `QualityIssue`, `PriceAdjustment`, `DamagedGoods`. |
 | `status` | varchar | `Issued` (created), `Applied` (applied to the payment), `Cancelled`. |
@@ -321,7 +321,7 @@ This is the Data Transfer Object returned by `GET /orders/{id}/credit-note`. It 
 | `creditNoteId` | string | `credit_notes.id` | OMS internal credit note ID |
 | `creditNoteNumber` | string | `credit_notes.credit_note_number` | Fiscal credit note number assigned by STS — e.g. `CN-RET-001` |
 | `invoiceId` | string | `credit_notes.invoice_id` | The invoice being partially reversed. `null` if not tied to a specific internal invoice |
-| `amount` | number | `credit_notes.credit_amount` | Credit amount in satang (smallest THB unit). Stored as integer to avoid floating-point errors |
+| `amount` | number | `credit_notes.credit_amount` | Credit amount in baht (e.g. `44.00`) |
 | `currency` | string | `credit_notes.currency` | Currency code — `THB` |
 | `reason` | string | `credit_notes.reason` | Why the credit note was issued — e.g. `PriceAdjustment`, `CustomerRejection`, `DamagedGoods` |
 | `status` | string | `credit_notes.status` | `Issued` (created), `Applied` (applied to payment), `Cancelled` |
@@ -336,7 +336,7 @@ This is the Data Transfer Object returned by `GET /orders/{id}/credit-note`. It 
 | `creditNoteId` | `"cn-001"` |
 | `creditNoteNumber` | `"CN-UC11-1716000000000"` |
 | `invoiceId` | `"inv-001"` |
-| `amount` | `4400` (satang — fabric softener 8900 − dish soap 4500 = 4400 sat refund) |
+| `amount` | `44.00` (baht — fabric softener 89.00 − dish soap 45.00 = 44.00 refund) |
 | `currency` | `"THB"` |
 | `reason` | `"PriceAdjustment"` |
 | `status` | `"Issued"` |
@@ -593,7 +593,7 @@ Templates for SMS, email, and push notifications. The body contains `{{placehold
 |---|---|---|
 | `template_id` | bigint PK | Unique ID. |
 | `template_name` | varchar UK | Internal name — e.g. `order_confirmed_sms`, `delivery_otp_push`. |
-| `event_type` | varchar | The order event that triggers this notification — e.g. `OrderPaid`, `OutForDelivery`, `Delivered`. |
+| `event_type` | varchar | The order event that triggers this notification — e.g. `OutForDelivery`, `Delivered`, `Collected`. |
 | `channel` | varchar | How the notification is sent: `SMS`, `Email`, `Push`. |
 | `subject` | nvarchar | Email subject line. Only used for the `Email` channel. |
 | `body_template` | nvarchar | Message body with placeholders — e.g. `Your order {{order_number}} is on its way!`. |
@@ -631,12 +631,12 @@ The `oms-outbox-worker` looks up matching rows for `(channel_type, business_unit
 | `*` | `*` | `ABBTaxInvoiceSentToTMS` | `TMS` | `tms.abb-tax-invoice` | POD: STS ABB/Tax Invoice forwarded to TMS after Delivered |
 | `*` | `*` | `ABBTaxInvoiceSentToGateway` | `Gateway` | `gateway.abb-tax-invoice` | POD: STS ABB/Tax Invoice forwarded to Gateway after Delivered |
 | `*` | `*` | `CreditNoteSentToTMS` | `TMS` | `tms.credit-note` | POD: STS credit note forwarded to TMS (not WMS as in Prepaid) |
-| `*` | `*` | `ABBInvoiceSentToGateway` | `Gateway` | `gateway.abb-invoice` | Prepaid: STS ABB/Tax Invoice forwarded to Gateway after PickConfirmed |
+| `*` | `*` | `ABBTaxInvoiceSentToGateway` | `Gateway` | `gateway.abb-invoice` | Prepaid: STS ABB/Tax Invoice forwarded to Gateway after PickConfirmed |
 | `*` | `*` | `CreditNoteSentToGateway` | `Gateway` | `gateway.credit-note` | Prepaid + POD: STS credit note forwarded to Gateway |
 
 > Note: GatewayB has no row for `WaveStartedSentToGateway` — the outbox worker finds no matching rule and skips dispatch. Adding or removing rows here is the only change required to opt a Gateway in or out of an event.
 
-> Note: `payment_method` is an additional routing dimension alongside `channel_type` and `business_unit`. The outbox worker filters payment-method-specific rules by matching the order's `payment_method` field at dispatch time. Rules for `ABBTaxInvoiceSentToTMS` and `ABBTaxInvoiceSentToGateway` apply when `payment_method` is `POD` or `COD`. Rules for `ABBInvoiceSentToGateway` and `CreditNoteSentToGateway` apply for Prepaid orders as well.
+> Note: `payment_method` is an additional routing dimension alongside `channel_type` and `business_unit`. The outbox worker filters payment-method-specific rules by matching the order's `payment_method` field at dispatch time. Rules for `ABBTaxInvoiceSentToTMS` and `ABBTaxInvoiceSentToGateway` apply when `payment_method` is `POD` or `COD`. Rules for `ABBTaxInvoiceSentToGateway` and `CreditNoteSentToGateway` apply for Prepaid orders as well.
 
 ---
 

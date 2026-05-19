@@ -12,7 +12,7 @@ This glossary defines terms that carry a precise, agreed meaning across business
 A pre-delivery invoice issued by OMS to WMS for a **Prepaid Order** after **Pick Confirmed** and before **Dispatch**. Short for "Advance Billing Before delivery." The ABB Invoice locks in the final basket amount before the driver leaves the warehouse.
 
 **ABBInvoiceSentToWMS**
-An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS for a **Prepaid** order. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. Also dispatches **ABBInvoiceSentToGateway** to Gateway simultaneously. See **Prepaid Flow** and **STS**.
+An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS for a **Prepaid** order. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. Also dispatches **ABBTaxInvoiceSentToGateway** to Gateway simultaneously. See **Prepaid Flow** and **STS**.
 
 **ABBTaxInvoiceSentToGateway**
 An outbox event dispatched to Gateway when STS sends the ABB/Tax Invoice to OMS. For **Prepaid** orders, dispatched after PickConfirmed alongside **ABBInvoiceSentToWMS**. For **Pay on Delivery (POD)** orders, dispatched after Delivered alongside **ABBTaxInvoiceSentToTMS**. Carries the **Invoice Link** so the customer-facing gateway can surface the invoice document.
@@ -45,8 +45,8 @@ The first step in the **Pay on Delivery (POD)** customer journey. The customer r
 **Booking**
 The act of reserving a **Delivery Slot** with TMS before a **Prepaid Order** is created. Booking happens via the customer journey: Customer → Gateway → PS → TMS. A booking must succeed before the Sale Order is submitted to OMS.
 
-**Booking Confirmed**
-An order status. For **Post-Paid Orders**, WMS sends a webhook confirming it has reserved stock for the order. The order moves from **Pending** to **Booking Confirmed**. For **Prepaid Orders**, this step is skipped — the booking was already made via TMS before order creation.
+**Booking Confirmed** *(removed from OMS state machine)*
+This status no longer exists as an OMS order state. Delivery booking now happens externally via TMS before the sale order is created in OMS. Orders transition directly from **Pending** to **Pick Started** when WMS begins picking.
 
 **Bounded Context**
 A module with a clear boundary that owns its own schema and vocabulary. OMS has five: **Order**, **Payment**, **Returns**, **Config**, and **Inbound**. Terms may mean different things in different bounded contexts — context always clarifies meaning.
@@ -59,7 +59,7 @@ An organizational unit (e.g. `CMG`, `CFR`) that owns a set of orders and stores.
 ## C
 
 **Cancellation**
-The act of stopping an order before it reaches the warehouse for dispatch. Cancellation is only allowed from **Pending**, **Booking Confirmed**, or **On Hold**. On cancellation, OMS atomically dispatches three outbox events: **OrderCancelledSentToWMS** (stock release), **OrderCancelledSentToTMS** (cancel delivery booking), and **OrderCancelledSentToGateway** (customer notification). All three appear on the order timeline.
+The act of stopping an order before it reaches the warehouse for dispatch. Cancellation is only allowed from **Pending** or **On Hold**. On cancellation, OMS atomically dispatches three outbox events: **OrderCancelledSentToWMS** (stock release), **OrderCancelledSentToTMS** (cancel delivery booking), and **OrderCancelledSentToGateway** (customer notification). All three appear on the order timeline.
 
 **OrderCancelledSentToGateway**
 An outbox event dispatched to Gateway when an order is cancelled. Notifies the customer-facing gateway so the customer receives a cancellation notification. Dispatched atomically alongside **OrderCancelledSentToWMS** and **OrderCancelledSentToTMS** by `PATCH /orders/{id}/cancel`. Event `type: "outbox"`, `system: "Gateway"`.
@@ -178,11 +178,14 @@ The warehouse activity of examining returned items to assign a **Condition**. In
 **Invoice**
 A fiscal document recording the amount the customer owes (or paid) for an order. In OMS, `Standard` invoices are issued after **Delivered** or **Collected**; `ABB` invoices are issued before **Dispatch** for **Prepaid Orders**; `TaxInvoice` documents are issued by STS post-delivery.
 
+**payment_flow**
+A string field on the **Order** (`orders.payment_flow`, `VARCHAR(50)`) that identifies the payment flow type. Replaces the old boolean. Allowed values: `"PRE_PAID"` (payment collected before delivery — e.g. CreditCard, QRCode, Wallet) and `"PAY_ON_DELIVERY"` (customer pays at the point of delivery). The field is extensible for future payment flow types. OMS uses this value to route STS invoice and credit note events: `"PRE_PAID"` routes to WMS + Gateway; `"PAY_ON_DELIVERY"` routes to TMS + Gateway.
+
 **Invoice Link**
 A URL pointing to the official ABB/Tax Invoice PDF hosted by **STS**. In the **Pay on Delivery (POD)** flow, OMS receives this link after the `Delivered` event and forwards it to TMS (via **ABBTaxInvoiceSentToTMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**). In the **Prepaid** flow, OMS receives this link after `PickConfirmed` and forwards it to WMS (via **ABBInvoiceSentToWMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**).
 
-**Invoiced**
-An order status. POS has confirmed a fiscal invoice has been issued to the customer. The order transitions here after **Delivered** or **Collected**.
+**Invoiced** *(removed from OMS state machine)*
+This status no longer exists as an OMS order state. Invoicing is handled by external systems (POS/STS) outside OMS. The OMS terminal state for home delivery is **Delivered**; for click-and-collect it is **Collected**.
 
 ---
 
@@ -248,8 +251,8 @@ A physical box or parcel containing one or more **Order Lines**, assigned a **Tr
 **Packed**
 An order status. WMS has confirmed all items are packed into packages with tracking IDs assigned.
 
-**Paid**
-An order status. POS has confirmed payment was received from the customer. Terminal status — no further transitions occur.
+**Paid** *(removed from OMS state machine)*
+This status no longer exists as an OMS order state. Payment confirmation is handled by external systems (POS/Gateway) outside OMS. For home delivery, the terminal OMS state is **Delivered**. For click-and-collect, it is **Collected**.
 
 **Pay on Delivery (POD)**
 A payment method where the customer pays at the point of delivery. STS issues the official ABB/Tax Invoice only after the `Delivered` event is confirmed. The POD flow differs from the Prepaid flow in outbox routing: the STS ABB/Tax Invoice is forwarded to TMS and Gateway (not WMS), and credit notes from STS are forwarded to TMS and Gateway (not WMS). Represented as `payment_method = 'POD'` on the order. See also **ABBTaxInvoiceSentToTMS**, **ABBTaxInvoiceSentToGateway**, **CreditNoteSentToTMS**, **CreditNoteSentToGateway**.
@@ -285,7 +288,7 @@ The warehouse staff member physically collecting items from shelves during the *
 The warehouse activity of locating and collecting products from shelves to fulfill an order. Begins when WMS sends the **Pick Started** webhook and ends with **Pick Confirmed**.
 
 **Post-Paid Order**
-An order where payment is collected after delivery. The standard flow: Pending → Booking Confirmed → Pick Started → … → Delivered → Invoiced → Paid.
+An order where payment is collected after delivery. The standard OMS flow ends at **Delivered**: Pending → Pick Started → Pick Confirmed → Packed → Out for Delivery → Delivered. Payment and invoicing are handled externally by POS and STS systems.
 
 **POS (Point of Sale)**
 The external system responsible for price calculation and promotion application. OMS calls POS outbound synchronously — POS exposes an API that OMS invokes directly. POS never calls OMS.
@@ -297,7 +300,7 @@ The process where OMS calls the POS API to recalculate the order total based on 
 The order status saved immediately before transitioning to **On Hold**. Restored exactly when the hold is released. Allows the order to resume at the correct point in the lifecycle.
 
 **Prepaid Flow**
-The order lifecycle for **Prepaid Orders**. Key differences from the standard flow: (1) the **Delivery Slot** is booked via TMS before order creation, so the **Booking Confirmed** step is skipped; (2) an **ABB Invoice** is issued to WMS and Gateway before **Dispatch**; (3) a credit note (optional) is forwarded to WMS and Gateway after **Pick Confirmed**.
+The order lifecycle for **Prepaid Orders**. The delivery slot is booked via TMS before order creation, so OMS transitions directly from **Pending** to **Pick Started**. Key differences from the POD flow: (1) an **ABB Invoice** is issued to WMS and Gateway before **Dispatch** after **Pick Confirmed**; (2) a credit note (optional) is forwarded to WMS and Gateway after **Pick Confirmed**.
 
 **Prepaid Order**
 An order where the customer pays before delivery. The delivery slot is pre-booked via TMS. An **ABB Invoice** is issued to WMS and Gateway before dispatch. STS issues the official tax invoice post-delivery.
@@ -340,7 +343,7 @@ A **Substitution** that the customer has declined. The original **Order Line** i
 The capability for a customer or operator to change a **Delivery Slot** after the order is created but before it reaches **Out for Delivery**. A reschedule call updates `delivery_slots.scheduled_start` and `scheduled_end` and notifies TMS via outbox.
 
 **Return**
-A customer request to send purchased items back to the warehouse. Initiated after **Delivered**, **Invoiced**, or **Paid**. Return lifecycle: `Requested → Pickup Scheduled → Picked Up → Received → Inspected → Put Away → Refunded`.
+A customer request to send purchased items back to the warehouse. Initiated after **Delivered**. Return lifecycle: `Requested → Pickup Scheduled → Picked Up → Received → Inspected → Put Away → Refunded`.
 
 **Return Order Number**
 The human-readable reference for a return — e.g. `RET-001`. Shown to staff and customers.
@@ -443,7 +446,7 @@ Some terms appear in multiple bounded contexts with related but distinct meaning
 | Term | In Order context | In Payment context | In Returns context |
 |---|---|---|---|
 | **Amount** | Requested or picked quantity on an Order Line | Recalculated unit price from POS | Refund amount back to customer |
-| **Status** | Order lifecycle stage (Pending → Paid) | Invoice status (Generated → Issued) | Return stage (Requested → Refunded) |
+| **Status** | Order lifecycle stage (Pending → Delivered / Collected / Returned / Cancelled) | Invoice status (Generated → Issued) | Return stage (Requested → Refunded) |
 | **Invoice** | Referenced by `invoice_id` FK | The authoritative invoice record | The invoice being reversed by a credit note |
 | **Line** | An order line (one SKU) | A line amount record per recalc round | A return item (one returned SKU) |
 | **Condition** | Not used | Not used | Physical state of a returned item (Resellable / Repairable / Dispose) |

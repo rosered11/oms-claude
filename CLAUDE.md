@@ -66,8 +66,8 @@ The `channel_type` field determines business rules and routing. Allowed values:
 The core state machine (enforced as an invariant — no ad-hoc status writes):
 
 ```
-Pending → BookingConfirmed → PickStarted → PickConfirmed → Packed →
-OutForDelivery → Delivered → Invoiced → Paid
+Pending → PickStarted → PickConfirmed → Packed →
+OutForDelivery → Delivered
                 ↕                    ↕
               OnHold              Cancelled
 ```
@@ -78,7 +78,7 @@ Key invariants:
 
 ## Key Conventions
 
-- **Monetary values** — always in smallest currency unit (satang for THB)
+- **Monetary values** — always in baht (THB)
 - **Timestamps** — ISO 8601 UTC throughout
 - **Idempotency** — all inbound webhook handlers require an idempotency key
 - **Error envelope** — consistent `{ error_code, message, trace_id }` shape on all errors

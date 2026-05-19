@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document provides field-level traceability from every OMS database column through the internal DTO layer to the exact external API request field sent to each downstream system. The OMS dispatches outbox events to four external targets — POS (recalculation), Gateway (status update), and TMS/WMS (tax invoice and credit note). For each integration the table below names the external request field, its data type and mandatory flag as defined by the external API spec, the OMS DTO property that supplies the value, the originating database column, and any transformation or encoding rule applied by the payload builder before dispatch. All monetary values in OMS are stored in satang (smallest THB unit) and divided by 100 before transmission.
+This document provides field-level traceability from every OMS database column through the internal DTO layer to the exact external API request field sent to each downstream system. The OMS dispatches outbox events to four external targets — POS (recalculation), Gateway (status update), and TMS/WMS (tax invoice and credit note). For each integration the table below names the external request field, its data type and mandatory flag as defined by the external API spec, the OMS DTO property that supplies the value, the originating database column, and any transformation or encoding rule applied by the payload builder before dispatch. All monetary values in OMS are stored in baht with decimal precision (e.g. `2450.00`). No unit conversion is needed before transmission — values are passed directly.
 
 ---
 
@@ -45,8 +45,8 @@ This document provides field-level traceability from every OMS database column t
 | `OrderItems[].AvGatewayeight` | decimal | O | — | — | Hardcoded: `null` — average weight not tracked at the OMS order-line level |
 | `OrderItems[].QNTItem` | decimal | O | — | — | Hardcoded: `null` — unit item count not tracked separately from `requested_amount` |
 | `OrderItems[].itemUnit` | string | M | `OrderLineDto.Uom` | `order_lines.unit_of_measure` | Direct mapping. Expected values: `Each`, `KG` |
-| `OrderItems[].AMT` | decimal | M | `OrderLineDto.UnitPrice * OrderLineDto.RequestedAmount` | `order_lines.original_unit_price`, `order_lines.requested_amount` | Computed: `UnitPrice * RequestedAmount / 100`. Converts satang to THB. Represents gross amount before discount |
-| `OrderItems[].UPC` | decimal | M | `OrderLineDto.UnitPrice` | `order_lines.original_unit_price` | Computed: `UnitPrice / 100`. Converts satang to THB |
+| `OrderItems[].AMT` | decimal | M | `OrderLineDto.UnitPrice * OrderLineDto.RequestedAmount` | `order_lines.original_unit_price`, `order_lines.requested_amount` | Computed: `UnitPrice * RequestedAmount`. Represents gross amount before discount |
+| `OrderItems[].UPC` | decimal | M | `OrderLineDto.UnitPrice` | `order_lines.original_unit_price` | Direct mapping. Unit price in baht |
 | `OrderItems[].CTLID` | string[] | O | `OrderPromotionDto.SourcePromoId` (filtered by `OrderLineId` or non-null `SourcePromoId`) | `payment.order_promotions.source_promo_id` | Filtered from the promotions list: promotions linked to this line ID or any promotion with a non-null `SourcePromoId`. Sends list of POS promotion control IDs |
 | `OrderItems[].PriceRequestUPC` | decimal | O | — | — | Hardcoded: `null` — action price not tracked in OMS |
 | `OrderItems[].DiscountCode` | string | O | — | — | Hardcoded: `null` — line-level discount codes resolved by POS, not stored in OMS |
@@ -82,10 +82,10 @@ This document provides field-level traceability from every OMS database column t
 | `updated_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time — reflects the moment OMS is notifying Gateway |
 | `updated_by` | string | M | — | — | Hardcoded: `"OMS"` |
 | `payments` | array | O | `OrderPaymentDto` (if present) | `payment.order_payments` | Empty array `[]` when no payment record exists; one element when payment is present; see child fields below |
-| `payments[].payment_type` | string | M | `OrderDto.IsPrepaid` | `orders.is_prepaid` | Mapped: `true`→`"PRE_PAID"`, `false`→`"POST_PAID"` |
+| `payments[].payment_type` | string | M | `OrderDto.PaymentFlow` | `orders.payment_flow` | Direct pass-through. `orders.payment_flow` already holds the string value (`"PRE_PAID"` or `"PAY_ON_DELIVERY"`); no conversion needed |
 | `payments[].payment_method` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Mapped: `CreditCard`→`CREDIT_CARD`, `QRCode`→`QR_CODE`, `PayOnDelivery`→`POD`, all others→`POD` |
 | `payments[].payment_jd` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Direct mapping of raw OMS payment method string (e.g. `"CreditCard"`). Used by Gateway as Payment ID reference for PaymentLink flows |
-| `payments[].payment_amount` | decimal | M | `OrderPaymentDto.TotalAmount` | `payment.order_payments.total_amount` | Computed: `TotalAmount / 100`. Converts satang to THB |
+| `payments[].payment_amount` | decimal | M | `OrderPaymentDto.TotalAmount` | `payment.order_payments.total_amount` | Direct mapping. Value already in baht |
 | `payments[].tendor` | string | M | `OrderPaymentDto.PaymentMethod` | `payment.order_payments.payment_method` | Mapped: `CreditCard`→`WCRD`, `QRCode`→`QRPP`, `PayOnDelivery`→`WCOD`, all others→`WCOD` |
 | `payments[].payment_datetime` | datetime nullable | O | `OrderPaymentDto.CreatedAt` | `payment.order_payments.created_at` | Direct mapping; `null` if no payment record |
 | `payments[].payment_status` | string | M | `OrderPaymentDto.Status` | `payment.order_payments.status` | Mapped: `"Captured"`→`"PAID"`, all others→`"UNPAID"` |
@@ -255,9 +255,9 @@ Uses `GatewayUpdateStatusPayload.Build(order, payment, "PICK_CONFIRMED")` — sa
 | `items[].pr_code` | string | M | `ReturnItemDto.Barcode` | `returns.return_items.barcode` | Direct mapping. Supplier barcode used for WMS scanning |
 | `items[].is_weight_item` | boolean | M | `ReturnItemDto.Uom` | `returns.return_items.uom` | Computed: `true` if `Uom == "KG"`, otherwise `false` |
 | `items[].avg_weight` | decimal | M | — | — | Hardcoded: `0` — average weight not tracked on return items in OMS |
-| `items[].unit_price` | decimal | M | `ReturnItemDto.UnitPrice` | `returns.return_items.unit_price` | Computed: `UnitPrice / 100`. Converts satang to THB |
+| `items[].unit_price` | decimal | M | `ReturnItemDto.UnitPrice` | `returns.return_items.unit_price` | Direct mapping. Value already in baht |
 | `items[].return_quantity` | decimal | M | `ReturnItemDto.Quantity` | `returns.return_items.quantity` | Direct mapping |
-| `items[].return_line_item_price` | decimal | M | `ReturnItemDto.UnitPrice * ReturnItemDto.Quantity` | `returns.return_items.unit_price`, `returns.return_items.quantity` | Computed: `UnitPrice * Quantity / 100`. Converts satang to THB |
+| `items[].return_line_item_price` | decimal | M | `ReturnItemDto.UnitPrice * ReturnItemDto.Quantity` | `returns.return_items.unit_price`, `returns.return_items.quantity` | Computed: `UnitPrice * Quantity`. Value in baht |
 | `items[].sale_unit` | string | M | `ReturnItemDto.Uom` | `returns.return_items.uom` | Direct mapping. Expected values: `Each`, `KG` |
 | `billing_address` | object | nullable | — | — | Hardcoded: `null` — billing address is nullable for POS/E-Ordering sale sources per spec; OMS always sends `null` |
 | `created_at` | datetime | M | — | — | Hardcoded: `DateTime.UtcNow` at dispatch time |

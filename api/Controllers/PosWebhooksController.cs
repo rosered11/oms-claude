@@ -8,9 +8,7 @@ public class PosWebhooksController(
     RecalcResultHandler recalcResult,
     RecalcCompletedHandler recalcCompleted,
     CollectionReadyHandler collectionReady,
-    CollectedHandler collected,
-    InvoicedHandler invoiced,
-    PaymentConfirmedHandler paymentConfirmed) : ControllerBase
+    CollectedHandler collected) : ControllerBase
 {
     [HttpPost("recalculation-result")]
     public IResult RecalcResult([FromBody] RecalcResultRequest req) => recalcResult.Handle(req);
@@ -23,10 +21,4 @@ public class PosWebhooksController(
 
     [HttpPost("collected")]
     public IResult Collected([FromBody] CollectedRequest req) => collected.Handle(req);
-
-    [HttpPost("invoiced")]
-    public IResult Invoiced([FromBody] InvoicedRequest req) => invoiced.Handle(req);
-
-    [HttpPost("payment-confirmed")]
-    public IResult PaymentConfirmed([FromBody] PaymentConfirmedRequest req) => paymentConfirmed.Handle(req);
 }

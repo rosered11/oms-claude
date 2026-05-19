@@ -46,29 +46,26 @@ OMS integrates with external systems using two patterns:
 ### 2.1 Standard Flow (Post-Paid / Delivery)
 
 ```
-Pending → BookingConfirmed → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered → Invoiced → Paid
-                                                                                                ↓
-                                                                                            Returned  (via full return put-away)
+Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered
+                                                                        ↓
+                                                                    Returned  (via full return put-away)
 ```
 
 | Transition | Trigger | Notes |
 |---|---|---|
 | `Pending` (initial) | `POST /orders` | |
-| `BookingConfirmed` | WMS webhook: `/webhooks/wms/booking-confirmed` | |
 | `PickStarted` | WMS webhook: `/webhooks/wms/pick-started` | |
 | `WaveStarted` | WMS webhook: `/webhooks/wms/wave-started` | Internal event only — not a persisted status column. Valid only when order is in `PickStarted`. Triggers `WaveStartedSentToGateway` outbox event. Duplicate wave events are idempotent. |
 | `PickConfirmed` | WMS webhook: `/webhooks/wms/pick-confirmed` | |
 | `Packed` | WMS webhook: `/webhooks/wms/packed` | |
 | `OutForDelivery` | TMS webhook: `/webhooks/tms/package-dispatched` | |
 | `Delivered` | TMS webhook: `/webhooks/tms/package-delivered` | |
-| `Invoiced` | POS webhook: `/webhooks/pos/invoiced` | |
-| `Paid` | POS webhook: `/webhooks/pos/payment-confirmed` | |
 
 ### 2.2 Prepaid Flow (Delivery — Slot Pre-Booked via TMS)
 
 The prepaid flow differs from post-paid in three key ways:
 
-1. **No BookingConfirmed step** — the delivery slot is booked directly via TMS before the sale order is created. OMS transitions from `Pending` directly to `PickStarted`.
+1. **Direct Pending → PickStarted** — the delivery slot is booked directly via TMS before the sale order is created. OMS transitions from `Pending` directly to `PickStarted` (there is no intermediate booking-confirmed step in OMS).
 2. **ABB/Tax Invoice issued after PickConfirmed** — STS sends the official ABB/Tax Invoice to SC after `PickConfirmed`, which SC forwards to WMS and Gateway before TMS dispatches.
 3. **Optional Credit Note** — STS may issue a credit note after `PickConfirmed`. SC receives the webhook, stores the credit note, and forwards it to WMS and Gateway via outbox.
 
@@ -90,7 +87,7 @@ SC → Gateway                       PickConfirmedSentToGateway (outbox)
                                ↑ Gateway receives PickConfirmed → Gateway processes payment externally → STS notifies OMS
 STS → SC                      ABBTaxInvoiceReceived (webhook) or CreditNoteReceived (webhook)
 SC → WMS                      ABBInvoiceSentToWMS (outbox)
-SC → Gateway                       ABBInvoiceSentToGateway (outbox)
+SC → Gateway                       ABBTaxInvoiceSentToGateway (outbox)
 [Optional] SC → WMS           CreditNoteSentToWMS (outbox)
 [Optional] SC → Gateway            CreditNoteSentToGateway (outbox)
 TMS → SC                      PackageDispatched (webhook: /webhooks/tms/package-dispatched) → OutForDelivery
@@ -145,7 +142,7 @@ In the POD flow the customer pays at the point of delivery — cash or card. No 
 ### 2.4 Click & Collect Flow
 
 ```
-Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForCollection → Collected → Invoiced → Paid
+Pending → PickStarted → PickConfirmed → ReadyForCollection → Collected
 ```
 
 `ReadyForCollection` is triggered by POS webhook `/webhooks/pos/pos-collection-ready`.  
@@ -156,7 +153,7 @@ Pending → BookingConfirmed → PickStarted → PickConfirmed → ReadyForColle
 | Status | Meaning |
 |---|---|
 | `OnHold` | Manual hold (supervisor) or automatic hold (damaged goods). `pre_hold_status` saves the previous status and is restored on release. |
-| `Cancelled` | Allowed from `Pending`, `BookingConfirmed`, or `OnHold` only. `PATCH /orders/{id}/cancel` transitions the order to `Cancelled` and dispatches three outbox events atomically: `OrderCancelledSentToWMS` (WMS reverses stock reservation), `OrderCancelledSentToTMS` (TMS cancels delivery booking), `OrderCancelledSentToGateway` (Gateway notifies customer). All three events appear on the order timeline. |
+| `Cancelled` | Allowed from `Pending` or `OnHold` only. `PATCH /orders/{id}/cancel` transitions the order to `Cancelled` and dispatches three outbox events atomically: `OrderCancelledSentToWMS` (WMS reverses stock reservation), `OrderCancelledSentToTMS` (TMS cancels delivery booking), `OrderCancelledSentToGateway` (Gateway notifies customer). All three events appear on the order timeline. |
 | `ReadyForCollection` | Click & Collect only — order packed and waiting at store counter. |
 | `Collected` | Customer picked up the order at the store. |
 | `Returned` | Terminal state. An order transitions from `Delivered` to `Returned` when WMS confirms put-away of a full return via `POST /webhooks/wms/put-away-confirmed`. This is distinct from the return record's own `PutAway` status — the **order** reaches `Returned`, and the **return record** reaches `PutAway`. Both transitions happen atomically in the same webhook handler. |
@@ -175,15 +172,15 @@ The following 13 use cases are exercised by the Cypress e2e test suite in `cypre
 | UC2 | `uc2-web-cfr-prepaid.cy.js` | Web / CFR / Prepaid full order flow: same as UC1 but for CFR business unit. Verifies BU data isolation. | Web | CFR | Prepaid | Delivered |
 | UC3 | `uc3-tiktok-cmg-prepaid-awb.cy.js` | TikTok Marketplace / CMG / Prepaid. Standard Prepaid flow plus TikTok-specific AWB retrieval: after `OutForDelivery`, TikTok calls `GET /orders/{id}/packages` to retrieve the Air Waybill. OMS dispatches `OutForDeliveryEvent` outbox to Marketplace. | Marketplace (TikTok) | CMG | Prepaid | Delivered |
 | UC4 | `uc4-web-cfr-pod.cy.js` | Web / CFR / POD full order flow: `Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → (TMS pre-delivery recalc) → Delivered`. STS ABB/Tax Invoice issued after Delivered; forwarded to TMS + Gateway. | Web | CFR | POD | Delivered |
-| UC5 | `uc5-web-cfr-pod-pork.cy.js` | Web / CFR / POD — weight-based fresh products (pork 841.23 g + duck 1.23 kg). POS-rounded pricing in satang: pork 10684 + duck 4871 = 15555 sat total. TMS pre-delivery recalc confirms final actual weight before driver collects payment. | Web | CFR | POD | Delivered |
-| UC6 | `uc6-web-cfr-partial-return.cy.js` | Web / CFR / POD — beef + chicken order, beef not fresh at delivery. Customer keeps chicken; returns beef (BEEF-KG, 0.5 kg, 17500 sat). `POST /returns` with `returnType: PartialItem`. Return status: `Requested`. | Web | CFR | POD | Delivered + Return Requested |
+| UC5 | `uc5-web-cfr-pod-pork.cy.js` | Web / CFR / POD — weight-based fresh products (pork 841.23 g + duck 1.23 kg). POS-rounded pricing in baht: pork 106.84 + duck 48.71 = 155.55 total. TMS pre-delivery recalc confirms final actual weight before driver collects payment. | Web | CFR | POD | Delivered |
+| UC6 | `uc6-web-cfr-partial-return.cy.js` | Web / CFR / POD — beef + chicken order, beef not fresh at delivery. Customer keeps chicken; returns beef (BEEF-KG, 0.5 kg, 175.00). `POST /returns` with `returnType: PartialItem`. Return status: `Requested`. | Web | CFR | POD | Delivered + Return Requested |
 | UC7 | `uc7-stock-transfer.cy.js` | Stock transfer from Store A to Store B: `POST /inbound/transfer-orders → Created → WMS transfer-pick-confirmed → PickConfirmed → WMS transfer-received → Completed`. | Inbound | — | — | Completed |
 | UC8 | `uc8-postpone-delivery.cy.js` | Customer postpones delivery slot (allowed from Pending). Second reschedule attempt while `OutForDelivery` returns `409 slot_change_not_allowed`. | Web | CFR | Prepaid | OutForDelivery (409 enforced) |
 | UC9 | `uc9-cancel-order.cy.js` | OMS operator cancels a Pending order via the Kanban UI. `PATCH /orders/{id}/cancel` transitions to `Cancelled` and dispatches three outbox events: `OrderCancelledSentToWMS` (reverse stock reservation), `OrderCancelledSentToTMS` (cancel delivery booking), `OrderCancelledSentToGateway` (notify customer). Cancel from `PickStarted` returns `409 invalid_transition`. | Web | — | — | Cancelled |
 | UC10 | `uc10-short-pick-decline.cy.js` | Short-pick: dish soap out of stock; only water delivered. `PATCH /orders/{id}/partial-pick` records soap line `shortfallQuantity: 1`. WMS packs water only. Final order `Delivered` with soap line `pickedQty: 0`. | Web | CFR | Prepaid | Delivered |
-| UC11 | `uc11-substitution-refund.cy.js` | Substitution: fabric softener (8900 sat) → dish soap (4500 sat). Customer approves via `POST /orders/{id}/substitutions/{subId}/approve`. STS issues credit note for price difference (4400 sat). | Web | CFR | Prepaid | Delivered |
+| UC11 | `uc11-substitution-refund.cy.js` | Substitution: fabric softener (89.00) → dish soap (45.00). Customer approves via `POST /orders/{id}/substitutions/{subId}/approve`. STS issues credit note for price difference (44.00). | Web | CFR | Prepaid | Delivered |
 | UC12 | `uc12-full-return.cy.js` | Full return after delivery (CustomerRequest). `POST /returns → Requested`. `POST /webhooks/wms/put-away-confirmed` transitions return to `PutAway` and **transitions the linked order to `Returned`** (order status changes from `Delivered` → `Returned`). Refund initiated automatically. | Web | CFR | Prepaid | Returned |
-| UC13 | `uc13-coupon-order.cy.js` | Prepaid order with coupon FRESH10 (10% PercentageDiscount). POS applies discount at recalculation; `adjustedAmount` reflects discount (e.g. 19800 × 0.90 = 17820 sat). STS ABB/Tax Invoice for discounted amount. | Web | CFR | Prepaid | Delivered |
+| UC13 | `uc13-coupon-order.cy.js` | Prepaid order with coupon FRESH10 (10% PercentageDiscount). POS applies discount at recalculation; `adjustedAmount` reflects discount (e.g. 198.00 × 0.90 = 178.20). STS ABB/Tax Invoice for discounted amount. | Web | CFR | Prepaid | Delivered |
 
 ### 3.2 Extended Use Case Reference
 
@@ -209,7 +206,7 @@ The following 13 use cases are exercised by the Cypress e2e test suite in `cypre
 - **Outbox atomicity** — every domain event is written in the same DB transaction as the aggregate mutation. No event can be lost even if the background dispatcher crashes.
 - **`pre_hold_status`** — must be saved before any `OnHold` transition and restored exactly on release. The `order_holds` log is append-only.
 - **`substitution_flag`** — set to `true` when any substitution record is created; never reset.
-- **Cancellation guard** — only allowed from `Pending`, `BookingConfirmed`, or `OnHold`. Returns `409 invalid_transition` otherwise.
+- **Cancellation guard** — only allowed from `Pending` or `OnHold`. Returns `409 invalid_transition` otherwise.
 - **Delivery slot update guard** — slot cannot be changed once the order is `OutForDelivery` or later.
 - **Error envelope** — all error responses use `{ "error": "<code>", "detail": "<message>" }`.
 - **Bearer JWT** — required on all endpoints; 1-hour expiry; obtained via `POST /auth/token`.
