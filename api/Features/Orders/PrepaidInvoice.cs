@@ -11,7 +11,7 @@ public class PrepaidInvoiceHandler(InMemoryStore store)
 
         var invoiceNumber = $"INV-PRE-{DateTime.UtcNow:yyyyMMddHHmmss}";
         var now = DateTime.UtcNow;
-        store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "ABBInvoiceSentToWMS",
+        store.AppendEvent(id, ApiResult.OutboxEvent("WMS", "ABBTaxInvoiceSentToWMS",
             $"SC → WMS: ABB/Tax Invoice {invoiceNumber} · {o.Amount} THB. Invoice issued before TMS dispatch."));
         store.AppendEvent(id, ApiResult.OutboxEvent("Gateway", "TaxInvoiceForwarded",
             $"SC → Gateway: ABB/Tax Invoice {invoiceNumber} forwarded to customer. Prepaid transaction complete."));

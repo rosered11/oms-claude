@@ -2,8 +2,8 @@ namespace OmsApi;
 
 public record CreateTransferOrderLineRequest(string Sku, int RequestedQty);
 
-public record CreateTransferOrderRequest(string SourceStoreId, string Source,
-    string DestStoreId, string Dest, List<CreateTransferOrderLineRequest> Lines);
+public record CreateTransferOrderRequest(string SourceStoreId, string DestStoreId,
+    List<CreateTransferOrderLineRequest> Lines, string? Source = null, string? Dest = null);
 
 public class CreateTransferOrderHandler(InMemoryStore store)
 {
@@ -17,10 +17,10 @@ public class CreateTransferOrderHandler(InMemoryStore store)
             Id = id,
             TransferNumber = transferNumber,
             SourceStoreId = req.SourceStoreId,
-            Source = req.Source,
+            Source = req.Source ?? req.SourceStoreId,
             DestStoreId = req.DestStoreId,
-            Dest = req.Dest,
-            Status = "Draft",
+            Dest = req.Dest ?? req.DestStoreId,
+            Status = "Created",
             CreatedAt = now,
             UpdatedAt = now,
             Lines = req.Lines.Select((l, i) => new TransferOrderLineDto

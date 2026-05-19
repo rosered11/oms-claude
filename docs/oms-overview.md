@@ -86,7 +86,7 @@ SC → TMS                      PickConfirmedSentToTMS (outbox)
 SC → Gateway                       PickConfirmedSentToGateway (outbox)
                                ↑ Gateway receives PickConfirmed → Gateway processes payment externally → STS notifies OMS
 STS → SC                      ABBTaxInvoiceReceived (webhook) or CreditNoteReceived (webhook)
-SC → WMS                      ABBInvoiceSentToWMS (outbox)
+SC → WMS                      ABBTaxInvoiceSentToWMS (outbox)
 SC → Gateway                       ABBTaxInvoiceSentToGateway (outbox)
 [Optional] SC → WMS           CreditNoteSentToWMS (outbox)
 [Optional] SC → Gateway            CreditNoteSentToGateway (outbox)
@@ -215,7 +215,7 @@ The following 13 use cases are exercised by the Cypress e2e test suite in `cypre
 - **Credit Note idempotency** — credit note webhooks from STS require `X-Idempotency-Key`. Duplicate credit note events are ignored and not reprocessed.
 - **Partial Pick guard** — partial pick cannot reduce picked quantity to zero across all order lines. If all lines would reach zero, the order must be fully cancelled via Cancel Order instead.
 - **Partial Return guard** — partial item return is only allowed after `Delivered` status. Each returned line item must reference the original order line ID.
-- **STS routing** — ABB/Tax Invoice and Credit Note events from STS are routed based on payment method: for Prepaid, both WMS and Gateway receive the events; for POD, both TMS and Gateway receive the events. Routing is enforced via `config.outbox_routing_rules` rows keyed on `(trigger_event, payment_method)`.
+- **STS routing** — ABB/Tax Invoice and Credit Note events from STS are routed based on `payment_flow`: for `PRE_PAID`, both WMS and Gateway receive the events; for `PAY_ON_DELIVERY`, both TMS and Gateway receive the events. Routing is enforced via `config.outbox_routing_rules` rows keyed on `(trigger_event, payment_flow)`.
 
 ---
 
@@ -237,14 +237,14 @@ The OMS supports multiple business units (BUs) and multiple channel types. Routi
 - **Gateway B**: Does NOT receive wave status updates (no routing rule entry for WaveStarted).
 - This is controlled by presence or absence of an `outbox_routing_rules` row for the `WaveStartedSentToGateway` trigger event per gateway business unit.
 
-### Payment Method as a Routing Dimension
+### Payment Flow as a Routing Dimension
 
-`paymentMethod` on the order is also a routing dimension evaluated by `config.outbox_routing_rules`. Specifically:
+`payment_flow` on the order is also a routing dimension evaluated by `config.outbox_routing_rules`. Specifically:
 
-- `paymentMethod = 'POD'` — STS invoice events (`ABBTaxInvoiceReceived`, `CreditNoteReceived`) are routed to TMS and Gateway.
-- `paymentMethod = 'Prepaid'` — STS invoice events are routed to WMS and Gateway.
+- `payment_flow = 'PAY_ON_DELIVERY'` — STS invoice events (`ABBTaxInvoiceReceived`, `CreditNoteReceived`) are routed to TMS and Gateway.
+- `payment_flow = 'PRE_PAID'` — STS invoice events are routed to WMS and Gateway.
 
-This is enforced via `outbox_routing_rules` rows keyed on `(trigger_event, payment_method)`. No conditional logic in application code — routing is entirely table-driven.
+This is enforced via `outbox_routing_rules` rows keyed on `(trigger_event, payment_flow)`. No conditional logic in application code — routing is entirely table-driven.
 
 ### Business Unit Data Isolation
 

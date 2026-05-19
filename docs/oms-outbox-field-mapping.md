@@ -176,7 +176,7 @@ Uses `GatewayUpdateStatusPayload.Build(order, payment, "PICK_CONFIRMED")` — sa
 
 **Trigger events:**  
 - `ABBTaxInvoiceSentToTMS` (dispatched to TMS) when STS fires `ABBTaxInvoiceReceived`  
-- `ABBInvoiceSentToWMS` (dispatched to WMS) when STS fires `ABBTaxInvoiceReceived`  
+- `ABBTaxInvoiceSentToWMS` (dispatched to WMS) when STS fires `ABBTaxInvoiceReceived`  
 
 **Endpoint keys:**  
 - `tms.abb-tax-invoice` → `https://tms.internal/api/invoices` (StaticToken: `static-tms-token`)  

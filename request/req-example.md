@@ -57,7 +57,7 @@ I want you to apply new business logic to the document OMS. You must change or i
     STS → SC (webhook)
 
     - OMS notifies (Outbox)
-    SC → WMS: ABBInvoiceSentToWMS (outbox)
+    SC → WMS: ABBTaxInvoiceSentToWMS (outbox)
 
     - [Option] if have Credit Note: receive webhook from STS
     STS → SC (webhook)

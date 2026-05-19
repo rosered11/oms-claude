@@ -53,7 +53,7 @@ public class AbbTaxInvoiceReceivedHandler(InMemoryStore store, OutboxAdapterServ
         if (order.PaymentFlow == "PRE_PAID")
         {
             foreach (var evt in adapterService.Dispatch(req.OrderId, order.ChannelType, order.SubChannel,
-                order.BusinessUnit, "ABBInvoiceSentToWMS", invoicePayload))
+                order.BusinessUnit, "ABBTaxInvoiceSentToWMS", invoicePayload))
                 store.AppendEvent(req.OrderId, evt);
         }
         else

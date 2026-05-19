@@ -71,7 +71,7 @@ Maps every API request and response field to its source or target database table
 | `orderNumber` | string | `orders.orders` | `order_number` | |
 | `status` | string | `orders.orders` | `status` | |
 | `fulfillmentType` | string | `orders.orders` | `fulfillment_type` | |
-| `paymentMethod` | string | `orders.orders` | `payment_method` | |
+| `paymentFlow` | string | `orders.orders` | `payment_flow` | `"PRE_PAID"` or `"PAY_ON_DELIVERY"` |
 | `store` | string | `config.store_locations` | `store_name` | JOIN on `orders.store_id` |
 | `storeId` | string | `orders.orders` | `store_id` | |
 | `lineCount` | number | `orders.order_lines` | COUNT(`order_line_id`) | Grouped by `order_id` |
@@ -97,7 +97,7 @@ Maps every API request and response field to its source or target database table
 | `orderNumber` | string | `orders.orders` | `order_number` | |
 | `status` | string | `orders.orders` | `status` | |
 | `fulfillmentType` | string | `orders.orders` | `fulfillment_type` | |
-| `paymentMethod` | string | `orders.orders` | `payment_method` | |
+| `paymentFlow` | string | `orders.orders` | `payment_flow` | `"PRE_PAID"` or `"PAY_ON_DELIVERY"` |
 | `substitutionFlag` | boolean | `orders.orders` | `substitution_flag` | |
 | `store` | string | `config.store_locations` | `store_name` | JOIN on `orders.store_id` |
 | `storeId` | string | `orders.orders` | `store_id` | |
@@ -279,7 +279,8 @@ All writes in a single DB transaction.
 | `businessUnit` | `orders.orders` | `business_unit` | INSERT |
 | `storeId` | `orders.orders` | `store_id` | INSERT |
 | `fulfillmentType` | `orders.orders` | `fulfillment_type` | INSERT |
-| `paymentMethod` | `orders.orders` | `payment_method` | INSERT |
+| `paymentFlow` | `orders.orders` | `payment_flow` | INSERT |
+| `paymentMethod` | `payment.order_payments` | `payment_method` | INSERT — instrument stored in payment schema, not orders |
 | `customer.name` | `orders.order_addresses` | `first_name`, `last_name` | INSERT — `address_type = 'Delivery'` |
 | `customer.phone` | `orders.order_addresses` | `mobile_phone` | INSERT |
 | `customer.email` | `orders.order_addresses` | `email` | INSERT |

@@ -24,7 +24,6 @@ One row per customer order. This is the central aggregate that all other tables 
 | `business_unit` | varchar | The brand operating this order — e.g. `TOPS`, `CFH`. |
 | `store_id` | bigint FK | The store or DC fulfilling this order. References `config.store_locations`. |
 | `fulfillment_type` | varchar | How the order will reach the customer: `Delivery` (driver delivers), `Express` (faster delivery), `ClickAndCollect` (customer picks up at store). |
-| `payment_method` | ENUM('Prepaid', 'POD', 'COD') | How the customer pays and when the invoice is triggered. `Prepaid`: payment collected before delivery — STS ABB/Tax Invoice is issued at Pick Confirmed and forwarded to WMS and Gateway; credit notes go to WMS and Gateway. `POD` (Pay on Delivery): customer pays at delivery — invoice triggered after `Delivered` event; STS ABB/Tax Invoice forwarded to TMS + Gateway; credit notes go to TMS + Gateway. `COD` (Cash on Delivery): same invoice-after-delivery timing as POD. This field is an additional routing dimension used by `config.outbox_routing_rules` alongside `channel_type` and `business_unit`. |
 | `status` | varchar | The current stage of the order in the lifecycle state machine. |
 | `pre_hold_status` | varchar | The status the order was in before it was put on hold. Saved so it can be restored when the hold is released. `null` when not on hold. |
 | `hold_reason` | varchar | Why the order was placed on hold — e.g. `ManualReview`, `PackageDamaged`. `null` when not on hold. |
@@ -244,7 +243,7 @@ The top-level payment record linking an order to its payment status.
 |---|---|---|
 | `payment_id` | bigint PK | Unique payment ID. |
 | `order_id` | bigint | The order this payment covers. |
-| `payment_method` | varchar | How the customer pays: `CreditCard`, `BankTransfer`, `StoreCredit`. |
+| `payment_method` | varchar | The payment instrument used for this order. Allowed values: `CreditCard` (e.g. Visa/Mastercard charged at checkout), `QRCode` (PromptPay QR scan), `BankTransfer` (manual transfer confirmed by ops), `StoreCredit` (loyalty wallet balance), `PayOnDelivery` (cash or card collected by driver). Example: `"CreditCard"`. |
 | `total_amount` | decimal | The total amount to be collected. |
 | `currency` | varchar | Currency code — `THB`. |
 | `status` | varchar | `Pending`, `Authorised`, `Captured`, `Refunded`, `Failed`. |
@@ -262,7 +261,7 @@ One row per payment gateway transaction. An order may have multiple transactions
 | `payment_id` | bigint FK | The payment this transaction belongs to. |
 | `amount` | decimal | Amount of this specific transaction. |
 | `currency` | varchar | Currency. |
-| `payment_method` | varchar | The payment instrument used for this transaction. |
+| `payment_method` | varchar | The payment instrument used for this specific gateway transaction. Same allowed values as `order_payments.payment_method`. Example: `"QRCode"` for a PromptPay capture, `"CreditCard"` for a card authorisation. |
 | `gateway_ref` | varchar | The transaction reference returned by the payment gateway. |
 | `created_at` | timestamptz | When the transaction was submitted. |
 
@@ -468,7 +467,7 @@ One row per product being returned.
 | `condition` | varchar | Physical condition assessed at inspection: `Resellable` (back on shelf), `Repairable` (needs repair), `Dispose` (write off). |
 | `put_away_status` | varchar | `Pending`, `PutAway`. |
 | `assigned_sloc` | varchar | Storage location code where the item was placed after inspection — e.g. `B-05`, `REPAIR-BAY-2`, `DISPOSAL`. |
-| `payment_method` | varchar | How the refund for this item will be returned to the customer. |
+| `payment_method` | varchar | How the refund for this item will be returned to the customer. Must match the instrument on the original `payment.order_payments.payment_method`. Allowed values: `CreditCard` (refunded to original card), `QRCode` (bank transfer back to the customer's PromptPay-linked account), `BankTransfer` (manual transfer back to customer bank account), `StoreCredit` (credited back to loyalty wallet). Example: `"CreditCard"`. |
 | `inspected_at` / `put_away_at` | timestamptz | Stage timestamps. |
 | `created_at` / `updated_at` | timestamptz | Standard audit timestamps. |
 
@@ -636,7 +635,7 @@ The `oms-outbox-worker` looks up matching rows for `(channel_type, business_unit
 
 > Note: GatewayB has no row for `WaveStartedSentToGateway` — the outbox worker finds no matching rule and skips dispatch. Adding or removing rows here is the only change required to opt a Gateway in or out of an event.
 
-> Note: `payment_method` is an additional routing dimension alongside `channel_type` and `business_unit`. The outbox worker filters payment-method-specific rules by matching the order's `payment_method` field at dispatch time. Rules for `ABBTaxInvoiceSentToTMS` and `ABBTaxInvoiceSentToGateway` apply when `payment_method` is `POD` or `COD`. Rules for `ABBTaxInvoiceSentToGateway` and `CreditNoteSentToGateway` apply for Prepaid orders as well.
+> Note: `payment_flow` is an additional routing dimension alongside `channel_type` and `business_unit`. The outbox worker filters payment-flow-specific rules by matching the order's `payment_flow` field at dispatch time. Rules for `ABBTaxInvoiceSentToTMS` and `ABBTaxInvoiceSentToGateway` apply when `payment_flow = "PAY_ON_DELIVERY"`. Rules for `ABBTaxInvoiceSentToGateway` and `CreditNoteSentToGateway` apply for `payment_flow = "PRE_PAID"` orders as well.
 
 ---
 

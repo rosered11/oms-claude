@@ -11,11 +11,11 @@ This glossary defines terms that carry a precise, agreed meaning across business
 **ABB Invoice**
 A pre-delivery invoice issued by OMS to WMS for a **Prepaid Order** after **Pick Confirmed** and before **Dispatch**. Short for "Advance Billing Before delivery." The ABB Invoice locks in the final basket amount before the driver leaves the warehouse.
 
-**ABBInvoiceSentToWMS**
+**ABBTaxInvoiceSentToWMS**
 An outbox event dispatched to WMS when STS sends the ABB/Tax invoice to OMS for a **Prepaid** order. OMS forwards the invoice link to WMS so the warehouse can proceed with dispatch. Also dispatches **ABBTaxInvoiceSentToGateway** to Gateway simultaneously. See **Prepaid Flow** and **STS**.
 
 **ABBTaxInvoiceSentToGateway**
-An outbox event dispatched to Gateway when STS sends the ABB/Tax Invoice to OMS. For **Prepaid** orders, dispatched after PickConfirmed alongside **ABBInvoiceSentToWMS**. For **Pay on Delivery (POD)** orders, dispatched after Delivered alongside **ABBTaxInvoiceSentToTMS**. Carries the **Invoice Link** so the customer-facing gateway can surface the invoice document.
+An outbox event dispatched to Gateway when STS sends the ABB/Tax Invoice to OMS. For **Prepaid** orders, dispatched after PickConfirmed alongside **ABBTaxInvoiceSentToWMS**. For **Pay on Delivery (POD)** orders, dispatched after Delivered alongside **ABBTaxInvoiceSentToTMS**. Carries the **Invoice Link** so the customer-facing gateway can surface the invoice document.
 
 **ABBTaxInvoiceSentToTMS**
 An outbox event dispatched to TMS when STS sends the ABB/Tax Invoice to OMS for a **Pay on Delivery (POD)** order. Carries the **Invoice Link**. In the Prepaid flow the equivalent event targets WMS; in the POD flow it targets TMS and Gateway instead.
@@ -182,7 +182,7 @@ A fiscal document recording the amount the customer owes (or paid) for an order.
 A string field on the **Order** (`orders.payment_flow`, `VARCHAR(50)`) that identifies the payment flow type. Replaces the old boolean. Allowed values: `"PRE_PAID"` (payment collected before delivery — e.g. CreditCard, QRCode, Wallet) and `"PAY_ON_DELIVERY"` (customer pays at the point of delivery). The field is extensible for future payment flow types. OMS uses this value to route STS invoice and credit note events: `"PRE_PAID"` routes to WMS + Gateway; `"PAY_ON_DELIVERY"` routes to TMS + Gateway.
 
 **Invoice Link**
-A URL pointing to the official ABB/Tax Invoice PDF hosted by **STS**. In the **Pay on Delivery (POD)** flow, OMS receives this link after the `Delivered` event and forwards it to TMS (via **ABBTaxInvoiceSentToTMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**). In the **Prepaid** flow, OMS receives this link after `PickConfirmed` and forwards it to WMS (via **ABBInvoiceSentToWMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**).
+A URL pointing to the official ABB/Tax Invoice PDF hosted by **STS**. In the **Pay on Delivery (POD)** flow, OMS receives this link after the `Delivered` event and forwards it to TMS (via **ABBTaxInvoiceSentToTMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**). In the **Prepaid** flow, OMS receives this link after `PickConfirmed` and forwards it to WMS (via **ABBTaxInvoiceSentToWMS**) and Gateway (via **ABBTaxInvoiceSentToGateway**).
 
 **Invoiced** *(removed from OMS state machine)*
 This status no longer exists as an OMS order state. Invoicing is handled by external systems (POS/STS) outside OMS. The OMS terminal state for home delivery is **Delivered**; for click-and-collect it is **Collected**.

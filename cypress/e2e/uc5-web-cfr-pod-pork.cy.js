@@ -50,7 +50,7 @@ describe('UC5 — Web / CFR / POD — weight-based fresh products (pork 841.23 g
       channelType:   'Web',
       businessUnit:  'CFR',
       paymentMethod: 'POD',
-      isPrepaid:     false,
+      paymentFlow:   'PAY_ON_DELIVERY',
       lines: [
         {
           sku:           'PORK-KG',

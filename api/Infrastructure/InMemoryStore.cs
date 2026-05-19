@@ -165,7 +165,7 @@ public class InMemoryStore
         Add("*", "*", "*", "OrderCancelledEvent",    "TMS",     "tms.cancel-booking",  2);
         Add("*", "*", "*", "OrderCancelledEvent",    "Gateway",      "Gateway.order-cancelled",  3);
         Add("*", "*", "*", "PosRecalculateEvent",    "POS",     "pos.recalculate",     1);
-        Add("*", "*", "*", "ABBInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
+        Add("*", "*", "*", "ABBTaxInvoiceSentToWMS",    "WMS",     "wms.tax-invoice",     1);
         Add("*", "*", "*", "CreditNoteSentToWMS",    "WMS",     "wms.credit-note",     1);
         Add("*",       "*", "*", "WaveStartedSentToGateway", "Gateway",  "Gateway.wave-started",     1);
     }

@@ -106,6 +106,7 @@ When you learn something worth remembering (a decision, a constraint, a correcti
 - `docs/oms-data-dictionary.md` — Plain-language definitions for every table and column
 - `docs/oms-api-field-mapping.md` — Maps every API field to its database column
 - `docs/oms-ubiquitous-language.md` — Domain glossary
+- `docs/oms-payment-processing.md` — Payment processing steps, database tables, and flows for every use case (Prepaid, POD/COD, partial pick, cancellation, return, large-purchase return)
 
 ## Web UI Prototype
 

@@ -9,6 +9,33 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-I want you to review the sequence diagram
-    - Gateway can't call api get the order to OMS, but I see in the sequence diagram in the final step.
-    - In the sequence diagram, what is the internal POS call?
+I want you to remove all authen from the OMS. and please review file docs/oms-api-blueprint.md. after i run aglio convert to html i receive log follow bellow.
+
+After run aglio, this is output file docs/output.html i think it isn't complete.
+
+## Example log Aglio
+
+```
+>> Line 10: action is missing a response (warning code 6)
+>> Context
+       ...
+        **Auth:** Bearer JWT on all endpoints (except `POST /auth/token`)
+
+       ---
+
+>>>>   ## Authentication
+
+       ### POST /auth/token
+
+       Obtain a Bearer JWT for API access.
+
+       ...
+>> Line 36: action is missing a response (warning code 6)
+>> Context
+       ...
+        ```
+
+       ---
+
+>>>>   ## Group: Orders
+```

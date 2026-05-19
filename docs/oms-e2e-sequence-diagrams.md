@@ -52,7 +52,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed — invoice does not advance state machine
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
@@ -112,7 +112,7 @@ sequenceDiagram
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
   Note over OMS: State remains PickConfirmed
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
@@ -171,7 +171,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount, invoiceLink }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
@@ -504,7 +504,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
@@ -625,7 +625,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 3000 (water only), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{ trackingId, lineIds: [waterLine only] }] }
@@ -699,7 +699,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 7500 (2×1500 water + 4500 dish soap) }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   rect rgb(88, 130, 180)
@@ -767,7 +767,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceNumber, invoiceAmount }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }
@@ -849,7 +849,7 @@ sequenceDiagram
 
   STS->>OMS: POST /webhooks/sts/abb-tax-invoice-received { orderId, invoiceAmount: 17820 (discounted), currency: "THB" }
   OMS-->>STS: 202 { accepted: true }
-  Note over OMS,WMS: Outbox: ABBInvoiceSentToWMS → WMS
+  Note over OMS,WMS: Outbox: ABBTaxInvoiceSentToWMS → WMS
   Note over OMS,Gateway: Outbox: ABBTaxInvoiceSentToGateway → Gateway
 
   WMS->>OMS: POST /webhooks/wms/packed { orderId, packages[{trackingId, vehicleType, weight, lineIds}] }

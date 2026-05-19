@@ -82,7 +82,7 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
     });
   });
 
-  it('Step 5 — STS webhook received; OMS dispatches ABBInvoiceSentToWMS + ABBTaxInvoiceSentToGateway', () => {
+  it('Step 5 — STS webhook received; OMS dispatches ABBTaxInvoiceSentToWMS + ABBTaxInvoiceSentToGateway', () => {
     // STS webhook must arrive before OMS can dispatch to WMS/Gateway — the outbox
     // events are only created as a direct consequence of this webhook.
     cy.omsApi('POST', '/webhooks/sts/abb-tax-invoice-received', {
@@ -106,7 +106,7 @@ describe('UC1 — Web / CMG / Prepaid full order flow', () => {
     cy.omsApi('GET', `/orders/${orderId}/timeline`).then((res) => {
       const events = res.body.events ?? res.body;
       const names  = events.map((e) => e.event);
-      expect(names).to.include('ABBInvoiceSentToWMS');
+      expect(names).to.include('ABBTaxInvoiceSentToWMS');
       expect(names).to.include('ABBTaxInvoiceSentToGateway');
     });
   });

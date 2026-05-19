@@ -9,13 +9,9 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-I want you to follow this requirement:
-- Remove these processes from the OMS, because the OMS isn't handling them.
-    - BookingConfirmed
-    - Invoiced
-    - Paid
-- I want you to review the name of `ApiResult.DispatchOutbox`. I should use this name for the handler about the TimelineEvent, or I should use another name. if must use another name you please recommend one for me.
-- I want you to review the `Stock Ledger`.Should it be in the OMS System like?
-- I want you remove branches/nearby from the OMS. because the OMS isn't handle this feature.
-- I want you change field of is_prepaid to another type like: string. because in the future it maybe case more then 2 flows.
-- I want you change all monetary value in OMS are stored from **satang** to **bath**
+I'd like you to explain the payment processing steps in the database for every use case. Money is a key concern for me, so I need everyone to understand the situation and write to documents.
+
+For example, A customer makes a large purchase and then requests a return. How do you manage this information in the OMS?
+
+## Path Docuements
+- docs

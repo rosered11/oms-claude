@@ -27,12 +27,12 @@ describe('UC4 — Web / CFR / POD full order flow', () => {
       channelType:   'Web',
       businessUnit:  'CFR',
       paymentMethod: 'POD',
-      isPrepaid:     false,
+      paymentFlow:   'PAY_ON_DELIVERY',
     }).then((order) => {
       expect(order.status).to.eq('Pending');
       expect(order.paymentMethod).to.eq('POD');
       expect(order.businessUnit).to.eq('CFR');
-      expect(order.isPrepaid).to.be.false;
+      expect(order.paymentFlow).to.eq('PAY_ON_DELIVERY');
       orderId = order.id;
       lineId  = order.lines[0].id;
     });

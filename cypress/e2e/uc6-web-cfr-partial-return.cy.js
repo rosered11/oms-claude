@@ -39,7 +39,7 @@ describe('UC6 — Web / CFR / POD — beef + chicken order, beef not fresh → p
       channelType:   'Web',
       businessUnit:  'CFR',
       paymentMethod: 'POD',
-      isPrepaid:     false,
+      paymentFlow:   'PAY_ON_DELIVERY',
       lines: [
         {
           sku:           'BEEF-KG',

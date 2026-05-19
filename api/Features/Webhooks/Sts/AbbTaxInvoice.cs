@@ -44,7 +44,7 @@ public class AbbTaxInvoiceHandler(InMemoryStore store)
             : new[] { "TMS", "Gateway" };
 
         store.AppendEvent(req.OrderId, ApiResult.OutboxEvent(string.Join("+", forwardedTo),
-            order.PaymentFlow == "PRE_PAID" ? "ABBInvoiceSentToWMS" : "ABBTaxInvoiceSentToTMS",
+            order.PaymentFlow == "PRE_PAID" ? "ABBTaxInvoiceSentToWMS" : "ABBTaxInvoiceSentToTMS",
             $"Invoice {req.InvoiceNumber} forwarded to {string.Join(", ", forwardedTo)}."));
 
         return Results.Accepted(null, new

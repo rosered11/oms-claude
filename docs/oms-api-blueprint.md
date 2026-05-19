@@ -87,8 +87,8 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
   "businessUnit": "TOPS",
   "storeId": "store-central-dc",
   "fulfillmentType": "Delivery",
-  "paymentMethod": "Prepaid",
-  "PaymentFlow": "PRE_PAID",
+  "paymentFlow": "PRE_PAID",
+  "paymentMethod": "CreditCard",
   "customer": {
     "name": "Alice Johnson",
     "phone": "0812345678",
@@ -136,11 +136,9 @@ Idempotent on `sourceOrderId` — duplicate calls with the same value return the
 }
 ```
 
-**`paymentMethod`** field values:
-- `"Prepaid"` — slot pre-booked; ABB/Tax Invoice issued after PickConfirmed; forwarded to WMS and Gateway
-- `"POD"` — Pay on Delivery; invoice issued after Delivered; ABB/Tax Invoice forwarded to TMS + Gateway
+**`paymentFlow`** field: string — controls the invoice trigger and routing. Allowed values: `"PRE_PAID"` | `"PAY_ON_DELIVERY"`. Stored as `VARCHAR(50)` in `orders.payment_flow`. Extensible for future flow types.
 
-**`PaymentFlow`** field: string — payment flow type indicator. Allowed values: `"PRE_PAID"` | `"PAY_ON_DELIVERY"`. The field is extensible for future payment flow types. Stored as `VARCHAR(50)` in `orders.payment_flow`.
+**`paymentMethod`** field: string — the payment instrument. Stored in `payment.order_payments.payment_method`. Allowed values: `"CreditCard"`, `"QRCode"`, `"BankTransfer"`, `"StoreCredit"`, `"PayOnDelivery"`. Used for outbound field mapping to external systems (not for routing).
 
 **Outbox events dispatched on order creation:**
 
@@ -1350,7 +1348,7 @@ Note: `invoiceLink` is required for POD (the link is forwarded to TMS and Gatewa
 **Response 202 Accepted**
 
 **Routing by payment method:**
-- `paymentMethod = 'Prepaid'`: dispatches `ABBInvoiceSentToWMS` → WMS and `ABBTaxInvoiceSentToGateway` → Gateway
+- `paymentMethod = 'Prepaid'`: dispatches `ABBTaxInvoiceSentToWMS` → WMS and `ABBTaxInvoiceSentToGateway` → Gateway
 - `paymentMethod = 'POD'`: dispatches `ABBTaxInvoiceSentToTMS` → TMS and `ABBTaxInvoiceSentToGateway` → Gateway
 
 ---

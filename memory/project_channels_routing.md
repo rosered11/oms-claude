@@ -85,7 +85,7 @@ POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing
 
 | Event | Prepaid Target | POD Target |
 |---|---|---|
-| ABB/Tax Invoice from STS | WMS (`ABBInvoiceSentToWMS`) | TMS + Gateway (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGateway`) |
+| ABB/Tax Invoice from STS | WMS (`ABBTaxInvoiceSentToWMS`) | TMS + Gateway (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGateway`) |
 | Credit Note from STS | WMS (`CreditNoteSentToWMS`) | TMS (`CreditNoteSentToTMS`) |
 | Invoice trigger | At PickConfirmed (pre-dispatch) | At Delivered (`DeliveredSentToPOS`) |
 | PickStarted outbox | (no TMS event) | `PickStartedSentToTMS` → TMS |
