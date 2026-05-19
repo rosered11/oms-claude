@@ -18,7 +18,8 @@
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useCallback } = React;
-const fmtSatang = (n) => ((n ?? 0) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Amounts are stored and returned in baht (THB) — no division needed.
+const fmtSatang = (n) => (n ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ─────────────────────────────────────────────────────────────
 // DATA CONTEXT
@@ -27,22 +28,10 @@ const fmtSatang = (n) => ((n ?? 0) / 100).toLocaleString('th-TH', { minimumFract
 const DataContext = React.createContext(null);
 
 const API_BASE = 'http://localhost:5050/api';
-let _token = null;
-
-async function initAuth() {
-  try {
-    const r = await fetch(`${API_BASE}/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId: 'oms-client-01', clientSecret: 's3cr3t', scope: 'orders:read orders:write' }),
-    });
-    if (r.ok) { const d = await r.json(); _token = d.access_token || d.accessToken; }
-  } catch {}
-}
+const _token = null; // no auth endpoint in OMS — always null
 
 async function apiFetch(path) {
-  const headers = _token ? { 'Authorization': `Bearer ${_token}` } : {};
-  const r = await fetch(`${API_BASE}${path}`, { headers });
+  const r = await fetch(`${API_BASE}${path}`, { headers: {} });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
 }
@@ -71,7 +60,7 @@ async function apiPatch(path, body) {
 
 const STOCK_FLOW_DATA = {
   case1: {
-    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 12000, total: 10,
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 10,
     po: { id: "PO-001", supplier: "Fresh Foods Ltd", store: "Central DC", orderedQty: 10, receivedQty: 10, sloc: "A-12", receivedAt: "09:28", putAwayAt: "10:15" },
     orders: [
       { id: "ORD-A", customer: "Alice Johnson", qty: 6, pickedAt: "15:31", status: "Delivered" },
@@ -84,7 +73,7 @@ const STOCK_FLOW_DATA = {
     ],
   },
   case2: {
-    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 12000,
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120,
     transfer: { id: "TR-001", source: "Central DC", dest: "Store A", qty: 4, tracking: "TRK-TR-001", pickedAt: "11:00", arrivedAt: "14:30", status: "Completed" },
     orders: [
       { id: "ORD-A", customer: "Alice Johnson", qty: 6, store: "Central DC", pickedAt: "15:31", status: "Delivered" },
@@ -101,7 +90,7 @@ const STOCK_FLOW_DATA = {
     ],
   },
   case3: {
-    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 12000, total: 10,
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 10,
     po: { id: "PO-001", supplier: "Fresh Foods Ltd", store: "Central DC", orderedQty: 10, receivedQty: 10, sloc: "A-12", receivedAt: "09:28", putAwayAt: "10:15" },
     orders: [
       { id: "ORD-A", customer: "Alice Johnson", orderedQty: 5, pickedQty: 5, pickedAt: "15:00", status: "Delivered" },
@@ -109,7 +98,7 @@ const STOCK_FLOW_DATA = {
       { id: "ORD-C", customer: "Charlie Wong",  orderedQty: 3, pickedQty: 2, pickedAt: "16:00", status: "Delivered", shortQty: 1, hasSubstitution: true },
     ],
     substitutions: [
-      { orderId: "ORD-C", orderLineId: "line-ORD-C-01", originalSku: "APPLE-1KG", originalProductName: "Apple (1 kg bag)", requestedQty: 3, pickedQty: 2, shortQty: 1, substituteSku: "ORANGE-1KG", substituteProductName: "Orange (1 kg bag)", substituteUnitPrice: 11000, substituteQty: 1, customerApproved: true, approvedAt: "16:05" },
+      { orderId: "ORD-C", orderLineId: "line-ORD-C-01", originalSku: "APPLE-1KG", originalProductName: "Apple (1 kg bag)", requestedQty: 3, pickedQty: 2, shortQty: 1, substituteSku: "ORANGE-1KG", substituteProductName: "Orange (1 kg bag)", substituteUnitPrice: 110, substituteQty: 1, customerApproved: true, approvedAt: "16:05" },
     ],
     ledger: [
       { id: 1, time: "10:15", dir: "in",  ref: "PO-001", event: "PurchaseOrderPutAwayConfirmed", qtyChange:  10, balance: 10,                detail: "Fresh Foods Ltd — 10 bags shelved at Sloc A-12." },
@@ -120,14 +109,14 @@ const STOCK_FLOW_DATA = {
     ],
   },
   case4: {
-    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 12000, total: 5,
+    sku: "APPLE-1KG", skuName: "Apple (1 kg bag)", unitPrice: 120, total: 5,
     originalOrder: { id: "ORD-001", customer: "Alice Johnson", qty: 5, deliveredAt: "19:22", status: "Delivered" },
     return: { id: "RET-001", returnNumber: "RET-001", customer: "Alice Johnson", returnReason: "QualityIssue", returnedQty: 3, keptQty: 2, requestedAt: "10:00", pickedUpAt: "11:30", receivedAt: "13:15", inspectedAt: "13:45", putAwayAt: "14:00", status: "Refunded" },
     returnItems: [
       { id: "RI-001", sku: "APPLE-1KG", qty: 2, condition: "Resellable", sloc: "A-12", putAwayAt: "14:00", stockAction: "+2 restored to WMS" },
       { id: "RI-002", sku: "APPLE-1KG", qty: 1, condition: "Dispose",    sloc: null,   putAwayAt: "14:00", stockAction: "written off — no stock change" },
     ],
-    refund: { id: "REF-001", creditNoteNumber: "CN-RET-001", refundAmount: 36000, currency: "THB", method: "CreditCard", status: "Processed", reason: "Return", processedAt: "14:15" },
+    refund: { id: "REF-001", creditNoteNumber: "CN-RET-001", refundAmount: 360, currency: "THB", method: "CreditCard", status: "Processed", reason: "Return", processedAt: "14:15" },
     ledger: [
       { id: 1, time: "19:22", dir: "out", ref: "ORD-001", event: "PickConfirmed",          qtyChange: -5, balance: 0,                   detail: "Alice Johnson — 5 bags picked and delivered. WMS stock at 0." },
       { id: 2, time: "14:00", dir: "in",  ref: "RET-001", event: "ReturnPutAwayConfirmed", qtyChange:  2, balance: 2, resellable: true,  detail: "2 of 3 returned bags inspected Resellable — shelved at Sloc A-12. Stock restored +2." },
@@ -218,7 +207,7 @@ function DataProvider({ children }) {
   }, []);
 
   React.useEffect(() => {
-    initAuth().then(loadData);
+    loadData();
   }, [loadData]);
 
   if (error) return (
@@ -315,7 +304,7 @@ const RETURN_STATUSES = ['ReturnRequested','PickupScheduled','PickedUp','Receive
 // ─────────────────────────────────────────────────────────────
 
 const SIMULATION_NOW  = new Date('2024-01-15T16:00:00Z');
-const CLOSED_STATUSES = new Set(['Cancelled', 'Returned']);
+const CLOSED_STATUSES = new Set(['Cancelled']);
 
 function fmtOrderTime(iso) {
   if (!iso) return null;
@@ -335,7 +324,7 @@ function slotUrgency(slot) {
 function orderUrgency(order) {
   if (order.status === 'OnHold') return 'critical';
   if (order.posRecalcPending)    return 'warning';
-  const activeForSlot = !['Delivered','Invoiced','Collected','Paid','Cancelled','Returned'].includes(order.status);
+  const activeForSlot = !['Delivered','Cancelled'].includes(order.status);
   if (activeForSlot && order.deliverySlot) {
     const su = slotUrgency(order.deliverySlot);
     if (su === 'overdue')              return 'critical';
@@ -368,40 +357,23 @@ const ORDER_ACTIONS = {
     { method: 'PATCH', path: '/orders/{id}/hold',               label: 'Place on Hold',                       uc: 'UC6'  },
   ],
   Packed: [
-    { method: 'POST',  path: '/webhooks/tms/package-dispatched',   label: 'Dispatch (TMS)',           uc: 'UC7'  },
-    { method: 'POST',  path: '/webhooks/pos/pos-collection-ready', label: 'Ready for Collect (POS)',  uc: 'UC10' },
-  ],
-  ReadyForCollection: [
-    { method: 'POST',  path: '/webhooks/pos/collected',            label: 'Collected (POS)',          uc: 'UC11' },
-  ],
-  Collected: [
-    { method: 'POST',  path: '/webhooks/pos/invoiced',             label: 'Invoice (POS)',            uc: 'UC12' },
+    { method: 'POST',  path: '/webhooks/tms/package-dispatched',      label: 'Dispatch (TMS)',          uc: 'UC7'  },
+    { method: 'POST',  path: '/webhooks/pos/pos-collection-ready',    label: 'Ready for Collect (POS)', uc: 'UC10' },
   ],
   OutForDelivery: [
-    { method: 'POST',  path: '/webhooks/tms/package-delivered',    label: 'Delivered (TMS)',          uc: 'UC8'  },
-    { method: 'POST',  path: '/webhooks/tms/package-damage-reported', label: 'Report Damage (TMS)',   uc: 'UC20' },
+    { method: 'POST',  path: '/webhooks/tms/package-delivered',       label: 'Delivered (TMS)',         uc: 'UC8'  },
+    { method: 'POST',  path: '/webhooks/tms/package-damage-reported', label: 'Report Damage (TMS)',      uc: 'UC20' },
   ],
   Delivered: [
-    { method: 'POST',  path: '/webhooks/pos/invoiced',             label: 'Invoice (POS)',            uc: 'UC12' },
-    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
-  ],
-  Invoiced: [
-    { method: 'POST',  path: '/webhooks/pos/payment-confirmed',    label: 'Payment (POS)',            uc: 'UC13' },
-    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
-  ],
-  Paid: [
-    { method: 'POST',  path: '/returns',                           label: 'Request Return',           uc: 'UC14' },
-    { method: 'GET',   path: '/orders/{id}/timeline',              label: 'View Timeline',            uc: 'UC16' },
+    { method: 'POST',  path: '/returns',                              label: 'Request Return',          uc: 'UC14' },
+    { method: 'GET',   path: '/orders/{id}/timeline',                 label: 'View Timeline',           uc: 'UC16' },
   ],
   OnHold: [
-    { method: 'PATCH', path: '/orders/{id}/release-hold',          label: 'Release Hold',             uc: 'UC6'  },
-    { method: 'PATCH', path: '/orders/{id}/cancel',                label: 'Cancel Order',             uc: 'UC9'  },
+    { method: 'PATCH', path: '/orders/{id}/release-hold',             label: 'Release Hold',            uc: 'UC6'  },
+    { method: 'PATCH', path: '/orders/{id}/cancel',                   label: 'Cancel Order',            uc: 'UC9'  },
   ],
   Cancelled: [
-    { method: 'GET',   path: '/orders/{id}',                       label: 'View Order',               uc: 'UC16' },
-  ],
-  Returned: [
-    { method: 'GET',   path: '/returns?orderId={id}',              label: 'View Returns',             uc: 'UC14' },
+    { method: 'GET',   path: '/orders/{id}',                          label: 'View Order',              uc: 'UC16' },
   ],
 };
 
@@ -1760,20 +1732,19 @@ function ApiReferenceView() {
 // KANBAN BOARD
 // ─────────────────────────────────────────────────────────────
 
+// Canonical order state machine (per CLAUDE.md and oms-overview):
+// Pending → PickStarted → PickConfirmed → Packed → OutForDelivery → Delivered
+//                   ↕                          ↕
+//                OnHold                    Cancelled
 const OUTBOUND_COLS = [
-  { key: 'Pending',            label: 'Pending',      top: 'border-t-gray-300'    },
-  { key: 'PickStarted',        label: 'Picking',      top: 'border-t-sky-400'     },
-  { key: 'PickConfirmed',      label: 'Pick Done',    top: 'border-t-cyan-500'    },
-  { key: 'ReadyForCollection', label: 'Ready',        top: 'border-t-teal-400'    },
-  { key: 'Packed',             label: 'Packed',       top: 'border-t-indigo-400'  },
-  { key: 'OutForDelivery',     label: 'Dispatched',   top: 'border-t-purple-400'  },
-  { key: 'Delivered',          label: 'Delivered',    top: 'border-t-green-400'   },
-  { key: 'Collected',          label: 'Collected',    top: 'border-t-teal-500'    },
-  { key: 'Invoiced',           label: 'Invoiced',     top: 'border-t-green-500'   },
-  { key: 'OnHold',             label: 'On Hold',      top: 'border-t-red-500',    exception: true },
-  { key: 'Paid',               label: 'Paid',         top: 'border-t-emerald-500' },
-  { key: 'Cancelled',          label: 'Cancelled',    top: 'border-t-red-400',    closed: true    },
-  { key: 'Returned',           label: 'Returned',     top: 'border-t-rose-400',   closed: true    },
+  { key: 'Pending',        label: 'Pending',    top: 'border-t-gray-300'   },
+  { key: 'PickStarted',    label: 'Picking',    top: 'border-t-sky-400'    },
+  { key: 'PickConfirmed',  label: 'Pick Done',  top: 'border-t-cyan-500'   },
+  { key: 'Packed',         label: 'Packed',     top: 'border-t-indigo-400' },
+  { key: 'OutForDelivery', label: 'Dispatched', top: 'border-t-purple-400' },
+  { key: 'Delivered',      label: 'Delivered',  top: 'border-t-green-400'  },
+  { key: 'OnHold',         label: 'On Hold',    top: 'border-t-red-500',   exception: true },
+  { key: 'Cancelled',      label: 'Cancelled',  top: 'border-t-red-400',   closed: true    },
 ];
 
 const PO_STATUSES = ['Created', 'PartiallyReceived', 'FullyReceived', 'Closed'];
@@ -1858,9 +1829,10 @@ function OrderCard({ order, onClick, onCancel }) {
   );
 }
 
-function POCard({ po }) {
+function POCard({ po, onClick }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
+    <div className={`bg-white border border-gray-200 rounded-xl p-3 mb-2 ${onClick ? 'cursor-pointer hover:border-violet-300 hover:shadow-sm transition-all' : ''}`}
+         onClick={onClick}>
       <div className="flex items-center justify-between mb-1 gap-1">
         <span className="font-mono text-xs font-bold text-violet-700">{po.id}</span>
         <Badge text={po.status} cls={STATUS_COLOR[po.status] || 'bg-gray-100 text-gray-700'} />
@@ -1872,9 +1844,11 @@ function POCard({ po }) {
   );
 }
 
-function TOCard({ to }) {
+function TOCard({ to, onClick }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
+    <div data-testid={`transfer-order-${to.id}`}
+         className={`bg-white border border-gray-200 rounded-xl p-3 mb-2 ${onClick ? 'cursor-pointer hover:border-amber-300 hover:shadow-sm transition-all' : ''}`}
+         onClick={onClick}>
       <div className="flex items-center justify-between mb-1 gap-1">
         <span className="font-mono text-xs font-bold text-amber-700">{to.id}</span>
         <Badge text={to.status} cls={STATUS_COLOR[to.status] || 'bg-gray-100 text-gray-700'} />
@@ -1887,55 +1861,357 @@ function TOCard({ to }) {
   );
 }
 
-function ReturnCard({ ret }) {
-  const [open, setOpen] = React.useState(false);
-  const COND_COLOR = {
-    Resellable: 'bg-emerald-100 text-emerald-700',
-    Dispose:    'bg-red-100 text-red-600',
-    Repairable: 'bg-amber-100 text-amber-700',
-  };
+function ReturnCard({ ret, onClick }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 mb-2">
-      <button className="w-full text-left" onClick={() => setOpen(v => !v)}>
-        <div className="flex items-center justify-between mb-1 gap-1">
-          <span className="font-mono text-xs font-bold text-rose-700">{ret.returnOrderNumber}</span>
-          <Badge text={ret.status} cls={RETURN_STATUS_COLOR[ret.status] || 'bg-gray-100 text-gray-700'} />
-        </div>
-        <div className="text-xs text-gray-600 font-mono">{ret.orderId}</div>
-        <div className="text-xs text-gray-500 mt-0.5">
-          {ret.returnReason} · {ret.items.length} item{ret.items.length !== 1 ? 's' : ''}
-          <span className="ml-1 text-gray-300">{open ? '▲' : '▼'}</span>
-        </div>
+    <div className={`bg-white border border-gray-200 rounded-xl p-3 mb-2 ${onClick ? 'cursor-pointer hover:border-rose-300 hover:shadow-sm transition-all' : ''}`}
+         onClick={onClick}>
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="font-mono text-xs font-bold text-rose-700">{ret.returnOrderNumber}</span>
+        <Badge text={ret.status} cls={RETURN_STATUS_COLOR[ret.status] || 'bg-gray-100 text-gray-700'} />
+      </div>
+      <div className="text-xs text-gray-600 font-mono">{ret.orderId}</div>
+      <div className="text-xs text-gray-500 mt-0.5">
+        {ret.returnReason} · {ret.items.length} item{ret.items.length !== 1 ? 's' : ''}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// INBOUND DETAIL VIEWS
+// ─────────────────────────────────────────────────────────────
+
+const COND_COLOR = {
+  Resellable: 'bg-emerald-100 text-emerald-700',
+  Dispose:    'bg-red-100 text-red-600',
+  Repairable: 'bg-amber-100 text-amber-700',
+};
+
+function InboundDetailHeader({ onBack, label, id, status, statusCls }) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <button onClick={onBack}
+        className="text-sm text-gray-500 hover:text-gray-800 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg bg-white transition-colors">
+        ← Back
       </button>
-      {open && ret.items.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-gray-100 space-y-1.5">
-          {ret.items.map(item => (
-            <div key={item.id} className="text-xs">
-              <div className="flex items-center justify-between gap-1 flex-wrap">
-                <span className="font-mono font-semibold text-gray-700">{item.sku}</span>
-                <span className="text-gray-500">×{item.quantity}</span>
+      <span className="text-xs text-gray-400">{label}</span>
+      <span className="font-mono font-bold text-gray-900">{id}</span>
+      <Badge text={status} cls={statusCls} />
+    </div>
+  );
+}
+
+function InfoGrid({ fields }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+      {fields.map(({ label, value, mono }) => value != null && (
+        <div key={label}>
+          <div className="text-xs text-gray-400 mb-0.5">{label}</div>
+          <div className={`text-gray-800 font-medium ${mono ? 'font-mono' : ''}`}>{value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PODetailView({ po, onBack }) {
+  const { apiBase } = React.useContext(DataContext);
+  const [goodsReceipts, setGoodsReceipts] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`${apiBase}/inbound/purchase-orders/${po.id}/goods-receipts`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setGoodsReceipts(d?.items ?? []));
+  }, [po.id]);
+
+  const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
+
+  return (
+    <div className="p-4 pb-16 max-w-4xl">
+      <InboundDetailHeader onBack={onBack} label="Purchase Order" id={po.id}
+        status={po.status} statusCls={STATUS_COLOR[po.status] || 'bg-gray-100 text-gray-700'} />
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Overview</div>
+        <InfoGrid fields={[
+          { label: 'PO Number',    value: po.poNumber, mono: true },
+          { label: 'Supplier',     value: po.supplier },
+          { label: 'Store',        value: po.store },
+          { label: 'Value',        value: `฿${fmtSatang(po.value)}` },
+          { label: 'Lines',        value: po.lineCount },
+          { label: 'GRN',          value: po.goodsReceiveNo, mono: true },
+          { label: 'Created',      value: fmtDate(po.createdAt) },
+          { label: 'Last Updated', value: fmtDate(po.updatedAt) },
+        ]} />
+      </div>
+
+      {po.lines?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Lines ({po.lines.length})</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-gray-100">
+                  <th className="text-left pb-2 pr-4 font-medium">SKU</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Ordered</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Received</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Unit Cost</th>
+                  <th className="text-left pb-2 pr-4 font-medium">Condition</th>
+                  <th className="text-left pb-2 pr-4 font-medium">Sloc</th>
+                  <th className="text-left pb-2 font-medium">Put-away</th>
+                </tr>
+              </thead>
+              <tbody>
+                {po.lines.map(line => {
+                  const partial = line.receivedQty > 0 && line.receivedQty < line.orderedQty;
+                  const full    = line.receivedQty >= line.orderedQty;
+                  return (
+                    <tr key={line.poLineId} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 pr-4 font-mono text-xs text-gray-800">{line.sku}</td>
+                      <td className="py-2 pr-4 text-right text-gray-700">{line.orderedQty}</td>
+                      <td className={`py-2 pr-4 text-right font-semibold ${full ? 'text-emerald-600' : partial ? 'text-amber-600' : 'text-gray-400'}`}>
+                        {line.receivedQty}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-gray-700">฿{fmtSatang(line.unitCost)}</td>
+                      <td className="py-2 pr-4">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${COND_COLOR[line.condition] || 'bg-gray-100 text-gray-600'}`}>
+                          {line.condition}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs text-gray-500">{line.sloc ?? '—'}</td>
+                      <td className="py-2 text-xs text-gray-500">{fmtDate(line.putAwayAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {goodsReceipts !== null && goodsReceipts.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Goods Receipts</div>
+          {goodsReceipts.map(gr => (
+            <div key={gr.goodsReceiveNo} className="mb-3 last:mb-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-mono text-sm font-bold text-gray-800">{gr.goodsReceiveNo}</span>
+                <Badge text={gr.status} cls={STATUS_COLOR[gr.status] || 'bg-gray-100 text-gray-700'} />
+                <span className="text-xs text-gray-400">{fmtDate(gr.receivedAt)}</span>
               </div>
-              {item.productName && (
-                <div className="text-gray-500 truncate">{item.productName}</div>
+              {gr.lines?.length > 0 && (
+                <div className="pl-3 border-l-2 border-gray-100 space-y-1">
+                  {gr.lines.map((l, i) => (
+                    <div key={i} className="text-xs text-gray-600">
+                      <span className="font-mono">{l.sku}</span> × {l.receivedQty} — {l.condition}
+                      {l.sloc && <span className="text-gray-400 ml-1">Sloc: {l.sloc}</span>}
+                    </div>
+                  ))}
+                </div>
               )}
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                {item.condition && (
-                  <span className={`px-1.5 py-0.5 rounded font-medium text-xs ${COND_COLOR[item.condition] || 'bg-gray-100 text-gray-600'}`}>
-                    {item.condition}
-                  </span>
-                )}
-                {item.assignedSloc && (
-                  <span className="font-mono text-gray-400">Sloc: {item.assignedSloc}</span>
-                )}
-                {item.putAwayStatus && item.putAwayStatus !== 'Pending' && (
-                  <span className="text-gray-400">{item.putAwayStatus}</span>
-                )}
-              </div>
             </div>
           ))}
-          {ret.putAwayAt && (
-            <div className="text-xs text-gray-400 pt-1 border-t border-gray-50">
-              Put-away: {new Date(ret.putAwayAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TODetailView({ to, onBack }) {
+  const { apiBase } = React.useContext(DataContext);
+  const [confirmations, setConfirmations] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`${apiBase}/inbound/transfer-orders/${to.id}/confirmations`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setConfirmations(d?.items ?? []));
+  }, [to.id]);
+
+  const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
+
+  return (
+    <div className="p-4 pb-16 max-w-4xl">
+      <InboundDetailHeader onBack={onBack} label="Transfer Order" id={to.id}
+        status={to.status} statusCls={STATUS_COLOR[to.status] || 'bg-gray-100 text-gray-700'} />
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Overview</div>
+        <InfoGrid fields={[
+          { label: 'Transfer Number', value: to.transferNumber, mono: true },
+          { label: 'Source',          value: to.source },
+          { label: 'Destination',     value: to.dest },
+          { label: 'Tracking',        value: to.tracking, mono: true },
+          { label: 'Lines',           value: to.lineCount },
+          { label: 'Created',         value: fmtDate(to.createdAt) },
+          { label: 'Last Updated',    value: fmtDate(to.updatedAt) },
+        ]} />
+      </div>
+
+      {to.lines?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Lines ({to.lines.length})</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-gray-100">
+                  <th className="text-left pb-2 pr-4 font-medium">SKU</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Requested</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Transferred</th>
+                  <th className="text-left pb-2 font-medium">Confirmed At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {to.lines.map(line => {
+                  const done = line.transferredQty >= line.requestedQty;
+                  return (
+                    <tr key={line.toLineId} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 pr-4 font-mono text-xs text-gray-800">{line.sku}</td>
+                      <td className="py-2 pr-4 text-right text-gray-700">{line.requestedQty}</td>
+                      <td className={`py-2 pr-4 text-right font-semibold ${done ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {line.transferredQty}
+                      </td>
+                      <td className="py-2 text-xs text-gray-500">{fmtDate(line.confirmedAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {confirmations !== null && confirmations.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Confirmations</div>
+          <div className="space-y-2">
+            {confirmations.map((c, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <Badge text={c.type} cls="bg-gray-100 text-gray-700" />
+                <span className="text-gray-600">{fmtDate(c.confirmedAt)}</span>
+                {c.confirmedBy && <span className="text-gray-400 text-xs">by {c.confirmedBy}</span>}
+                {c.tracking && <span className="font-mono text-xs text-gray-500">{c.tracking}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReturnDetailView({ ret, onBack }) {
+  const { apiBase } = React.useContext(DataContext);
+  const [refundInfo, setRefundInfo] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`${apiBase}/returns/${ret.id}/refund`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setRefundInfo(d));
+  }, [ret.id]);
+
+  const fmtDate = iso => iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+
+  const timeline = [
+    { label: 'Requested',         date: ret.requestedAt },
+    { label: 'Pickup Scheduled',  date: ret.pickupScheduledAt },
+    { label: 'Picked Up',         date: ret.pickedUpAt },
+    { label: 'Received',          date: ret.receivedAt },
+    { label: 'Inspected',         date: ret.inspectedAt },
+    { label: 'Put Away',          date: ret.putAwayAt },
+    { label: 'Refunded',          date: ret.refundedAt },
+  ].filter(t => t.date);
+
+  return (
+    <div className="p-4 pb-16 max-w-4xl">
+      <InboundDetailHeader onBack={onBack} label="Return" id={ret.returnOrderNumber}
+        status={ret.status} statusCls={RETURN_STATUS_COLOR[ret.status] || 'bg-gray-100 text-gray-700'} />
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Overview</div>
+        <InfoGrid fields={[
+          { label: 'Return ID',    value: ret.id, mono: true },
+          { label: 'Order',        value: ret.orderId, mono: true },
+          { label: 'Reason',       value: ret.returnReason },
+          { label: 'Items',        value: ret.items?.length ?? 0 },
+          { label: 'GRN',          value: ret.goodsReceiveNo, mono: true },
+          { label: 'Credit Note',  value: ret.creditNoteId, mono: true },
+        ]} />
+      </div>
+
+      {timeline.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Timeline</div>
+          <div className="flex flex-col gap-2">
+            {timeline.map((t, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+                <span className="text-gray-500 w-36 shrink-0">{t.label}</span>
+                <span className="font-medium text-gray-800">{fmtDate(t.date)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {ret.items?.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Items ({ret.items.length})</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b border-gray-100">
+                  <th className="text-left pb-2 pr-4 font-medium">SKU</th>
+                  <th className="text-left pb-2 pr-4 font-medium">Product</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Qty</th>
+                  <th className="text-right pb-2 pr-4 font-medium">Unit Price</th>
+                  <th className="text-left pb-2 pr-4 font-medium">Reason</th>
+                  <th className="text-left pb-2 pr-4 font-medium">Condition</th>
+                  <th className="text-left pb-2 font-medium">Sloc</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ret.items.map(item => (
+                  <tr key={item.id} className="border-b border-gray-50 last:border-0">
+                    <td className="py-2 pr-4 font-mono text-xs text-gray-800">{item.sku}</td>
+                    <td className="py-2 pr-4 text-xs text-gray-600 max-w-32 truncate">{item.productName || '—'}</td>
+                    <td className="py-2 pr-4 text-right text-gray-700">{item.quantity}</td>
+                    <td className="py-2 pr-4 text-right text-gray-700">฿{fmtSatang(item.unitPrice)}</td>
+                    <td className="py-2 pr-4 text-xs text-gray-500">{item.itemReason || '—'}</td>
+                    <td className="py-2 pr-4">
+                      {item.condition
+                        ? <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${COND_COLOR[item.condition] || 'bg-gray-100 text-gray-600'}`}>{item.condition}</span>
+                        : <span className="text-gray-300 text-xs">Pending</span>
+                      }
+                    </td>
+                    <td className="py-2 font-mono text-xs text-gray-500">{item.assignedSloc ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {refundInfo?.refund && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Refund</div>
+          <InfoGrid fields={[
+            { label: 'Refund ID',  value: refundInfo.refund.refundId, mono: true },
+            { label: 'Amount',     value: `฿${fmtSatang(refundInfo.refund.refundAmount)}` },
+            { label: 'Method',     value: refundInfo.refund.refundMethod },
+            { label: 'Status',     value: refundInfo.refund.status },
+            { label: 'Reference',  value: refundInfo.refund.referenceNo, mono: true },
+            { label: 'Processed',  value: fmtDate(refundInfo.refund.processedAt) },
+          ]} />
+          {refundInfo.creditNote && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="text-xs text-gray-400 mb-2">Credit Note</div>
+              <InfoGrid fields={[
+                { label: 'Credit Note #', value: refundInfo.creditNote.creditNoteNumber, mono: true },
+                { label: 'Amount',        value: `฿${fmtSatang(refundInfo.creditNote.amount)}` },
+                { label: 'Status',        value: refundInfo.creditNote.status },
+                { label: 'Reason',        value: refundInfo.creditNote.reason },
+              ]} />
             </div>
           )}
         </div>
@@ -1945,15 +2221,15 @@ function ReturnCard({ ret }) {
 }
 
 function KPISummary({ orders }) {
-  const active    = orders.filter(o => !['Paid','Cancelled','Returned'].includes(o.status));
+  const active    = orders.filter(o => !['Delivered','Cancelled'].includes(o.status));
   const attention = orders.filter(o => orderUrgency(o) !== null);
   const onHold    = orders.filter(o => o.status === 'OnHold');
-  const paidRev   = orders.filter(o => o.status === 'Paid').reduce((s, o) => s + (o.amount || 0), 0);
+  const deliveredRev = orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + (o.amount || 0), 0);
   const kpis = [
-    { label: 'Active Orders',   value: active.length,               sub: `of ${orders.length} total`,                              color: 'blue'    },
-    { label: 'Needs Attention', value: attention.length,             sub: 'hold · late · recalc',                                   color: attention.length > 0 ? 'red' : 'gray' },
-    { label: 'On Hold',         value: onHold.length,                sub: onHold.map(o => o.id).join(', ') || 'none',               color: onHold.length > 0 ? 'amber' : 'gray' },
-    { label: 'Paid Revenue',    value: `฿${fmtSatang(paidRev)}`, sub: `${orders.filter(o => o.status === 'Paid').length} orders paid`, color: 'emerald' },
+    { label: 'Active Orders',   value: active.length,                    sub: `of ${orders.length} total`,                                     color: 'blue'    },
+    { label: 'Needs Attention', value: attention.length,                  sub: 'hold · late · recalc',                                          color: attention.length > 0 ? 'red' : 'gray' },
+    { label: 'On Hold',         value: onHold.length,                     sub: onHold.map(o => o.id).join(', ') || 'none',                      color: onHold.length > 0 ? 'amber' : 'gray' },
+    { label: 'Delivered GMV',   value: `฿${fmtSatang(deliveredRev)}`, sub: `${orders.filter(o => o.status === 'Delivered').length} delivered`, color: 'emerald' },
   ];
   const C = {
     blue:    { bg: 'bg-blue-50',    bd: 'border-blue-200',    val: 'text-blue-700',    sub: 'text-blue-500'    },
@@ -2071,7 +2347,7 @@ function InboundMiniKanban({ title, badge, statuses, items, renderCard, borderCo
   );
 }
 
-function KanbanBoard({ onOrderClick }) {
+function KanbanBoard({ onOrderClick, onInboundClick }) {
   const { orders, purchaseOrders, transferOrders, returns, refresh } = React.useContext(DataContext);
   const [tab, setTab]                   = useState('outbound');
   const [showClosed, setShowClosed]     = useState(true);
@@ -2155,17 +2431,17 @@ function KanbanBoard({ onOrderClick }) {
           <InboundMiniKanban
             title="Purchase Orders" badge={{ text: 'PO', cls: 'bg-violet-100 text-violet-700 border border-violet-200' }}
             statuses={PO_STATUSES} items={purchaseOrders} borderColor="border-t-violet-400"
-            renderCard={p => <POCard key={p.id} po={p} />}
+            renderCard={p => <POCard key={p.id} po={p} onClick={onInboundClick ? () => onInboundClick('po', p) : undefined} />}
           />
           <InboundMiniKanban
             title="Transfer Orders" badge={{ text: 'TO', cls: 'bg-amber-100 text-amber-700 border border-amber-200' }}
             statuses={TO_STATUSES} items={transferOrders} borderColor="border-t-amber-400"
-            renderCard={t => <TOCard key={t.id} to={t} />}
+            renderCard={t => <TOCard key={t.id} to={t} onClick={onInboundClick ? () => onInboundClick('to', t) : undefined} />}
           />
           <InboundMiniKanban
             title="Returns" badge={{ text: 'RET', cls: 'bg-rose-100 text-rose-700 border border-rose-200' }}
             statuses={RETURN_STATUSES} items={returns} borderColor="border-t-rose-400"
-            renderCard={r => <ReturnCard key={r.id} ret={r} />}
+            renderCard={r => <ReturnCard key={r.id} ret={r} onClick={onInboundClick ? () => onInboundClick('return', r) : undefined} />}
           />
         </div>
       )}
@@ -3797,7 +4073,7 @@ const BU_META = {
 };
 
 const ACTIVE_STATUSES = new Set(['Pending','PickStarted','PickConfirmed','Packed','OutForDelivery','OnHold']);
-const CLOSED_STATUS_SET = new Set(['Delivered','Invoiced','Paid','Collected','Cancelled','Returned']);
+const CLOSED_STATUS_SET = new Set(['Delivered','Cancelled']);
 
 function BUDashboardView() {
   const { orders } = React.useContext(DataContext);
@@ -3815,10 +4091,10 @@ function BUDashboardView() {
   const buKeys = Object.keys(BU_META).filter(k => byBU[k]);
 
   const statusGroups = [
-    { label: 'Active',    statuses: ['Pending','PickStarted','PickConfirmed','Packed'],    color: 'text-blue-700'   },
-    { label: 'In Transit',statuses: ['OutForDelivery'],                                                        color: 'text-purple-700' },
-    { label: 'Completed', statuses: ['Delivered','Invoiced','Paid','Collected'],                               color: 'text-emerald-700'},
-    { label: 'Issues',    statuses: ['OnHold','Cancelled','Returned'],                                         color: 'text-red-700'    },
+    { label: 'Active',     statuses: ['Pending','PickStarted','PickConfirmed','Packed'], color: 'text-blue-700'   },
+    { label: 'In Transit', statuses: ['OutForDelivery'],                                 color: 'text-purple-700' },
+    { label: 'Delivered',  statuses: ['Delivered'],                                      color: 'text-emerald-700'},
+    { label: 'Issues',     statuses: ['OnHold','Cancelled'],                             color: 'text-red-700'    },
   ];
 
   const totals = React.useMemo(() => {
@@ -3827,7 +4103,7 @@ function BUDashboardView() {
       orders: all.length,
       gmv:    all.reduce((s, o) => s + (o.amount || 0), 0),
       active: all.filter(o => ACTIVE_STATUSES.has(o.status)).length,
-      issues: all.filter(o => ['OnHold','Cancelled','Returned'].includes(o.status)).length,
+      issues: all.filter(o => ['OnHold','Cancelled'].includes(o.status)).length,
     };
   }, [orders]);
 
@@ -4924,17 +5200,23 @@ const NAV_TABS = [
 function App() {
   const [view, setView]               = useState('kanban');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedInbound, setSelectedInbound] = useState(null); // { type: 'po'|'to'|'return', item }
   const [timelineOrderId, setTimelineOrderId] = useState(null);
 
   const handleNavClick = useCallback(key => {
     setView(key);
-    if (key !== 'kanban') setSelectedOrder(null);
+    if (key !== 'kanban') { setSelectedOrder(null); setSelectedInbound(null); }
     if (key !== 'timeline') setTimelineOrderId(null);
   }, []);
 
-  const openOrderDetail = useCallback(order => setSelectedOrder(order), []);
-  const closeOrderDetail = useCallback(() => setSelectedOrder(null), []);
+  const openOrderDetail   = useCallback(order => { setSelectedOrder(order); setSelectedInbound(null); }, []);
+  const closeOrderDetail  = useCallback(() => setSelectedOrder(null), []);
   const handleOrderUpdated = useCallback(updated => setSelectedOrder(updated), []);
+
+  const openInboundDetail  = useCallback((type, item) => { setSelectedInbound({ type, item }); setSelectedOrder(null); }, []);
+  const closeInboundDetail = useCallback(() => setSelectedInbound(null), []);
+
+  const inboundActive = view === 'kanban' && selectedInbound;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -4962,18 +5244,40 @@ function App() {
               <button onClick={closeOrderDetail} className="ml-2 text-gray-400 hover:text-gray-600">✕</button>
             </span>
           )}
+          {inboundActive && (
+            <span className="ml-3 text-xs text-gray-400">
+              {selectedInbound.type === 'po' ? 'PO' : selectedInbound.type === 'to' ? 'TO' : 'Return'}:{' '}
+              <span className="font-mono text-gray-600 font-medium">
+                {selectedInbound.type === 'po' ? selectedInbound.item.id
+                  : selectedInbound.type === 'to' ? selectedInbound.item.id
+                  : selectedInbound.item.returnOrderNumber}
+              </span>
+              <button onClick={closeInboundDetail} className="ml-2 text-gray-400 hover:text-gray-600">✕</button>
+            </span>
+          )}
         </div>
       </header>
 
       <main className="max-w-screen-2xl mx-auto">
-        {view === 'kanban'    && !selectedOrder && <KanbanBoard onOrderClick={openOrderDetail} />}
-        {view === 'kanban'    &&  selectedOrder && (
+        {view === 'kanban' && !selectedOrder && !selectedInbound && (
+          <KanbanBoard onOrderClick={openOrderDetail} onInboundClick={openInboundDetail} />
+        )}
+        {view === 'kanban' && selectedOrder && (
           <OrderDetailView
             order={selectedOrder}
             onBack={closeOrderDetail}
             onViewTimeline={() => { setTimelineOrderId(selectedOrder.id); setView('timeline'); }}
             onOrderUpdated={handleOrderUpdated}
           />
+        )}
+        {view === 'kanban' && selectedInbound?.type === 'po' && (
+          <PODetailView po={selectedInbound.item} onBack={closeInboundDetail} />
+        )}
+        {view === 'kanban' && selectedInbound?.type === 'to' && (
+          <TODetailView to={selectedInbound.item} onBack={closeInboundDetail} />
+        )}
+        {view === 'kanban' && selectedInbound?.type === 'return' && (
+          <ReturnDetailView ret={selectedInbound.item} onBack={closeInboundDetail} />
         )}
         {view === 'timeline'  && <OrderTimeline onBack={() => { setView('kanban'); setTimelineOrderId(null); }} orderId={timelineOrderId} />}
         {view === 'buview'    && <BUDashboardView />}

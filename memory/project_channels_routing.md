@@ -59,7 +59,7 @@ Opt-in/opt-out is controlled entirely by the presence or absence of a row in `ou
 
 ## Multi-BU Workflow
 
-Each Business Unit can have a different workflow for the same domain event. This is governed by `fulfillment_routing_rules` (`requires_booking`, `requires_tms`, `initial_pick_status`) and extended by `outbox_routing_rules` for per-channel dispatch targets.
+Each Business Unit can have a different workflow for the same domain event. Per-channel dispatch targets are driven by `outbox_routing_rules`.
 
 Example: an SSP business unit can process PickConfirm at an external system and confirm product packing within OMS — rather than OMS driving WMS directly.
 
@@ -70,12 +70,19 @@ Example: an SSP business unit can process PickConfirm at an external system and 
 OMS enforces strict data isolation between Business Units. This is an application-layer invariant — not a database-level constraint.
 
 **Rules:**
-- The JWT claim `business_unit` is required on all API requests.
-- The application layer automatically filters all queries by `business_unit` from the JWT. An operator with BU `CMG` cannot see or mutate orders belonging to BU `CFR`.
-- Cross-BU mutations (attempting to write/update an order whose `business_unit` does not match the JWT claim) return `403 forbidden_business_unit`.
+- The application layer filters all queries by `business_unit`. An operator with BU `CMG` cannot see or mutate orders belonging to BU `CFR`.
+- Cross-BU mutations return `403 forbidden_business_unit`.
 - Known isolated BUs: `CMG`, `CFR` (and others as new BUs onboard).
 
-**How to apply:** Any new query, handler, or endpoint must include a `business_unit` filter derived from the JWT. Never allow a caller to pass `business_unit` as a query parameter — always read from the validated token.
+**How to apply:** Any new query, handler, or endpoint must include a `business_unit` filter. BU isolation is an application-level invariant; it does not require JWT for its correctness guarantee in the current implementation.
+
+---
+
+## API Authentication
+
+**Removed as of 2026-05-19.** The API Blueprint no longer documents Bearer JWT authentication. The `POST /auth/token` endpoint, the top-level `**Auth:** Bearer JWT` metadata line, and all per-endpoint `**Auth:** Bearer JWT` annotations (previously scattered in the Configuration Management group) have been removed from `docs/oms-api-blueprint.md`.
+
+The `Security` layer in `memory/project_architecture.md` still notes JWT per channel and HMAC-SHA256 per webhook integration as architectural features, but these are not reflected in the API Blueprint documentation.
 
 ---
 
@@ -85,10 +92,10 @@ POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing
 
 | Event | Prepaid Target | POD Target |
 |---|---|---|
-| ABB/Tax Invoice from STS | WMS (`ABBTaxInvoiceSentToWMS`) | TMS + Gateway (`ABBTaxInvoiceSentToTMS`, `ABBTaxInvoiceSentToGateway`) |
-| Credit Note from STS | WMS (`CreditNoteSentToWMS`) | TMS (`CreditNoteSentToTMS`) |
+| ABB/Tax Invoice from STS | WMS (`ABBTaxInvoiceSentToWMS`) + Gateway (`ABBTaxInvoiceSentToGateway`) | TMS (`ABBTaxInvoiceSentToTMS`) + Gateway (`ABBTaxInvoiceSentToGateway`) |
+| Credit Note from STS | WMS (`CreditNoteSentToWMS`) + Gateway (`CreditNoteSentToGateway`) | TMS (`CreditNoteSentToTMS`) + Gateway (`CreditNoteSentToGateway`) |
 | Invoice trigger | At PickConfirmed (pre-dispatch) | At Delivered (`DeliveredSentToPOS`) |
-| PickStarted outbox | (no TMS event) | `PickStartedSentToTMS` → TMS |
+| PickStarted outbox | `PickStartedSentToTMS` → TMS | `PickStartedSentToTMS` → TMS |
 
 ### STS Invoice Forwarding (POD)
 - Invoice link (URL to PDF) is forwarded — not just amount
@@ -97,6 +104,13 @@ POD orders use `paymentMethod = 'POD'` on the order. This changes outbox routing
 
 ### No WaveStarted in POD
 POD flow does not include a WaveStarted step. GatewayA's WaveStarted opt-in routing rule does not apply to POD orders.
+
+### STS Webhook Endpoint Pairs — Canonical vs Legacy
+The blueprint contains two pairs of STS webhook endpoints:
+- **Legacy (less detail):** `POST /webhooks/sts/abb-tax-invoice` and `POST /webhooks/sts/credit-note`
+- **Canonical (full routing detail):** `POST /webhooks/sts/abb-tax-invoice-received` and `POST /webhooks/sts/credit-note-received`
+
+The `-received` suffix variants are the authoritative endpoints. They contain the per-payment-method routing breakdown (Prepaid → WMS+Gateway, POD → TMS+Gateway) and the corrected field name (`amount` not `creditAmount`). When implementing or documenting STS webhook handling, always refer to the `-received` variants.
 
 ### TMS Recalculation Loop (POD)
 After PickConfirmed, TMS may trigger additional POS recalculations (e.g. delivery fee adjustments) before dispatching. This loop ends when TMS sends `PackageDispatched`.
@@ -111,9 +125,9 @@ After `OutForDelivery`, TMS sends `POST /webhooks/tms/recalculation-requested` t
 
 ### UC5: Weight-Based Dual-Product POD (CFR/Web)
 Two weight-based fresh products in a single POD order:
-- **Pork** (หมู): 127 THB/kg = 12700 satang/kg; customer buys 841.23 g (0.84123 kg) → 10684 satang (POS-rounded)
-- **Duck** (เป็ด): sold in 2.5 kg packs at 99 THB/pack = 3960 satang/kg; customer buys 1.23 kg → 4871 satang (POS-rounded)
-- Combined total: 15555 satang
+- **Pork** (หมู): 127 THB/kg; customer buys 841.23 g (0.84123 kg) → 106.84 THB (POS-rounded)
+- **Duck** (เป็ด): sold in 2.5 kg packs at 99 THB/pack (39.60 THB/kg); customer buys 1.23 kg → 48.71 THB (POS-rounded)
+- Combined total: 155.55 THB
 - Both lines picked and packed together; `actualWeight` in pre-delivery recalc is the sum of both quantities
 
 ---
@@ -150,7 +164,7 @@ Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. T
 
 | Use case | Notes |
 |---|---|
-| Create Order | Standard flow |
+| Create Order | `POST /orders` dispatches two outbox events for all orders: `SaleOrderSentToWMS` → WMS and `SaleOrderSentToTMS` → TMS (for transport scheduling at creation time) |
 | Cancel Order | Allowed from Pending, OnHold |
 | Partial Pick | Picker takes fewer units than requested; `shortfall_reason` recorded; POS recalculates |
 | Partial Item Return | Customer rejects subset of delivered items; triggers partial refund and CreditNoteSentToWMS |

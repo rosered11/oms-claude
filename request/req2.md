@@ -9,9 +9,7 @@ And all incoming requirements should be learned and incorporated into your team'
 
 ## Requirement
 
-I'd like you to explain the payment processing steps in the database for every use case. Money is a key concern for me, so I need everyone to understand the situation and write to documents.
-
-For example, A customer makes a large purchase and then requests a return. How do you manage this information in the OMS?
-
-## Path Docuements
-- docs
+I want your teams to follow this requirement:
+    - I want to remove rollout_policies. The OMS isn't used.
+    - The table fulfillment_routing_rules is used for?
+    - I want to remove notification_templates. The OMS isn't used.

@@ -84,6 +84,8 @@ Key invariants:
 - **Error envelope** — consistent `{ error_code, message, trace_id }` shape on all errors
 - **Bearer JWT** — required on all endpoints except public auth
 - **`source_order_id`** — the external system's reference; used for idempotent order creation
+- **No hardcoded data** — never embed test or seed data directly in code files or JSON files; all data must be created at runtime
+- **E2E test data via API** — in end-to-end tests, all test data (orders, stock, inbound POs, etc.) must be created by calling the API endpoints, not by seeding JSON files or patching in-memory state directly
 
 ## Memory
 
@@ -112,8 +114,8 @@ When you learn something worth remembering (a decision, a constraint, a correcti
 
 `web-ui/index.html` is a self-contained React SPA (CDN imports, no build step). Open directly in a browser. It has three views:
 
-- **Kanban Board** — order cards across status columns using sample `data/orders.json`
-- **Order Timeline** — chronological domain/webhook/outbox events
-- **Stock Flow** — multi-location stock movement (inbound POs → available → picks)
+- **Kanban Board** — order cards across status columns, loaded live from `GET /orders`
+- **Order Timeline** — chronological domain/webhook/outbox events from `GET /orders/{id}/timeline`
+- **Stock Flow** — multi-location stock movement (inbound POs → available → picks); cases 1–4 are illustrative demo scenarios rendered from a JS constant
 
-The prototype uses hardcoded local JSON; it is not wired to any backend.
+The UI reads all live data from the API (`GET /orders`, `GET /inbound/purchase-orders`, `GET /inbound/transfer-orders`, `GET /returns`). Use `cy.seedKanbanBoard()`, `cy.seedInboundData()`, and `cy.seedReturnsData()` from `cypress/support/commands.js` to populate the API with test data.

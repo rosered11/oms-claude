@@ -32,7 +32,8 @@
       "PowerShell(Stop-Process *)",
       "PowerShell(Start-Process -FilePath \"dotnet\" -ArgumentList \"run\", \"--project\", \"D:\\\\workspace\\\\oms-claude\\\\api\" -WindowStyle Hidden)",
       "PowerShell(Start-Sleep -Seconds 8; try { $r = Invoke-WebRequest -Uri \"http://localhost:5050/health\" -UseBasicParsing -TimeoutSec 5; \"API status: $\\($r.StatusCode\\) - $\\($r.Content\\)\" } catch { \"API not yet ready: $_\" })",
-      "PowerShell($body = '{\"sourceStoreId\":\"STORE-A\",\"destStoreId\":\"STORE-B\",\"lines\":[{\"sku\":\"WATER-1L\",\"requestedQty\":6}]}'; $r = Invoke-WebRequest -Uri \"http://localhost:5050/api/inbound/transfer-orders\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing; \"HTTP $\\($r.StatusCode\\): $\\($r.Content\\)\")"
+      "PowerShell($body = '{\"sourceStoreId\":\"STORE-A\",\"destStoreId\":\"STORE-B\",\"lines\":[{\"sku\":\"WATER-1L\",\"requestedQty\":6}]}'; $r = Invoke-WebRequest -Uri \"http://localhost:5050/api/inbound/transfer-orders\" -Method POST -Body $body -ContentType \"application/json\" -UseBasicParsing; \"HTTP $\\($r.StatusCode\\): $\\($r.Content\\)\")",
+      "PowerShell(Remove-Item *)"
     ]
   }
 }

@@ -417,42 +417,6 @@ erDiagram
         timestamptz updated_at
     }
 
-    rollout_policies {
-        bigint  policy_id PK
-        bigint  store_id FK
-        bool    is_rolled_out
-        varchar integration_path
-        timestamptz effective_from
-        timestamptz effective_to
-        varchar updated_by
-        timestamptz updated_at
-    }
-
-    fulfillment_routing_rules {
-        bigint  rule_id PK
-        varchar channel_type
-        varchar fulfillment_type
-        varchar business_unit
-        bool    requires_booking
-        bool    requires_tms
-        varchar initial_pick_status
-        int     priority
-        bool    is_active
-        timestamptz created_at
-    }
-
-    notification_templates {
-        bigint  template_id PK
-        varchar template_name UK
-        varchar event_type
-        varchar channel
-        nvarchar subject
-        nvarchar body_template
-        bool    is_active
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
     outbox_routing_rules {
         bigint  rule_id PK
         varchar channel_type
@@ -466,7 +430,6 @@ erDiagram
     }
 
     store_locations    }o--|| business_units         : "belongs to"
-    store_locations    ||--o{ rollout_policies        : "governed by"
     business_units     ||--o{ outbox_routing_rules    : "routes via"
 ```
 

@@ -21,6 +21,7 @@ public class CreateTransferOrderHandler(InMemoryStore store)
             DestStoreId = req.DestStoreId,
             Dest = req.Dest ?? req.DestStoreId,
             Status = "Created",
+            LineCount = req.Lines.Count,
             CreatedAt = now,
             UpdatedAt = now,
             Lines = req.Lines.Select((l, i) => new TransferOrderLineDto

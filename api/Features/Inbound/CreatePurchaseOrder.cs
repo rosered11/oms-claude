@@ -20,7 +20,7 @@ public class CreatePurchaseOrderHandler(InMemoryStore store)
             Supplier = req.Supplier,
             StoreId = req.StoreId,
             Store = req.Store,
-            Status = "Draft",
+            Status = "Created",
             Value = req.Lines.Sum(l => l.OrderedQty * l.UnitCost),
             CreatedAt = now,
             UpdatedAt = now,

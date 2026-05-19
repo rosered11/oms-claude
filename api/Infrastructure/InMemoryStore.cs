@@ -153,6 +153,7 @@ public class InMemoryStore
 
         // Wildcard fallback — all other channels / sub-channels / BUs
         Add("*", "*", "*", "OrderCreatedEvent",      "WMS",     "wms.create-order",    1);
+        Add("*", "*", "*", "OrderCreatedEvent",      "TMS",     "tms.create-order",    2);
         Add("*", "*", "*", "PickConfirmedEvent",     "TMS",     "tms.pick-confirm",    1);
         Add("*", "*", "*", "PickConfirmedEvent",     "Gateway",      "Gateway.pick-confirm",     2);
         Add("*", "*", "*", "PackedEvent",            "TMS",     "tms.pack-confirm",    1);
@@ -200,6 +201,10 @@ public class InMemoryStore
         Add("wms.create-order",    $"{mock}/wms/api/orders",
             "OAuth2ClientCredentials", tokenUrl: $"{mock}/wms/oauth/token",
             clientId: "oms-client", clientSecret: "***");
+        Add("tms.create-order",    $"{mock}/tms/api/orders",
+            "StaticToken", staticToken: "static-tms-token",
+            staticTokenHeader: "x-api-key",
+            headers: new() { ["x-channel"] = "TWD" });
         Add("tms.pick-confirm",    $"{mock}/tms/api/picks",
             "StaticToken", staticToken: "static-tms-token",
             staticTokenHeader: "x-api-key",
@@ -694,7 +699,7 @@ public class InMemoryStore
 
     // ── Stock ─────────────────────────────────────────────────────────────────
 
-    public StockLedgerDto GetStockLedger(string sku)
+    public StockLedgerDto? GetStockLedger(string sku)
     {
         var pickedOrders = Orders
             .Where(o => o.Lines.Any(l => l.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase) && l.PickedAmount > 0))
@@ -709,20 +714,35 @@ public class InMemoryStore
             var events = new List<StockEventDto>();
             int balance = 0;
 
-            int poQty = 20;
-            balance += poQty;
-            events.Add(new StockEventDto
+            var putAwayReceipts = PurchaseOrders
+                .Where(po => po.StoreId.Equals(storeGroup.Key, StringComparison.OrdinalIgnoreCase))
+                .SelectMany(po => GetGoodsReceipts(po.Id)
+                    .Where(gr => gr.Status == "PutAway")
+                    .Select(gr => (PoId: po.Id, GoodsReceipt: gr)))
+                .OrderBy(x => x.GoodsReceipt.PutAwayAt ?? x.GoodsReceipt.ReceivedAt)
+                .ToList();
+
+            foreach (var (poId, gr) in putAwayReceipts)
             {
-                Id = eventId++,
-                Time = "09:00",
-                Dir = "in",
-                Ref = "PO-001",
-                RefType = "PurchaseOrder",
-                Event = "PurchaseOrderPutAwayConfirmed",
-                QtyChange = poQty,
-                Balance = balance,
-                Detail = $"Inbound PO received — {poQty} units shelved."
-            });
+                var skuLine = gr.Lines
+                    .FirstOrDefault(l => l.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase));
+                if (skuLine is null) continue;
+
+                int poQty = (int)skuLine.ReceivedQty;
+                balance += poQty;
+                events.Add(new StockEventDto
+                {
+                    Id = eventId++,
+                    Time = (gr.PutAwayAt ?? gr.ReceivedAt).ToString("HH:mm"),
+                    Dir = "in",
+                    Ref = poId,
+                    RefType = "PurchaseOrder",
+                    Event = "PurchaseOrderPutAwayConfirmed",
+                    QtyChange = poQty,
+                    Balance = balance,
+                    Detail = $"Inbound PO received — {poQty} units shelved."
+                });
+            }
 
             foreach (var order in storeGroup)
             {
@@ -753,16 +773,7 @@ public class InMemoryStore
             });
         }
 
-        if (locations.Count == 0)
-        {
-            locations.Add(new StockLocationDto
-            {
-                StoreId = "store-central-dc",
-                StoreName = "Central DC",
-                Balance = 0,
-                Events = []
-            });
-        }
+        if (locations.Count == 0) return null;
 
         var unitPrice = Orders
             .SelectMany(o => o.Lines)
@@ -881,5 +892,32 @@ public class InMemoryStore
             .DefaultIfEmpty(0)
             .Max();
         return $"{prefix}-{max + 1:D3}";
+    }
+
+    public void Reset()
+    {
+        Orders.Clear();
+        Returns.Clear();
+        PurchaseOrders.Clear();
+        TransferOrders.Clear();
+        OrderTimeline.Clear();
+        PrepaidTimeline.Clear();
+        DispatchLogs.Clear();
+        _orderEvents.Clear();
+        _substitutions.Clear();
+        _webhookLogs.Clear();
+        _goodsReceipts.Clear();
+        _transferConfirmations.Clear();
+        _damagedReceipts.Clear();
+        _refunds.Clear();
+        _creditNotes.Clear();
+        _orderHolds.Clear();
+        _invoices.Clear();
+        _orderPayments.Clear();
+        _paymentTransactions.Clear();
+        _lineAmounts.Clear();
+        _orderFees.Clear();
+        _orderPromotions.Clear();
+        _returnPutAwayLogs.Clear();
     }
 }

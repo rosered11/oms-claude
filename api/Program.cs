@@ -19,5 +19,10 @@ _ = app.Services.GetRequiredService<InMemoryStore>();
 app.UseCors();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
+app.MapPost("/api/test/reset", (InMemoryStore store) =>
+{
+    store.Reset();
+    return Results.Ok(new { reset = true, timestamp = DateTime.UtcNow });
+});
 
 app.Run();

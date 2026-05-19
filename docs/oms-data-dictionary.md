@@ -548,59 +548,6 @@ The brands or subsidiary companies that operate stores (e.g. Tops Supermarket, C
 
 ---
 
-### `rollout_policies` — controls when OMS goes live at a store
-
-Controls whether a store uses full OMS or falls back to the legacy system.
-
-| Column | Type | Plain meaning |
-|---|---|---|
-| `policy_id` | bigint PK | Unique ID. |
-| `store_id` | bigint FK | The store this policy applies to. |
-| `is_rolled_out` | bool | Whether OMS is currently the active system at this store. |
-| `integration_path` | varchar | Which mode is active: `Full` (full OMS), `LegacyFallback` (routing through old system). |
-| `effective_from` | timestamptz | When this policy came into effect. |
-| `effective_to` | timestamptz | When this policy expires. `null` means it is indefinite. |
-| `updated_by` | varchar | Who last changed this policy. |
-| `updated_at` | timestamptz | When it was last changed. |
-
----
-
-### `fulfillment_routing_rules` — automatic routing decisions
-
-When an order arrives, OMS uses these rules to decide how to route it — does it need a delivery slot? a TMS shipment?
-
-| Column | Type | Plain meaning |
-|---|---|---|
-| `rule_id` | bigint PK | Unique ID. |
-| `channel_type` | varchar | Which sales channel this rule applies to: `Web`, `App`, `POS`, `CallCenter`. |
-| `fulfillment_type` | varchar | Which fulfillment type: `Delivery`, `Express`, `ClickAndCollect`. |
-| `business_unit` | varchar | Which BU this rule applies to. `null` means the rule applies to all BUs. |
-| `requires_booking` | bool | `true` if orders must have a delivery slot booked before progressing. |
-| `requires_tms` | bool | `true` if orders need a TMS shipment (i.e. a driver must be dispatched). |
-| `initial_pick_status` | varchar | What status the order moves to when picking begins. |
-| `priority` | int | When multiple rules match, lower number wins. |
-| `is_active` | bool | Whether this rule is currently applied. |
-| `created_at` | timestamptz | When the rule was created. |
-
----
-
-### `notification_templates` — message templates for customers and staff
-
-Templates for SMS, email, and push notifications. The body contains `{{placeholder}}` variables replaced with real values at send time.
-
-| Column | Type | Plain meaning |
-|---|---|---|
-| `template_id` | bigint PK | Unique ID. |
-| `template_name` | varchar UK | Internal name — e.g. `order_confirmed_sms`, `delivery_otp_push`. |
-| `event_type` | varchar | The order event that triggers this notification — e.g. `OutForDelivery`, `Delivered`, `Collected`. |
-| `channel` | varchar | How the notification is sent: `SMS`, `Email`, `Push`. |
-| `subject` | nvarchar | Email subject line. Only used for the `Email` channel. |
-| `body_template` | nvarchar | Message body with placeholders — e.g. `Your order {{order_number}} is on its way!`. |
-| `is_active` | bool | `false` means the notification is suppressed. |
-| `created_at` / `updated_at` | timestamptz | Standard audit timestamps. |
-
----
-
 ### `outbox_routing_rules` — dynamic outbox dispatch targets per channel and business unit
 
 Different sales channels and business units may need to call different external APIs after the same domain event. For example, Marketplace Lazada may need API A + API B after `PickConfirmed`, while TikTok needs API C. Rather than hard-coding these in the outbox worker, routing is driven by this table.

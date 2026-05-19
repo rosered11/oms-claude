@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\workspace\\\\oms-claude\\\\Cypress\" -Recurse -File | ForEach-Object { $_.FullName })",
+      "Bash(grep -v \"//\\\\|^\\\\s*//\")",
+      "Bash(xargs grep -l \"GetStockLedger\")",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\workspace\\\\oms-claude\\\\web-ui\" -Recurse -File | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\workspace\\\\oms-claude\\\\web-ui\\\\data\" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })",
+      "Bash(dotnet build *)"
+    ]
+  }
+}
