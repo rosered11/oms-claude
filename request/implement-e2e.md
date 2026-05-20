@@ -35,3 +35,4 @@ and then I want to every cancel order from UI. It must to send outbox to TMS, WM
 - Customer place order สั่งน้ำ 2 packs, กับ น้ำยาปรับผ้านุ่ม แต่น้ำยาปรับผ้านุ่มไม่มี เลย เอาน้ำยาล้างจานแทน แต่ต้องคืนเงินส่วนต่างให้ลูกค้า เนื่องจากน้ำยาปรับผ้านุ่มราคาแพงกว่า
 - Customer สั่งสินค้า ได้รับสินค้าแล้ว แต่ต้องการขอคืนสินค้า
 - Customer place order แต่มีใช้ส่วนลดคูปองในการจ่ายเงินด้วย
+- Customer place order ใน payment flow Prepaid 2 ชิ้น น้ำยาล้างจาน กับ น้ำเปล่า หลังจากลูกค้าได้รับสินค้าแล้ว ลูกค้าทำเรื่องขอคืนน้ำยาล้างจาน

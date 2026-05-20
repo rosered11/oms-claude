@@ -199,21 +199,6 @@ An append-only record of every time the order's status changed. Used to build th
 
 ---
 
-### `order_wave_events` — WMS picking wave start records
-
-Records `WaveStarted` events received from WMS. Each row represents one wave start notification. Used to trigger the `WaveStartedSentToGateway` outbox event for opted-in Gateways and to provide a wave audit trail on the order timeline.
-
-| Column | Type | Plain meaning |
-|---|---|---|
-| `id` | bigint PK | Unique ID for this wave event. |
-| `order_id` | bigint FK | The order whose picking wave has started. References `orders.orders.id`. |
-| `wave_id` | varchar(100) | The WMS-assigned wave identifier — groups one or more orders into a single picking run. |
-| `started_at` | datetime UTC | When WMS started the wave. |
-| `idempotency_key` | varchar(255) UNIQUE | Prevents duplicate processing if WMS retries the webhook. Matched against incoming `X-Idempotency-Key` headers. |
-| `created_at` | datetime UTC | When OMS persisted this record. |
-
----
-
 ### `order_webhook_logs` — log of every inbound webhook received
 
 Every webhook callback received from WMS, TMS, or POS is logged here, even if it results in no state change. Used for debugging, the order timeline, and the idempotency check.
@@ -432,9 +417,10 @@ One row per return. The top-level record tracking a customer return from request
 | `return_order_number` | varchar UK | Human-readable reference shown to staff and customers — e.g. `RET-001`. |
 | `invoice_id` | varchar | The invoice being partially reversed by this return. |
 | `credit_note_id` | varchar | The credit note issued to the customer when the return is processed. |
+| `return_type` | varchar | Whether all or only some items are being returned. `FullItem` — all order lines returned; order transitions to `Returned` when put-away is confirmed. `PartialItem` — a subset of lines returned; order remains `Delivered` after put-away. |
 | `status` | varchar | Current stage: `Requested → PickupScheduled → PickedUp → Received → Inspected → PutAway → Refunded`. |
 | `goods_receive_no` | varchar | The warehouse receipt number issued when the returned goods physically arrive at the dock. |
-| `return_reason` | varchar | Why the customer is returning — e.g. `WrongItem`, `Damaged`, `ChangeOfMind`, `QualityIssue`. |
+| `return_reason` | varchar | Why the customer is returning — e.g. `WrongItem`, `Damaged`, `ChangeOfMind`, `QualityIssue`, `CustomerRequest`. |
 | `requested_at` | timestamptz | When the customer submitted the return request. |
 | `pickup_scheduled_at` | timestamptz | When a driver is scheduled to collect from the customer. |
 | `picked_up_at` | timestamptz | When the driver collected the items. |

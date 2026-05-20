@@ -649,6 +649,31 @@ Net customer balance: 0.00 THB
 
 ---
 
+### UC-I: Prepaid Order — Partial Return After Delivery (UC14)
+
+The customer placed a Prepaid order with multiple lines, the full Prepaid flow ran to `Delivered`, then the customer returns a subset of lines only.
+
+**Example:** dish soap (×1, 45.00 THB) + water 500ml (×2, 15.00 THB each). Customer returns dish soap only; water is kept.
+
+**Critical difference from full return:** because `return_type = PartialItem`, `POST /webhooks/wms/put-away-confirmed` does NOT transition the order from `Delivered` to `Returned`. The order stays at `Delivered`. Only the return record moves to `PutAway`.
+
+**Key table writes at `put-away-confirmed` for a Prepaid partial return:**
+
+| Table | Column | Value |
+|---|---|---|
+| `returns.returns` | `return_type` | `PartialItem` |
+| `returns.returns` | `status` | `PutAway` |
+| `returns.return_items` | `sku` | `DISH-SOAP-500ML` only (water line absent) |
+| `returns.return_items` | `unit_price` | `45.00` (copied from `order_lines.original_unit_price`) |
+| `returns.return_items` | `quantity` | `1` |
+| `returns.return_refunds` | `refund_amount` | `45.00` (`1 × 45.00`) |
+| `returns.return_refunds` | `status` | `Pending` |
+| `orders.orders` | `status` | `Delivered` (unchanged — partial return does not trigger `Returned`) |
+
+The STS credit note for the returned dish soap is routed via Prepaid routing (`CreditNoteSentToWMS` + `CreditNoteSentToGateway`), identical to any other Prepaid credit note flow.
+
+---
+
 ### UC-H: POD Order with Partial Return at Door (UC6)
 
 The customer pays at delivery. The driver collects payment for the full order. Then the customer rejects one item (beef not fresh). The return is initiated immediately.
@@ -736,10 +761,6 @@ Every inbound STS webhook must carry `X-Idempotency-Key`. Duplicate processing i
 - The incoming `X-Idempotency-Key` is stored here on first receipt.
 - Duplicate key → `409 conflict`, no reprocessing.
 
-**For wave-started deduplication:**
-- `orders.order_wave_events.idempotency_key` has a `UNIQUE` constraint.
-- Duplicate wave events are idempotent and do not re-trigger the `WaveStartedSentToGateway` outbox event.
-
 ### 6.2 Outbox Dispatch Idempotency
 
 Outbox rows have `status = "Pending"` when created and are updated to `"Published"` by `oms-outbox-worker` after successful dispatch. Because outbox rows are written atomically with aggregate mutations, the outbox worker can safely retry dispatching any `Pending` row — no payment event is lost, and no event is dispatched twice (the worker marks rows `Published` before returning).
@@ -766,6 +787,7 @@ Outbox rows have `status = "Pending"` when created and are updated to `"Publishe
 | UC11 — Substitution approval (Prepaid) | `PRE_PAID` | `PickConfirmed` | 1 row, substitute price | 1 row (price difference) | None |
 | UC12 — Full return (Prepaid) | `PRE_PAID` | `PickConfirmed` | 1 row (original, status=Voided) | 1 row (full amount) | 1 row (full refund, status=Processed) |
 | UC-G — Large purchase + full return | `PRE_PAID` | `PickConfirmed` | 1 row (Voided) | 1 row (Applied) | 1 row (Processed) |
+| UC14 — Prepaid partial return | `PRE_PAID` | `PickConfirmed` | 1 row (original, status=Issued; not voided) | 1 row (partial amount, for returned items only) | 1 row (partial refund, Pending) |
 
 ---
 
@@ -778,7 +800,7 @@ Outbox rows have `status = "Pending"` when created and are updated to `"Publishe
 | `GET /orders/{id}/credit-note` | Retrieve the credit note for an order |
 | `GET /returns/{id}/refund` | Retrieve the refund and credit note for a return |
 | `POST /returns` | Initiate a return (allowed after Delivered only) |
-| `POST /webhooks/wms/put-away-confirmed` | Triggers atomic: return PutAway + order Returned + refund Pending |
+| `POST /webhooks/wms/put-away-confirmed` | Triggers atomic: return PutAway + refund Pending; order transitions to `Returned` only on full return (`return_type = FullItem`) |
 | `PATCH /orders/{id}/partial-pick` | Record short-pick, triggers POS recalc |
 | `POST /orders/{id}/substitutions/{subId}/approve` | Customer approves substitute — STS may issue credit note |
 | `PATCH /orders/{id}/cancel` | Cancel order — dispatches 3 outbox events atomically |

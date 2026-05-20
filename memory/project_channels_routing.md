@@ -171,5 +171,5 @@ Routing is now fully driven by `config.outbox_routing_rules` at dispatch time. T
 | Return Order | Post-delivery return with full refund |
 | Reschedule | Change delivery slot before OutForDelivery via Rescheduler capability |
 | Customer keeps only part of order (e.g. chicken yes, beef no because not fresh) | Partial Item Return — customer rejects specific lines, OMS voids them, POS recalculates |
-| Wave Start forwarding | WMS sends WaveStarted; OMS records in order_wave_events; dispatches WaveStartedSentToGateway for opted-in Gateways |
+| Wave Start forwarding | WMS sends WaveStarted; OMS logs in order_webhook_logs; dispatches WaveStartedSentToGateway for opted-in Gateways |
 | POD Order flow | payment_method='POD'; invoice triggered at Delivered not PickConfirmed; STS invoice/credit note routed to TMS+Gateway instead of WMS |

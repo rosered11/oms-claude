@@ -21,7 +21,8 @@ describe('UC9 — OMS operator cancels order via OMS UI', () => {
   let orderId2;
   const now = () => new Date().toISOString();
 
-  it('Step 1 — Creates order via API; verifies Pending status', () => {
+  it('Step 1 — Resets store; creates order via API; verifies Pending status', () => {
+    cy.resetStore();
     cy.createOrder().then((order) => {
       expect(order.status).to.eq('Pending');
       orderId1 = order.id;

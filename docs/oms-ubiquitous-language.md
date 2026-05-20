@@ -320,7 +320,7 @@ A record in OMS tracking expected goods from a supplier. Created by ERP/JDA or a
 **Put Away**
 The warehouse activity of placing inspected items on a shelf, repair bay, or disposal location after they are received.
 
-- **Return put-away** (`POST /webhooks/wms/put-away-confirmed`): Atomically transitions the **return record** to `PutAway` status AND transitions the **linked order** from `Delivered` to `Returned`. Also triggers creation of a **Refund** record. Do NOT confuse the return record's `PutAway` status with the order's `Returned` status — they are distinct states in different aggregates, but always change together in this webhook.
+- **Return put-away** (`POST /webhooks/wms/put-away-confirmed`): Atomically transitions the **return record** to `PutAway` status and triggers creation of a **Refund** record. For a **full return** (all order lines returned), also transitions the **linked order** from `Delivered` to `Returned`. For a **partial return** (`returnType: PartialItem` — only a subset of lines returned), the order remains `Delivered`; only the return record reaches `PutAway`. Do NOT confuse the return record's `PutAway` status with the order's `Returned` status — they are distinct states in different aggregates.
 - **Inbound PO put-away** (`POST /webhooks/wms/purchase-order-put-away-confirmed`): Closes the PO and signals stock availability for picking.
 
 ---
@@ -344,6 +344,9 @@ The capability for a customer or operator to change a **Delivery Slot** after th
 
 **Return**
 A customer request to send purchased items back to the warehouse. Initiated after **Delivered**. Return lifecycle: `Requested → Pickup Scheduled → Picked Up → Received → Inspected → Put Away → Refunded`.
+
+**Return Type**
+Classifies whether a return covers all items on the order or only a subset. Two values: `FullItem` (all order lines are returned — order transitions to `Returned` after put-away) and `PartialItem` (only some lines are returned — order remains `Delivered` after put-away). Stored as `return_type` on `returns.returns`. Determines whether `POST /webhooks/wms/put-away-confirmed` changes the linked order status. See **Partial Item Return** and **Put Away**.
 
 **Return Order Number**
 The human-readable reference for a return — e.g. `RET-001`. Shown to staff and customers.
@@ -423,7 +426,7 @@ An **Order Line** whose status has been set to `Voided` because the customer rej
 ## W
 
 **WaveStarted**
-A domain event raised when WMS initiates an internal picking wave for an order. A wave groups one or more orders for a single picking run. OMS records this event in `orders.order_wave_events` and stages a **WaveStartedSentToGateway** outbox event for opted-in Gateways.
+A domain event raised when WMS initiates an internal picking wave for an order. A wave groups one or more orders for a single picking run. OMS logs this event in `order_webhook_logs` and stages a **WaveStartedSentToGateway** outbox event for opted-in Gateways.
 
 **WaveStartedSentToGateway**
 An outbox event dispatched to Gateway when WMS starts a picking wave. Only dispatched for Gateways that have a matching row in `config.outbox_routing_rules` (i.e. opted-in to this event). Gateways without a routing rule receive no notification.

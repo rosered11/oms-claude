@@ -162,9 +162,9 @@ Pending → PickStarted → PickConfirmed → ReadyForCollection → Collected
 
 ## 3. Use Cases
 
-### 3.1 E2E Test Use Cases (UC1–UC13)
+### 3.1 E2E Test Use Cases (UC1–UC14)
 
-The following 13 use cases are exercised by the Cypress e2e test suite in `cypress/e2e/`. Each UC number matches its test file exactly.
+The following 14 use cases are exercised by the Cypress e2e test suite in `cypress/e2e/`. Each UC number matches its test file exactly.
 
 | UC | E2E File | Description | Channel | BU | Payment | Terminal State |
 |---|---|---|---|---|---|---|
@@ -181,6 +181,7 @@ The following 13 use cases are exercised by the Cypress e2e test suite in `cypre
 | UC11 | `uc11-substitution-refund.cy.js` | Substitution: fabric softener (89.00) → dish soap (45.00). Customer approves via `POST /orders/{id}/substitutions/{subId}/approve`. STS issues credit note for price difference (44.00). | Web | CFR | Prepaid | Delivered |
 | UC12 | `uc12-full-return.cy.js` | Full return after delivery (CustomerRequest). `POST /returns → Requested`. `POST /webhooks/wms/put-away-confirmed` transitions return to `PutAway` and **transitions the linked order to `Returned`** (order status changes from `Delivered` → `Returned`). Refund initiated automatically. | Web | CFR | Prepaid | Returned |
 | UC13 | `uc13-coupon-order.cy.js` | Prepaid order with coupon FRESH10 (10% PercentageDiscount). POS applies discount at recalculation; `adjustedAmount` reflects discount (e.g. 198.00 × 0.90 = 178.20). STS ABB/Tax Invoice for discounted amount. | Web | CFR | Prepaid | Delivered |
+| UC14 | `uc14-prepaid-partial-return.cy.js` | Web / CFR / Prepaid — order for dish soap (×1) + water (×2). Full Prepaid flow to Delivered. Customer returns dish soap only (`returnType: PartialItem`). WMS `put-away-confirmed` transitions return to `PutAway` and initiates refund. Order remains `Delivered` (partial — water not returned). | Web | CFR | Prepaid | Delivered + Return PutAway |
 
 ### 3.2 Extended Use Case Reference
 

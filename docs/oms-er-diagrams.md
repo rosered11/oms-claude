@@ -156,15 +156,6 @@ erDiagram
         timestamptz received_at
     }
 
-    order_wave_events {
-        bigint  id PK
-        bigint  order_id FK
-        varchar wave_id
-        datetime started_at
-        varchar idempotency_key UK
-        datetime created_at
-    }
-
     orders       ||--o{ order_lines             : "has"
     orders       ||--o{ order_packages          : "has"
     orders       ||--o{ order_addresses         : "has"
@@ -174,7 +165,6 @@ erDiagram
     orders       ||--o{ order_outbox            : "stages"
     orders       ||--o{ order_status_history    : "logs"
     orders       ||--o{ order_webhook_logs      : "logs"
-    orders       ||--o{ order_wave_events       : "records"
     order_lines  ||--o{ order_line_substitutions: "has"
     order_packages ||--o{ order_package_lines   : "contains"
     order_lines    ||--o{ order_package_lines   : "in"
@@ -529,7 +519,6 @@ erDiagram
 | `payment.invoices` | `order_id` | `orders` | `orders.order_id` |
 | `payment.order_line_amounts` | `order_line_id` | `orders` | `order_lines.order_line_id` |
 | `inbound.damaged_goods_receipts` | `order_id` | `orders` | `orders.order_id` |
-| `orders.order_wave_events` | `order_id` | `orders` | `orders.order_id` |
 | `payment.credit_notes` | `order_id` | `orders` | `orders.order_id` |
 
 > Cross-module references are enforced at the application layer (not as foreign key constraints across schemas) to preserve bounded context isolation.
